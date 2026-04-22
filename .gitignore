@@ -1,0 +1,50 @@
+# ── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ── Secrets & Credentials (CRITICAL — never commit) ─────────────
+.env
+.env.*
+!.env.example
+credentials/
+secrets/
+*service-account*.json
+*-sa.json
+application_default_credentials.json
+
+# ── Generated / Local-only ───────────────────────────────────────
+chroma_db/
+app/data/daily_reports.json
+*.pyc
+*.pyo
+
+# ── Node.js ──────────────────────────────────────────────────────
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# ── IDE ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Laporan / Build artifacts (not needed in repo) ───────────────
+laporan/node_modules/
+laporan/mis_unpacked/
+laporan/*.png
+laporan/*.docx
+
+# ── Logs ─────────────────────────────────────────────────────────
+*.log
+logs/

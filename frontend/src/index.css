@@ -1,0 +1,154 @@
+:root {
+  /* ── Base surfaces ── */
+  --bg: #FAF7F0;
+  --bg-alt: #F3EFE4;
+  --surface: #FFFFFF;
+  --surface-soft: #F7F4EC;
+  --surface-hover: #F0ECDF;
+
+  /* ── Borders ── */
+  --border: #1A1A22;
+  --border-soft: #E5E0D2;
+  --border-hair: rgba(26, 26, 34, 0.08);
+
+  /* ── Accents (Gen-Z palette) ── */
+  --violet: #6D5EF7;
+  --violet-deep: #4B3DD6;
+  --violet-soft: #EDEAFE;
+  --lime: #D4F56A;
+  --lime-deep: #A8D939;
+  --peach: #FFB4A2;
+  --peach-soft: #FFE7DF;
+  --sky: #9BD4FF;
+
+  /* ── Text ── */
+  --ink: #0E0E14;
+  --ink-2: #2A2A35;
+  --ink-3: #5C5C6A;
+  --ink-4: #8B8B98;
+
+  /* ── Semantic ── */
+  --success: #1EB980;
+  --warning: #F5A623;
+  --error: #EF4444;
+
+  /* ── Typography ── */
+  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Radius ── */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* ── Shadows (soft + neo) ── */
+  --shadow-sm: 0 1px 2px rgba(14, 14, 20, 0.04), 0 2px 8px rgba(14, 14, 20, 0.04);
+  --shadow-md: 0 4px 12px rgba(14, 14, 20, 0.06), 0 12px 28px rgba(14, 14, 20, 0.05);
+  --shadow-lg: 0 10px 30px rgba(14, 14, 20, 0.08), 0 24px 60px rgba(14, 14, 20, 0.06);
+  --shadow-pop: 4px 4px 0 var(--ink);
+  --shadow-pop-sm: 3px 3px 0 var(--ink);
+
+  --focus-ring: 0 0 0 3px var(--lime), 0 0 0 5px var(--ink);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(109, 94, 247, 0.08) 0%, transparent 42%),
+    radial-gradient(circle at 92% 18%, rgba(212, 245, 106, 0.22) 0%, transparent 38%),
+    radial-gradient(circle at 82% 92%, rgba(255, 180, 162, 0.14) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Focus ── */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-sm);
+}
+button:focus-visible,
+input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: var(--r-pill);
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
+
+::selection {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+/* ── Motion ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.96); }
+}
+@keyframes bounceArrow {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border-soft: #1A1A22;
+    --ink-3: #1A1A22;
+    --ink-4: #2A2A35;
+  }
+}
