@@ -1,0 +1,90 @@
+# ============================================================
+#  Fortunas AI — docker-compose.dev.yml
+#  Development mode: hot-reload backend + Vite dev server
+#
+#  Usage:
+#    docker compose -f docker-compose.dev.yml up --build
+#
+#  Differences from production:
+#    - Backend: source code mounted (--reload enabled)
+#    - Frontend: Vite dev server (not nginx) with HMR
+#    - Backend port 8000 is exposed directly
+# ============================================================
+
+services:
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fortunas_ollama_dev
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - fortunas_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: fortunas_backend_dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_DB_PATH: /data/chroma_db
+      DAILY_REPORT_PATH: /data/reports/daily_reports.json
+      KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173"]'
+    volumes:
+      - ./app:/app/app                          # ← hot reload source
+      - chroma_data:/data/chroma_db
+      - reports_data:/data/reports
+      - ./credentials:/app/credentials:ro
+    ports:
+      - "8000:8000"                             # exposed for direct Swagger access
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - fortunas_net
+    # Override entrypoint to enable --reload
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --log-level debug
+
+  frontend:
+    image: node:20-alpine
+    container_name: fortunas_frontend_dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app                         # ← live Vite HMR
+      - /app/node_modules                       # anonymous volume (avoid overwriting)
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE=/api
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    networks:
+      - fortunas_net
+
+volumes:
+  ollama_data:
+  chroma_data:
+  reports_data:
+
+networks:
+  fortunas_net:
+    driver: bridge

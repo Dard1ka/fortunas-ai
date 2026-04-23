@@ -1,0 +1,56 @@
+# ============================================================
+#  .dockerignore — files excluded from Docker build context
+#  Keeps image small and prevents secrets from leaking in
+# ============================================================
+
+# ── Python ──────────────────────────────────────────────────
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.venv/
+venv/
+
+# ── Node / Frontend ──────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+
+# ── Secrets (CRITICAL) ───────────────────────────────────────
+.env
+.env.*
+credentials/
+secrets/
+**/*service-account*.json
+
+# ── Generated / Local data ───────────────────────────────────
+chroma_db/
+app/data/daily_reports.json
+
+# ── Git ──────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Docs / Laporan (not needed in image) ────────────────────
+laporan/
+docs/
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Docker files themselves ──────────────────────────────────
+docker-compose*.yml
+Makefile
+README.md
+SETUP.md
+DEMO_SCRIPT.md
+CONTRIBUTING.md
+PRESENTATION_OUTLINE.md

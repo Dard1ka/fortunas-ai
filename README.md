@@ -12,11 +12,13 @@
 [![BigQuery](https://img.shields.io/badge/BigQuery-Google_Cloud-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/bigquery)
 [![Ollama](https://img.shields.io/badge/Ollama-Qwen3%3A8b-black?logo=ollama&logoColor=white)](https://ollama.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5-FF6B35)](https://trychroma.com)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.0.0-gold)](https://github.com/Dard1ka/fortunas-ai/releases/tag/v2.0.0)
 
 **Ask your sales data anything — in plain Bahasa Indonesia.**
 
-[Demo Features](#-demo) · [Quick Start](#-quick-start) · [Architecture](#-architecture) · [API Docs](#-api-reference)
+[🐳 Docker Setup](#-quick-start-docker-recommended) · [Demo](#-demo) · [Architecture](#-architecture) · [API Docs](#-api-reference) · [Changelog](#-changelog)
 
 </div>
 
@@ -48,6 +50,7 @@ The frontend includes a **WhatsApp-like chat simulator** that replicates the fam
 | **Dual-Layer Staging** | Google Sheets audit trail + BigQuery analytics warehouse |
 | **Auto-Retry Pipeline** | APScheduler retries `failed`/`pending` rows automatically |
 | **Interactive Dashboard** | KPI cards: daily revenue, top customer, top product, peak hour |
+| **🐳 Docker Support** | One-command setup — no manual Python/Node/Ollama install needed |
 
 ---
 
@@ -114,73 +117,108 @@ Natural Language Question → Intent Classification
 | Vector DB | ChromaDB | 1.5 |
 | Embedding | `paraphrase-multilingual-MiniLM-L12-v2` | sentence-transformers 4.x |
 | LLM | Qwen3:8b via Ollama | — |
+| Containerization | Docker + Docker Compose | v2 |
+| Reverse Proxy | nginx:alpine | — |
 | Demo Dataset | UCI Online Retail (Chen, 2015) | 1M+ rows |
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start — Docker (Recommended)
+
+> **v2.0.0** ships with full Docker support. No manual Python/Node/Ollama install required.
+> See [DOCKER.md](DOCKER.md) for the complete guide.
 
 ### Prerequisites
 
 | Requirement | Version | Check |
 |---|---|---|
-| Python | 3.11 or 3.12 | `python --version` |
-| Node.js | 20+ | `node --version` |
-| Ollama | latest | `ollama --version` |
-| Google Cloud account | BigQuery enabled | service account JSON |
+| Docker Desktop | 25+ | `docker --version` |
+| Docker Compose | v2 (bundled) | `docker compose version` |
+| RAM | min 8 GB free | — |
+| Disk | min 10 GB free | (model weights ~4.8 GB) |
+| GCP service account | BigQuery + Sheets enabled | `.json` file |
 
-### 1. Clone & Install
+### 1. Clone
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/fortunas-ai.git
+git clone https://github.com/Dard1ka/fortunas-ai.git
 cd fortunas-ai
-
-# Backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Frontend
-cd frontend && npm install && cd ..
 ```
 
 ### 2. Configure Environment
 
 ```bash
 cp .env.example .env
-# Edit .env — fill in your Google Cloud credentials and paths
+# Open .env and fill in:
+#   GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/service-account.json
+#   BIGQUERY_PROJECT_ID=your-project-id
+#   GOOGLE_SHEETS_ID=your-sheet-id
 ```
 
-See [`.env.example`](.env.example) for all required variables.
-
-### 3. Pull LLM Model
+### 3. Add Google Cloud Credentials
 
 ```bash
+mkdir credentials
+cp /path/to/your-service-account.json credentials/service-account.json
+```
+
+### 4. Build & Start
+
+```bash
+docker compose up --build
+```
+
+### 5. Pull LLM Model (once, ~4.8 GB)
+
+Open a new terminal while containers are running:
+
+```bash
+docker compose exec ollama ollama pull qwen3:8b
+```
+
+### 6. Open the App 🎉
+
+```
+http://localhost:3000
+```
+
+---
+
+<details>
+<summary>⚙️ Manual Setup (without Docker)</summary>
+
+### Prerequisites
+
+| Requirement | Version |
+|---|---|
+| Python | 3.11 or 3.12 |
+| Node.js | 20+ |
+| Ollama | latest |
+
+```bash
+# Backend
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Frontend
+cd frontend && npm install && cd ..
+
+# Pull & run Ollama model
 ollama pull qwen3:8b
-ollama serve          # keep this running in a separate terminal
-```
+ollama serve
 
-### 4. Ingest Knowledge Base (once)
-
-```bash
+# Ingest knowledge base (once)
 python -m app.knowledge.ingest
-```
 
-This builds `chroma_db/` with UMKM domain knowledge embeddings.
-
-### 5. Start Servers
-
-```bash
-# Terminal 1 — Backend
+# Start servers (two terminals)
 uvicorn app.main:app --reload --port 8000
-
-# Terminal 2 — Frontend
 cd frontend && npm run dev
 ```
 
-Open **http://localhost:3000** 🎉
+See [SETUP.md](SETUP.md) for full manual setup guide.
 
-For detailed setup, see [SETUP.md](SETUP.md).
+</details>
 
 ---
 
@@ -292,11 +330,52 @@ fortunas-ai/
 
 ## 🗺 Roadmap
 
-- [ ] **WhatsApp Business Cloud API** — real channel integration (blocked by Meta region restriction in MVP; infrastructure ready)
+- [x] **v1.0.0** — MVP: RAG pipeline, WA chat simulator, BigQuery integration, React dashboard
+- [x] **v2.0.0** — Docker support: one-command setup, nginx reverse proxy, containerized Ollama
+- [ ] **v2.x** — WhatsApp Business Cloud API (real channel; infrastructure ready, blocked by Meta region restriction)
 - [ ] Fine-tune embedding model on Indonesian retail corpus
 - [ ] Add `demand_forecast` and `inventory_alert` intent modules
 - [ ] Alternative credit scoring module based on transaction history
-- [ ] Multi-tenant support for SaaS deployment
+- [ ] Multi-tenant SaaS deployment
+
+---
+
+## 📋 Changelog
+
+### v2.0.0 — Docker Release
+> Branch: `main` · Tag: [`v2.0.0`](https://github.com/Dard1ka/fortunas-ai/releases/tag/v2.0.0)
+
+**Added**
+- 🐳 Full Docker Compose stack: `backend`, `frontend`, `ollama` services
+- `docker/backend/Dockerfile` — Python 3.11-slim image with smart entrypoint
+- `docker/backend/entrypoint.sh` — waits for Ollama → auto-ingest on first boot → starts uvicorn
+- `docker/frontend/Dockerfile` — multi-stage: Node 20 build → nginx:alpine serve
+- `docker/frontend/nginx.conf` — SPA routing + `/api/*` reverse proxy to backend (mirrors Vite proxy)
+- `docker-compose.yml` — production stack with named volumes and internal network
+- `docker-compose.dev.yml` — hot-reload stack (source mounted, Vite HMR)
+- `Makefile` — shortcut commands (`make up`, `make pull-model`, `make dev`, etc.)
+- `DOCKER.md` — complete Docker setup guide for new developers
+- `.dockerignore` — excludes secrets and build artifacts from image context
+
+**Changed**
+- `README.md` — Docker Quick Start as primary setup method; manual setup collapsed
+- `.env.example` — added `OLLAMA_BASE_URL` Docker note (`http://ollama:11434`)
+- `.gitignore` — improved coverage
+
+**Fixed**
+- `.env.example` was accidentally containing real credentials — replaced with safe placeholders
+
+---
+
+### v1.0.0 — MVP Release
+> Tag: [`v1.0.0`](https://github.com/Dard1ka/fortunas-ai/releases/tag/v1.0.0)
+
+- FastAPI backend with full RAG pipeline
+- React 19 frontend with WhatsApp-style chat simulator
+- 4 intent analyses: repeat\_customer, high\_value\_customer, peak\_hour, bundle\_opportunity
+- Google Sheets → BigQuery dual-layer staging with auto-retry
+- Daily briefing scheduler via APScheduler
+- Fortunas AI logo assets
 
 ---
 
