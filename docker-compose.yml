@@ -1,0 +1,97 @@
+# ============================================================
+#  Fortunas AI — docker-compose.yml
+#  Production-mode stack (nginx serves built React)
+#
+#  Services:
+#    ollama    → local LLM server (Qwen3:8b)
+#    backend   → FastAPI + RAG pipeline
+#    frontend  → nginx serving React build
+#
+#  Usage:
+#    docker compose up --build          ← first time / after code change
+#    docker compose up -d               ← background
+#    docker compose logs -f backend     ← stream backend logs
+#    docker compose down                ← stop all
+#    docker compose down -v             ← stop + delete volumes
+# ============================================================
+
+services:
+
+  # ── Ollama (Local LLM) ──────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fortunas_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"           # expose for local debugging only
+    volumes:
+      - ollama_data:/root/.ollama   # persists downloaded models
+    networks:
+      - fortunas_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    # ── GPU support (uncomment if you have NVIDIA GPU) ────────
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ── FastAPI Backend ─────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: fortunas_backend
+    restart: unless-stopped
+    env_file: .env                    # loads your .env file
+    environment:
+      # Override paths to use Docker volumes instead of local dirs
+      OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_DB_PATH: /data/chroma_db
+      DAILY_REPORT_PATH: /data/reports/daily_reports.json
+      KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
+      # Allow requests from nginx frontend
+      CORS_ORIGINS: '["http://localhost","http://localhost:3000","http://127.0.0.1"]'
+    volumes:
+      - chroma_data:/data/chroma_db           # vector DB (persistent)
+      - reports_data:/data/reports            # daily reports (persistent)
+      - ./credentials:/app/credentials:ro    # GCP service account (read-only)
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - fortunas_net
+    # NOT exposed externally — only reachable via nginx proxy
+
+  # ── Frontend (nginx + React build) ─────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: fortunas_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"               # access app at http://localhost:3000
+    depends_on:
+      - backend
+    networks:
+      - fortunas_net
+
+# ── Named Volumes ──────────────────────────────────────────────
+volumes:
+  ollama_data:      # persists Ollama models (~4–5 GB for qwen3:8b)
+  chroma_data:      # persists vector embeddings
+  reports_data:     # persists daily briefing reports
+
+# ── Internal Network ───────────────────────────────────────────
+networks:
+  fortunas_net:
+    driver: bridge
