@@ -29,11 +29,11 @@ services:
     networks:
       - fortunas_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 30s
 
     # ── GPU support (uncomment if you have NVIDIA GPU) ────────
     # deploy:
