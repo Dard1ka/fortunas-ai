@@ -114,3 +114,6 @@ python-multipart==0.0.20
 # WhatsApp bot + Google Sheets staging
 twilio==9.3.7
 gspread==6.1.4
+
+# Submission overview PDF generator (docs/generate_pdf.py)
+reportlab==4.5.1

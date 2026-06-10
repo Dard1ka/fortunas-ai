@@ -84,3 +84,37 @@ class UploadResponse(BaseModel):
     invalid_rows: int = 0
     inserted_rows: int = 0
     errors: list[str] = Field(default_factory=list)
+
+
+class VoiceParseRequest(BaseModel):
+    transcript: str
+
+
+class VoiceParseResponse(BaseModel):
+    invoice: str = ""
+    product: str = ""
+    qty: int = 0
+    unit_price: int = 0
+    total: int = 0
+    customer: str = ""
+    country: str = "Indonesia"
+    confidence: float = 0.0
+    source: str = ""
+
+
+class VoiceTransactionRequest(BaseModel):
+    invoice: str
+    product: str
+    qty: int
+    unit_price: int
+    total: int | None = None
+    customer: str = ""
+    country: str = "Indonesia"
+
+
+class VoiceTransactionResponse(BaseModel):
+    ok: bool
+    status: str
+    reply: str
+    invoice: str | None = None
+    row_number: int | None = None

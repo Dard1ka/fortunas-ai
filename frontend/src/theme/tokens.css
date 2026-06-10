@@ -1,0 +1,47 @@
+/* Fortunas AI design tokens — mobile-first, neo-brutalist palette. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  --bg: #FAF7F0;
+  --bg-alt: #F3EFE4;
+  --surface: #FFFFFF;
+  --surface-soft: #F7F4EC;
+  --surface-hover: #F0ECDF;
+
+  --border: #1A1A22;
+  --border-soft: #E5E0D2;
+  --border-hair: rgba(26, 26, 34, 0.08);
+
+  --violet: #6D5EF7;
+  --violet-deep: #4B3DD6;
+  --violet-soft: #EDEAFE;
+  --lime: #D4F56A;
+  --lime-deep: #A8D939;
+  --peach: #FFB4A2;
+  --peach-soft: #FFE7DF;
+  --sky: #9BD4FF;
+
+  --ink: #0E0E14;
+  --ink-2: #2A2A35;
+  --ink-3: #5C5C6A;
+  --ink-4: #8B8B98;
+
+  --success: #1EB980;
+  --warning: #F5A623;
+  --error: #EF4444;
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --shadow-pop: 4px 4px 0 var(--ink);
+  --shadow-pop-sm: 3px 3px 0 var(--ink);
+  --shadow-pop-xs: 2px 2px 0 var(--ink);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+}

@@ -1,0 +1,85 @@
+name: fortunas_ai
+description: Fortunas AI — UMKM Business Analyst (Flutter mobile app).
+publish_to: 'none'
+version: 2.2.0+1
+
+# Stack matches the migration spec in the design hand-off
+# (Decoded from the design HTML: artboards 07 "Flutter migration" + 08 "React → Flutter mapping").
+environment:
+  sdk: ^3.6.0
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── Routing — declarative + deep link friendly ───────────
+  go_router: ^14.6.0
+
+  # ── State management — recommended in design spec ────────
+  flutter_riverpod: ^2.6.0
+
+  # ── HTTP client — interceptors for retry/logging ─────────
+  dio: ^5.7.0
+
+  # ── Voice / Speech-to-text (id_ID) ───────────────────────
+  # Android: Google SpeechRecognizer (free, cloud STT under the hood).
+  # iOS 15+: Apple Speech (on-device, truly local — same caveat as the
+  # React PWA's Web Speech API. Privacy gap documented in AI_CONTEXT §4b.)
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.0
+
+  # ── Local storage ────────────────────────────────────────
+  shared_preferences: ^2.3.0   # voice transaction history (preferences-level)
+  # drift: ^2.16.0             # ← add later for offline sync queue (mockup roadmap Phase 4)
+
+  # ── Typography — auto-fetch + cache Google Fonts ─────────
+  google_fonts: ^6.2.1
+
+  # ── Charts (KPI cards in BriefingScreen) ─────────────────
+  fl_chart: ^0.69.0
+
+  # ── Misc ─────────────────────────────────────────────────
+  intl: ^0.19.0                 # Rp 85.000 formatting, id-ID locale
+
+  # ── Vector assets — render brand SVGs (logo mark/full) ───
+  flutter_svg: ^2.0.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+  # ── App launcher icon generator (uses assets/icons/app-icon.png) ──
+  flutter_launcher_icons: ^0.14.1
+
+# ── Launcher icon configuration ─────────────────────────────
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#FAF7F0"
+  web:
+    generate: true
+    background_color: "#FAF7F0"
+    theme_color: "#6D5EF7"
+  image_path: "assets/icons/app-icon.png"
+  adaptive_icon_background: "#FAF7F0"
+  adaptive_icon_foreground: "assets/icons/app-icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+
+  # Bundled fonts (variable) — no runtime network fetch, works offline.
+  fonts:
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk.ttf
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf

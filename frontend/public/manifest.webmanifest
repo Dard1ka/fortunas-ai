@@ -1,0 +1,46 @@
+{
+  "name": "Fortunas AI",
+  "short_name": "Fortunas",
+  "description": "UMKM Analytics berbasis RAG + Qwen3:8b lokal. Tanya bisnismu pakai suara atau ketik.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F0",
+  "theme_color": "#FAF7F0",
+  "lang": "id",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/logo-mark-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-mark-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tanya AI",
+      "short_name": "Tanya",
+      "url": "/",
+      "description": "Bertanya soal bisnis dalam Bahasa Indonesia"
+    },
+    {
+      "name": "Briefing harian",
+      "short_name": "Briefing",
+      "url": "/briefing",
+      "description": "Lihat ringkasan analisis bisnis hari ini"
+    }
+  ]
+}

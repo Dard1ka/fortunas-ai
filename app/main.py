@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ask, briefing, health, ingest, report, upload, whatsapp
+from app.api.routes import ask, briefing, health, ingest, report, upload, voice, whatsapp
 from app.core.config import get_settings
 from app.core.deps import get_insight_agent, get_rag_agent
 from app.core.scheduler import start_scheduler, stop_scheduler
@@ -84,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(report.router)
     app.include_router(upload.router)
+    app.include_router(voice.router)
     app.include_router(whatsapp.router)
 
     return app

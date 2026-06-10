@@ -7,7 +7,7 @@
 # ============================================================
 
 .PHONY: help up down logs build restart shell-backend shell-frontend \
-        pull-model ingest clean dev dev-down ps
+        pull-model ingest clean dev dev-down ps zip
 
 # ── Default target ───────────────────────────────────────────
 help:
@@ -31,6 +31,9 @@ help:
 	@echo "  make ingest        Re-run knowledge base ingest manually"
 	@echo "  make shell-backend Open shell inside backend container"
 	@echo "  make clean         Remove stopped containers + dangling images"
+	@echo ""
+	@echo "  make zip           Package fortunas-ai.zip for submission"
+	@echo "                     (excludes CLAUDE.md, .git, node_modules, credentials, etc.)"
 	@echo ""
 
 # ── Production ───────────────────────────────────────────────
@@ -105,3 +108,43 @@ clean:
 	docker image prune -f
 	docker container prune -f
 	@echo "✓ Cleanup done."
+
+# ── Submission packaging ─────────────────────────────────────
+# Build a clean zip for grant submission. Excludes:
+#   - CLAUDE.md      (assistant-only context, not part of source)
+#   - .git/          (git history)
+#   - node_modules/  (frontend deps)
+#   - credentials/   (service account JSON)
+#   - .env           (secrets)
+#   - .venv/         (Python venv)
+#   - chroma_db/     (locally-built vector index)
+#   - frontend/dist  (built artifacts, regenerated on install)
+#   - _decoded_*     (mockup exploration artifacts)
+#   - docs/          (internal overview PDF + Claude plan files — not for handoff)
+#   - package.ps1    (packaging script itself — teammate uses `make zip`)
+#
+# Run only when explicitly preparing a submission archive.
+zip:
+	@echo "Packaging fortunas-ai.zip for submission..."
+	@rm -f fortunas-ai.zip
+	@cd .. && zip -r fortunas-ai/fortunas-ai.zip fortunas-ai \
+		-x "fortunas-ai/CLAUDE.md" \
+		-x "fortunas-ai/.git/*" \
+		-x "fortunas-ai/node_modules/*" \
+		-x "fortunas-ai/frontend/node_modules/*" \
+		-x "fortunas-ai/credentials/*" \
+		-x "fortunas-ai/.env" \
+		-x "fortunas-ai/.venv/*" \
+		-x "fortunas-ai/chroma_db/*" \
+		-x "fortunas-ai/frontend/dist/*" \
+		-x "fortunas-ai/_decoded_assets/*" \
+		-x "fortunas-ai/_decoded_mobile.html" \
+		-x "fortunas-ai/fortunas-ai.zip" \
+		-x "fortunas-ai/docs/*" \
+		-x "fortunas-ai/package.ps1" \
+		-x "fortunas-ai/mobile/.dart_tool/*" \
+		-x "fortunas-ai/mobile/build/*" \
+		-x "fortunas-ai/mobile/pubspec.lock"
+	@echo "✓ fortunas-ai.zip ready."
+	@echo "  Verify CLAUDE.md is absent:"
+	@unzip -l fortunas-ai.zip | grep -i claude.md || echo "  (none — good)"

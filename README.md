@@ -43,13 +43,13 @@ The frontend includes a **WhatsApp-like chat simulator** that replicates the fam
 | **Conversational Query** | Ask business questions in natural Bahasa Indonesia |
 | **4 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` |
 | **Daily Briefing** | Automated morning business summary (APScheduler cron) |
-| **WA Chat Simulator** | WhatsApp-style chat interface built in React |
-| **Transaction Ingestion** | Input via chat → validated → Google Sheets staging → BigQuery |
+| **📱 Mobile PWA (v2.1)** | Mobile-first chat UI · installable to home screen · iOS + Android via single codebase |
+| **🎤 Voice Input (v2.1)** | Speak transactions in Bahasa Indonesia · AI parses to structured fields · saves to Sheets + BigQuery |
+| **Transaction Ingestion** | Voice or text → validated → Google Sheets staging → BigQuery |
 | **RAG Knowledge Base** | UMKM business context retrieved from ChromaDB per query |
 | **Local LLM** | Qwen3:8b via Ollama — zero token cost, full data privacy |
 | **Dual-Layer Staging** | Google Sheets audit trail + BigQuery analytics warehouse |
 | **Auto-Retry Pipeline** | APScheduler retries `failed`/`pending` rows automatically |
-| **Interactive Dashboard** | KPI cards: daily revenue, top customer, top product, peak hour |
 | **🐳 Docker Support** | One-command setup — no manual Python/Node/Ollama install needed |
 
 ---
@@ -108,7 +108,8 @@ Natural Language Question → Intent Classification
 
 | Layer | Technology | Version |
 |---|---|---|
-| Frontend | React + Vite | 19 / 8 |
+| Mobile (v2.2) | Flutter + Dart | 3.27+ / 3.6+ |
+| Frontend (v2.1 legacy) | React + Vite | 19 / 8 |
 | Backend | FastAPI (async) | 0.135 |
 | Validation | Pydantic | 2.x |
 | Staging | Google Sheets (`gspread`) | 6.x |
@@ -266,12 +267,16 @@ Interactive docs: **http://localhost:8000/docs**
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `POST` | `/wa/simulate` | WA simulator — input transaction or question |
-| `POST` | `/ask` | Direct analytics query |
-| `POST` | `/briefing` | Generate full daily briefing |
-| `GET` | `/report/latest` | Get latest saved report |
-| `POST` | `/ingest` | Ingest transaction records |
-| `POST` | `/upload` | Bulk upload CSV |
+| `POST` | `/ask` | Direct analytics query (NL → SQL → LLM insight) |
+| `GET` | `/briefing` | Run 4 analyses + executive summary |
+| `GET` | `/briefing/stream` | Streaming briefing (Server-Sent Events) |
+| `GET` | `/report/daily` | Get latest saved briefing + history |
+| `POST` | `/report/daily/run` | Run and save daily briefing |
+| `POST` | `/voice/parse` | Parse voice transcript → structured transaction (preview) |
+| `POST` | `/voice/transaction` | Confirm voice transaction → save to Sheets + BigQuery |
+| `POST` | `/ingest` | Re-ingest RAG knowledge base to ChromaDB |
+| `POST` | `/upload` | Bulk upload CSV/Excel transactions |
+| `POST` | `/wa/simulate` | Legacy text-format transaction simulator |
 
 ### Example: WA Simulator
 
@@ -341,6 +346,52 @@ fortunas-ai/
 ---
 
 ## 📋 Changelog
+
+### v2.2.0 — Flutter Migration
+> Pre-release · branch in progress
+
+**Added**
+- 📱 `mobile/` — full Flutter 3.27+ project (Material 3 + custom neo-brutalist theme)
+- Riverpod + go_router + dio + speech_to_text — stack per design hand-off spec
+- 5 screens (Home/Briefing/Result/History/Profile) ported from React
+- Full voice flow (idle → listening → parsing → parsed → success) with native `speech_to_text` (id_ID)
+- `mobile/MIGRATION.md` — React → Flutter mapping reference
+
+**Changed**
+- Frontend pivot: React PWA → Flutter native mobile (iOS + Android single codebase)
+- Voice STT: Web Speech API → `speech_to_text` plugin (privacy gap unchanged — Android still routes audio to Google STT cloud; iOS 15+ on-device)
+- Distribution model: PWA install → Play Store / App Store
+
+**Kept**
+- `frontend/` (React PWA) retained as fallback reference until Flutter is device-verified
+- Backend (FastAPI + Ollama + BigQuery + all `app/services/`) unchanged
+- All API endpoints (`/ask`, `/briefing`, `/voice/*`, etc.) — Flutter app uses the same REST contract
+
+---
+
+### v2.1.0 — Mobile Redesign + Voice Flow (React PWA)
+> Pre-release · React frontend in `frontend/` (now legacy reference)
+
+**Added**
+- 📱 Full mobile-first redesign — React Router based, 5 screens (Tanya / Briefing / Result / Riwayat / Saya)
+- 🎤 Voice-to-transaction flow — 4 states (idle → listening → parsed → success) via Web Speech API (id-ID)
+- `app/api/routes/voice.py` — `POST /voice/parse` + `POST /voice/transaction`
+- `app/services/voice_parser.py` — regex fast-path + Qwen3:8b fallback parser for free-form voice transcripts (handles "delapan ribu lima ratus" → 8500)
+- `app/services/wa_pipeline_structured.py` — bridges voice payload to existing Sheets + BigQuery pipeline (no parse step)
+- PWA `manifest.webmanifest` + Apple PWA meta — installable to home screen
+- HTTPS dev mode (`npm run dev:https` via `vite-plugin-mkcert`) — for testing mic on physical phones over WiFi
+- `docs/Fortunas-AI-Overview.pdf` — user-facing overview generated via `docs/generate_pdf.py` (ReportLab)
+- `AI_CONTEXT.md` — single-source context file for any AI assistant or new developer
+
+**Changed**
+- Frontend: monolithic `App.jsx` → React Router root + screens/ + ui/ + voice/ + api/ structure
+- Design language → neo-brutalist (cream + ink + violet + lime, Space Grotesk + Inter + JetBrains Mono)
+- `wa_pipeline` service layer is now reused by voice flow — backend stays consistent with proposal pipeline
+
+**Pivoted**
+- WhatsApp Business API integration → mobile PWA with voice (Meta region restriction blocker; novelty #5 disclaimer "tanpa setup WA Business API" was always anticipating this). See `AI_CONTEXT.md` §1b for the full story.
+
+---
 
 ### v2.0.0 — Docker Release
 > Branch: `main` · Tag: [`v2.0.0`](https://github.com/Dard1ka/fortunas-ai/releases/tag/v2.0.0)
