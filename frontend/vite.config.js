@@ -7,6 +7,10 @@ import mkcert from 'vite-plugin-mkcert'
 //   npm run dev:https    → https via mkcert (required for mic on phones)
 const useHttps = process.env.VITE_HTTPS === '1'
 
+// Target backend untuk proxy /api. Default = backend lokal. Set VITE_API_TARGET
+// untuk arahkan ke VPS, mis: VITE_API_TARGET=http://103.93.134.22
+const apiTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -22,7 +26,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: apiTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
