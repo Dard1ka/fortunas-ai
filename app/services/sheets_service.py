@@ -29,6 +29,11 @@ log = logging.getLogger("fortunas.sheets")
 _lock = threading.Lock()
 _client_cache: Any = None
 _worksheet_cache: Any = None
+_customers_ws_cache: Any = None
+
+# Tab master pelanggan: peta CustomerID (angka) ↔ CustomerName.
+CUSTOMERS_TAB: str = os.getenv("GOOGLE_SHEETS_CUSTOMERS_TAB", "customers")
+CUSTOMER_HEADERS: list[str] = ["CustomerID", "CustomerName", "created_at"]
 
 SHEET_HEADERS: list[str] = [
     "received_at",
@@ -44,6 +49,11 @@ SHEET_HEADERS: list[str] = [
     "Country",
     "bq_status",  # 'pending' / 'inserted' / 'failed'
     "bq_error",
+    # CustomerName sengaja DI AKHIR supaya kolom bq_status (L) / bq_error (M)
+    # tetap di posisi sama (update_bq_status menulis ke L:M secara hardcoded)
+    # dan baris lama tidak bergeser. Nama pelanggan disimpan HANYA di Sheet —
+    # tabel BigQuery utama tetap pakai 'Customer ID' (FLOAT) saja.
+    "CustomerName",
 ]
 
 
@@ -126,8 +136,14 @@ def append_transaction(
     source: str = "whatsapp",
     bq_status: str = "pending",
     bq_error: str = "",
+    customer_name: str = "",
 ) -> int:
-    """Append satu baris ke Sheet. Return nomor baris (1-based)."""
+    """Append satu baris ke Sheet. Return nomor baris (1-based).
+
+    customer_name = nama pelanggan dari ucapan voice (mis. "Budi"). Disimpan di
+    kolom CustomerName (Sheet saja) karena kolom 'Customer ID' di BigQuery
+    bertipe FLOAT dan tidak bisa menampung nama.
+    """
     ws = _get_worksheet()
     received_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -145,6 +161,7 @@ def append_transaction(
         payload.get("Country", "") or "",
         bq_status,
         bq_error,
+        customer_name or "",
     ]
 
     result = ws.append_row(row, value_input_option="USER_ENTERED")
@@ -187,6 +204,34 @@ def list_recent_transactions(limit: int = 20) -> list[dict[str, Any]]:
     return result
 
 
+def max_invoice_in_sheet() -> int:
+    """Invoice numerik terbesar yang tercatat di Sheet (0 kalau kosong/gagal).
+
+    Dipakai untuk auto-increment supaya transaksi yang baru di-append (tapi
+    mungkin belum terlihat di BigQuery karena streaming buffer) tetap terhitung.
+    """
+    try:
+        ws = _get_worksheet()
+        all_rows = ws.get_all_values()
+    except Exception:  # noqa: BLE001
+        return 0
+
+    if len(all_rows) <= 1:
+        return 0
+    headers = all_rows[0]
+    if "Invoice" not in headers:
+        return 0
+    idx = headers.index("Invoice")
+    mx = 0
+    for row in all_rows[1:]:
+        if idx < len(row):
+            try:
+                mx = max(mx, int(str(row[idx]).strip()))
+            except (ValueError, TypeError):
+                continue
+    return mx
+
+
 def update_bq_status(row_number: int, status: str, error: str = "") -> None:
     """Update kolom bq_status & bq_error untuk baris yang sudah di-append."""
     if row_number <= 1:
@@ -226,3 +271,91 @@ def list_retryable_rows() -> list[tuple[int, dict[str, Any]]]:
         if status in ("failed", "pending", ""):
             retryable.append((idx, item))
     return retryable
+
+
+# ────────────────────── Customer master (tab 'customers') ──────────────────────
+
+
+def _get_customers_ws():
+    """Worksheet master pelanggan. Auto-create + header kalau belum ada."""
+    global _client_cache, _customers_ws_cache
+    with _lock:
+        if _customers_ws_cache is not None:
+            return _customers_ws_cache
+
+        sheet_id = os.getenv("GOOGLE_SHEETS_ID", "").strip()
+        if not sheet_id:
+            raise SheetsUnavailableError("GOOGLE_SHEETS_ID belum di-set di .env.")
+
+        if _client_cache is None:
+            _client_cache = _build_client()
+
+        spreadsheet = _client_cache.open_by_key(sheet_id)
+        try:
+            ws = spreadsheet.worksheet(CUSTOMERS_TAB)
+        except Exception:
+            ws = spreadsheet.add_worksheet(
+                title=CUSTOMERS_TAB, rows=1000, cols=len(CUSTOMER_HEADERS)
+            )
+            ws.append_row(CUSTOMER_HEADERS, value_input_option="USER_ENTERED")
+
+        _customers_ws_cache = ws
+        return ws
+
+
+def lookup_customer_id_by_name(name: str) -> int | None:
+    """Cari CustomerID untuk nama (case-insensitive). None kalau belum terdaftar."""
+    target = (name or "").strip().lower()
+    if not target:
+        return None
+    try:
+        rows = _get_customers_ws().get_all_values()
+    except Exception:  # noqa: BLE001
+        return None
+    if len(rows) <= 1:
+        return None
+    hdr = rows[0]
+    try:
+        id_idx = hdr.index("CustomerID")
+        name_idx = hdr.index("CustomerName")
+    except ValueError:
+        return None
+    for row in rows[1:]:
+        if name_idx < len(row) and row[name_idx].strip().lower() == target:
+            if id_idx < len(row):
+                try:
+                    return int(float(row[id_idx]))
+                except (ValueError, TypeError):
+                    continue
+    return None
+
+
+def max_customer_id_in_master() -> int:
+    """CustomerID terbesar di master (0 kalau kosong/gagal)."""
+    try:
+        rows = _get_customers_ws().get_all_values()
+    except Exception:  # noqa: BLE001
+        return 0
+    if len(rows) <= 1:
+        return 0
+    hdr = rows[0]
+    if "CustomerID" not in hdr:
+        return 0
+    idx = hdr.index("CustomerID")
+    mx = 0
+    for row in rows[1:]:
+        if idx < len(row):
+            try:
+                mx = max(mx, int(float(row[idx])))
+            except (ValueError, TypeError):
+                continue
+    return mx
+
+
+def append_customer(customer_id: int, name: str) -> None:
+    """Daftarkan pelanggan baru ke master."""
+    ws = _get_customers_ws()
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ws.append_row(
+        [customer_id, name, created_at], value_input_option="USER_ENTERED"
+    )

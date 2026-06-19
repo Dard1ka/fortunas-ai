@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useSpeechRecognition from '../voice/useSpeechRecognition.js';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
 import Pill from '../ui/Pill.jsx';
 import ModeTabs from '../ui/ModeTabs.jsx';
@@ -17,9 +18,27 @@ export default function HomeScreen({ onVoice }) {
   const [text, setText] = useState('');
   const navigate = useNavigate();
 
+  // Voice-untuk-bertanya: dikte pertanyaan ke kotak input (BEDA dari mic bawah
+  // yang membuka flow tambah transaksi). Tap mic → ngomong → tap lagi untuk stop.
+  const ask = useSpeechRecognition({ lang: 'id-ID' });
+  useEffect(() => {
+    if (ask.transcript) setText(ask.transcript);
+  }, [ask.transcript]);
+
+  const toggleVoiceAsk = () => {
+    if (ask.isListening) {
+      ask.stop();
+    } else {
+      setText('');
+      ask.reset();
+      ask.start();
+    }
+  };
+
   const submit = (question) => {
     const q = (question ?? text).trim();
     if (!q) return;
+    if (ask.isListening) ask.stop();
     navigate(`/result?q=${encodeURIComponent(q)}`);
   };
 
@@ -88,20 +107,22 @@ export default function HomeScreen({ onVoice }) {
         >
           <button
             type="button"
-            onClick={onVoice}
-            aria-label="Mulai voice"
+            onClick={toggleVoiceAsk}
+            aria-label={ask.isListening ? 'Berhenti mendikte' : 'Dikte pertanyaan dengan suara'}
+            title="Tanya pakai suara"
             style={{
               width: 42,
               height: 42,
               flexShrink: 0,
               borderRadius: 14,
               border: '1.5px solid var(--ink)',
-              background: 'var(--violet)',
+              background: ask.isListening ? 'var(--error)' : 'var(--violet)',
               color: '#fff',
               display: 'grid',
               placeItems: 'center',
               boxShadow: '2px 2px 0 var(--ink)',
               cursor: 'pointer',
+              animation: ask.isListening ? 'fortunas-pulse 1.2s ease-in-out infinite' : 'none',
             }}
           >
             <Icon name="mic" size={20} stroke="#fff" strokeWidth={2} />
@@ -149,18 +170,26 @@ export default function HomeScreen({ onVoice }) {
             letterSpacing: '0.04em',
           }}
         >
-          TIP · Tekan{' '}
-          <span
-            style={{
-              background: 'var(--surface)',
-              padding: '1px 6px',
-              border: '1px solid var(--border-soft)',
-              borderRadius: 4,
-            }}
-          >
-            🎤
-          </span>{' '}
-          untuk pakai suara
+          {ask.isListening ? (
+            <span style={{ color: 'var(--error)', fontWeight: 700 }}>
+              ● Mendengar… ketuk mic lagi untuk berhenti
+            </span>
+          ) : (
+            <>
+              TIP · Tekan{' '}
+              <span
+                style={{
+                  background: 'var(--surface)',
+                  padding: '1px 6px',
+                  border: '1px solid var(--border-soft)',
+                  borderRadius: 4,
+                }}
+              >
+                🎤
+              </span>{' '}
+              untuk bertanya pakai suara
+            </>
+          )}
         </div>
       </form>
 

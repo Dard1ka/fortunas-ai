@@ -2,7 +2,7 @@
 // Extracted from legacy App.jsx so all screens speak the same vocabulary.
 
 export function humanizeError(err, status) {
-  if (err?.name === 'AbortError') return null;
+  if (err?.name === 'AbortError') return '';
   if (status >= 500) return 'Server sedang bermasalah. Coba lagi sebentar lagi.';
   if (status === 429) return 'Terlalu banyak permintaan. Tunggu beberapa detik, lalu coba lagi.';
   if (status === 408 || status === 504) {

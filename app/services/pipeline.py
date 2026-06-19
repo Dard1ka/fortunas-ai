@@ -6,8 +6,9 @@ from app.agents.insight_agent import InsightAgent
 from app.agents.rag_agent import RAGAgent
 from app.analysis_registry import ANALYSIS_REGISTRY
 from app.bigquery_service import run_query
+from app.core.tenancy import TenantContext
 from app.intent_mapper import map_question_to_analysis
-from app.queries import QUERY_MAP
+from app.queries import build_query
 
 
 def resolve_analysis(question: str) -> tuple[dict | None, dict | None]:
@@ -47,13 +48,31 @@ def resolve_analysis(question: str) -> tuple[dict | None, dict | None]:
     }, None
 
 
-def execute_analysis(mapped_analysis: str) -> tuple[list[dict] | None, str | None]:
-    sql = QUERY_MAP.get(mapped_analysis)
+def execute_analysis(mapped_analysis: str, tx_table: str) -> tuple[list[dict] | None, str | None]:
+    sql = build_query(mapped_analysis, tx_table)
     if not sql:
         return None, f"Query untuk analisis '{mapped_analysis}' belum tersedia."
 
     rows = run_query(sql)
     return rows, None
+
+
+def enrich_customer_names(rows: list[dict], customers_table: str) -> list[dict]:
+    """Tambah field customer_name ke rows yang punya customer_id (dari tabel
+    customers tenant). Dipakai supaya insight bisa menampilkan 'nama (id)'."""
+    if not rows or "customer_id" not in rows[0]:
+        return rows
+    from app.services.wa_pipeline_structured import lookup_customer_names
+
+    names = lookup_customer_names([r.get("customer_id") for r in rows], customers_table)
+    for r in rows:
+        cid = r.get("customer_id")
+        try:
+            key = str(int(float(cid)))
+        except (TypeError, ValueError):
+            key = str(cid)
+        r["customer_name"] = names.get(key, "")
+    return rows
 
 
 def extract_rag_sources(
@@ -103,6 +122,7 @@ def run_ask(
     question: str,
     insight_agent: InsightAgent,
     rag_agent: RAGAgent | None,
+    tenant: TenantContext,
 ) -> dict[str, Any]:
     resolved, error = resolve_analysis(question)
     if error:
@@ -117,6 +137,8 @@ def run_ask(
 
     mapped_analysis = resolved["mapped_analysis"]
     analysis_config = resolved["analysis_config"]
+    tx_table = tenant.table("transactions")
+    customers_table = tenant.table("customers")
 
     trace: list[str] = [
         f"Question received: {question}",
@@ -124,7 +146,7 @@ def run_ask(
     ]
 
     try:
-        rows, query_error = execute_analysis(mapped_analysis)
+        rows, query_error = execute_analysis(mapped_analysis, tx_table)
     except Exception as exc:
         trace.append("BigQuery execution failed")
         return {
@@ -164,12 +186,14 @@ def run_ask(
         }
 
     trace.append(f"BigQuery returned {len(rows)} rows")
+    rows = enrich_customer_names(rows, customers_table)
 
     try:
         insight_result = insight_agent.generate(
             question=question,
             analysis_key=mapped_analysis,
             bq_rows=rows,
+            business_profile=tenant.business_profile,
         )
     except Exception as exc:
         trace.append("LLM insight generation failed")
@@ -223,11 +247,14 @@ def run_briefing_section(
     analysis_config: dict,
     insight_agent: InsightAgent,
     rag_agent: RAGAgent | None,
+    tenant: TenantContext,
 ) -> tuple[dict[str, Any], list[str]]:
     trace_lines: list[str] = [f"Running analysis: {analysis_config['label']}"]
+    tx_table = tenant.table("transactions")
+    customers_table = tenant.table("customers")
 
     try:
-        rows, query_error = execute_analysis(analysis_key)
+        rows, query_error = execute_analysis(analysis_key, tx_table)
     except Exception as exc:
         trace_lines.append(f"{analysis_config['label']}: BigQuery execution failed")
         return {
@@ -259,12 +286,14 @@ def run_briefing_section(
     trace_lines.append(
         f"{analysis_config['label']}: BigQuery returned {len(rows)} rows"
     )
+    rows = enrich_customer_names(rows, customers_table)
 
     try:
         insight_result = insight_agent.generate(
             question=f"Berikan analisis {analysis_config['label']}",
             analysis_key=analysis_key,
             bq_rows=rows,
+            business_profile=tenant.business_profile,
         )
     except Exception as exc:
         trace_lines.append(
@@ -350,6 +379,7 @@ def enabled_analyses() -> list[tuple[str, dict]]:
 def run_full_briefing(
     insight_agent: InsightAgent,
     rag_agent: RAGAgent | None,
+    tenant: TenantContext,
 ) -> dict[str, Any]:
     trace: list[str] = ["Auto-briefing started"]
     sections: list[dict] = []
@@ -360,6 +390,7 @@ def run_full_briefing(
             analysis_config=config,
             insight_agent=insight_agent,
             rag_agent=rag_agent,
+            tenant=tenant,
         )
         sections.append(section)
         trace.extend(section_trace)

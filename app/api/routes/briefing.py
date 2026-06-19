@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from app.agents.insight_agent import InsightAgent
 from app.agents.rag_agent import RAGAgent
 from app.core.deps import get_insight_agent, get_rag_agent
+from app.core.tenancy import TenantContext, get_current_tenant
 from app.schemas import BriefingResponse, BriefingSection
 from app.services.pipeline import (
     build_deterministic_executive_summary,
@@ -23,8 +24,9 @@ router = APIRouter(tags=["briefing"])
 def auto_briefing(
     insight_agent: InsightAgent = Depends(get_insight_agent),
     rag_agent: RAGAgent | None = Depends(get_rag_agent),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> BriefingResponse:
-    result = run_full_briefing(insight_agent=insight_agent, rag_agent=rag_agent)
+    result = run_full_briefing(insight_agent=insight_agent, rag_agent=rag_agent, tenant=tenant)
     sections = [BriefingSection(**s) for s in result["sections"]]
 
     return BriefingResponse(
@@ -40,6 +42,7 @@ def auto_briefing(
 def briefing_stream(
     insight_agent: InsightAgent = Depends(get_insight_agent),
     rag_agent: RAGAgent | None = Depends(get_rag_agent),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> StreamingResponse:
     def event_generator():
         analyses = enabled_analyses()
@@ -56,6 +59,7 @@ def briefing_stream(
                 analysis_config=config,
                 insight_agent=insight_agent,
                 rag_agent=rag_agent,
+                tenant=tenant,
             )
 
             if section["status"] == "success":

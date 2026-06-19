@@ -22,6 +22,10 @@ application_default_credentials.json
 # ── Generated / Local-only ───────────────────────────────────────
 chroma_db/
 app/data/daily_reports.json
+app/data/daily_reports_*.json
+# SQLite metadata DB (akun & tenant — berisi hash password, JANGAN commit)
+*.db
+app/data/*.db
 *.pyc
 *.pyo
 

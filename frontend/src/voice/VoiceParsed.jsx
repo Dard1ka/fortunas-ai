@@ -39,7 +39,7 @@ export default function VoiceParsed({ tx, editing, onChange, onEdit, onRetry, on
                 letterSpacing: '0.06em',
               }}
             >
-              INVOICE
+              INVOICE · OTOMATIS
             </div>
             <div
               style={{
@@ -49,7 +49,7 @@ export default function VoiceParsed({ tx, editing, onChange, onEdit, onRetry, on
                 marginTop: 2,
               }}
             >
-              {tx.invoice}
+              {tx.invoice || 'Otomatis'}
             </div>
           </div>
           <button

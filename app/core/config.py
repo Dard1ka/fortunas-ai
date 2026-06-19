@@ -13,12 +13,16 @@ class Settings(BaseModel):
     app_name: str = "Fortunas AI Backend"
     app_version: str = "1.0.0"
 
+    # CORS dari env (comma-separated). Default = localhost dev. Production:
+    # set CORS_ORIGINS=* (mobile native tidak butuh CORS; Bearer token, bukan cookie).
     cors_origins: list[str] = Field(
         default_factory=lambda: [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
+            o.strip()
+            for o in os.getenv(
+                "CORS_ORIGINS",
+                "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+            ).split(",")
+            if o.strip()
         ]
     )
 

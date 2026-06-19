@@ -72,6 +72,14 @@ def _parse_invoice_date(raw: Any) -> datetime | None:
     text = str(raw).strip()
     if not text:
         return None
+    # ISO 8601 (mis. "2026-06-11T13:09:44+00:00" dari voice path) — tangani
+    # eksplisit. Tanpa ini, fallback pandas dayfirst=True salah menukar
+    # bulan/tanggal (2026-06-11 → 2026-11-06).
+    try:
+        iso_dt = datetime.fromisoformat(text)
+        return iso_dt if iso_dt.tzinfo else iso_dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        pass
     # Format utama dari sumber data: "01/12/2009 07:45" (dd/mm/yyyy HH:MM)
     for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M"):
         try:
@@ -192,10 +200,11 @@ def validate_excel(content: bytes, filename: str) -> dict:
     }
 
 
-def _insert_in_batches(rows: list[dict]) -> tuple[int, list[str]]:
-    settings = get_settings()
+def _insert_in_batches(rows: list[dict], table_ref: str | None = None) -> tuple[int, list[str]]:
     client = get_bigquery_client()
-    table_ref = f"{settings.bigquery_project_id}.{settings.bigquery_dataset}.{settings.bigquery_table}"
+    if table_ref is None:  # backward-compat: pakai tabel default .env
+        settings = get_settings()
+        table_ref = f"{settings.bigquery_project_id}.{settings.bigquery_dataset}.{settings.bigquery_table}"
 
     inserted = 0
     errors: list[str] = []
@@ -226,10 +235,12 @@ def _insert_in_batches(rows: list[dict]) -> tuple[int, list[str]]:
     return inserted, errors
 
 
-def upload_excel(content: bytes, filename: str) -> dict:
-    """End-to-end: parse → validate → insert ke BigQuery."""
+def upload_excel(content: bytes, filename: str, table_ref: str | None = None) -> dict:
+    """End-to-end: parse → validate → insert ke BigQuery (table_ref = tabel tenant)."""
     preview = validate_excel(content, filename)
     rows = preview.pop("_rows")
+
+    table_label = table_ref or f"{get_settings().bigquery_dataset}.{get_settings().bigquery_table}"
 
     if not rows:
         return {
@@ -239,10 +250,10 @@ def upload_excel(content: bytes, filename: str) -> dict:
             "total_rows": preview["total_rows"],
             "invalid_rows": preview["invalid_rows"],
             "errors": preview["errors"],
-            "table": f"{get_settings().bigquery_dataset}.{get_settings().bigquery_table}",
+            "table": table_label,
         }
 
-    inserted, insert_errors = _insert_in_batches(rows)
+    inserted, insert_errors = _insert_in_batches(rows, table_ref=table_ref)
     status = "success" if inserted == len(rows) and not insert_errors else "partial_success"
     return {
         "status": status,
@@ -256,5 +267,5 @@ def upload_excel(content: bytes, filename: str) -> dict:
         "valid_rows": preview["valid_rows"],
         "invalid_rows": preview["invalid_rows"],
         "errors": (preview["errors"] + insert_errors)[:20],
-        "table": f"{get_settings().bigquery_dataset}.{get_settings().bigquery_table}",
+        "table": table_label,
     }

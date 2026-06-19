@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.agents.insight_agent import InsightAgent
 from app.agents.rag_agent import RAGAgent
 from app.core.config import get_settings
 from app.core.deps import get_insight_agent, get_rag_agent
+from app.core.tenancy import TenantContext, get_current_tenant
 from app.schemas import DailyReportEntry, DailyReportResponse
 from app.services import report_store
 from app.services.pipeline import run_full_briefing
@@ -13,14 +16,21 @@ from app.services.pipeline import run_full_briefing
 router = APIRouter(tags=["report"])
 
 
+def _report_path(tenant: TenantContext) -> str:
+    """Path report per-tenant: daily_reports_{prefix}.json."""
+    base = get_settings().daily_report_path
+    root, ext = os.path.splitext(base)
+    return f"{root}_{tenant.table_prefix}{ext or '.json'}"
+
+
 @router.get("/report/daily", response_model=DailyReportResponse)
-def get_daily_report() -> DailyReportResponse:
+def get_daily_report(
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> DailyReportResponse:
     settings = get_settings()
-    latest = report_store.get_latest(settings.daily_report_path)
-    history = report_store.list_history(
-        settings.daily_report_path,
-        limit=settings.daily_report_history_days,
-    )
+    path = _report_path(tenant)
+    latest = report_store.get_latest(path)
+    history = report_store.list_history(path, limit=settings.daily_report_history_days)
 
     if not latest:
         return DailyReportResponse(
@@ -42,19 +52,18 @@ def get_daily_report() -> DailyReportResponse:
 def run_and_save_daily_report(
     insight_agent: InsightAgent = Depends(get_insight_agent),
     rag_agent: RAGAgent | None = Depends(get_rag_agent),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> DailyReportResponse:
     settings = get_settings()
-    briefing = run_full_briefing(insight_agent=insight_agent, rag_agent=rag_agent)
+    path = _report_path(tenant)
+    briefing = run_full_briefing(insight_agent=insight_agent, rag_agent=rag_agent, tenant=tenant)
 
     entry = report_store.save_report(
-        path=settings.daily_report_path,
+        path=path,
         executive_summary=briefing["executive_summary"],
         sections=briefing["sections"],
     )
-    history = report_store.list_history(
-        settings.daily_report_path,
-        limit=settings.daily_report_history_days,
-    )
+    history = report_store.list_history(path, limit=settings.daily_report_history_days)
 
     return DailyReportResponse(
         status="success",
@@ -71,11 +80,13 @@ def delete_daily_report_entry(
         description="generated_at dari entry yang ingin dihapus. Kosongkan + all=true untuk hapus semua.",
     ),
     all: bool = Query(default=False, description="Set true untuk hapus seluruh history."),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> DailyReportResponse:
     settings = get_settings()
+    path = _report_path(tenant)
 
     if all:
-        removed = report_store.clear_all(settings.daily_report_path)
+        removed = report_store.clear_all(path)
         return DailyReportResponse(
             status="success" if removed > 0 else "empty",
             message=(
@@ -93,18 +104,15 @@ def delete_daily_report_entry(
             detail="Parameter generated_at wajib diisi, atau gunakan all=true untuk hapus semua.",
         )
 
-    deleted = report_store.delete_report(settings.daily_report_path, generated_at)
+    deleted = report_store.delete_report(path, generated_at)
     if not deleted:
         raise HTTPException(
             status_code=404,
             detail=f"Entry dengan generated_at={generated_at} tidak ditemukan.",
         )
 
-    latest = report_store.get_latest(settings.daily_report_path)
-    history = report_store.list_history(
-        settings.daily_report_path,
-        limit=settings.daily_report_history_days,
-    )
+    latest = report_store.get_latest(path)
+    history = report_store.list_history(path, limit=settings.daily_report_history_days)
 
     return DailyReportResponse(
         status="success",

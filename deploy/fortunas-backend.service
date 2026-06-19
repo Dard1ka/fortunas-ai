@@ -1,0 +1,23 @@
+# systemd service untuk Fortunas AI backend.
+# Pasang di: /etc/systemd/system/fortunas-backend.service
+# Sesuaikan User= dan path /opt/fortunas-ai bila berbeda.
+
+[Unit]
+Description=Fortunas AI Backend (FastAPI/uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=fortunas
+Group=fortunas
+WorkingDirectory=/opt/fortunas-ai
+EnvironmentFile=/opt/fortunas-ai/.env
+ExecStart=/opt/fortunas-ai/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=3
+# Batasi log spam
+StandardOutput=append:/var/log/fortunas-backend.log
+StandardError=append:/var/log/fortunas-backend.log
+
+[Install]
+WantedBy=multi-user.target

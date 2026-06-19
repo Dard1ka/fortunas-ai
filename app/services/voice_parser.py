@@ -20,6 +20,8 @@ from typing import Any
 
 import requests
 
+from app.llm_provider import llm_generate
+
 # ───── Indonesian spoken-number map for the regex tier ─────
 
 _NUMBER_WORDS_ID = {
@@ -126,10 +128,12 @@ def regex_parse(transcript: str) -> dict[str, Any] | None:
     qty_match = _QTY_RE.search(transcript)
     price_match = _PRICE_RE.search(transcript)
 
-    if not (invoice_match and qty_match and price_match):
+    # Invoice TIDAK lagi wajib — dibuat otomatis di lapisan route/pipeline.
+    # Cukup qty + price untuk dianggap transkrip terstruktur (fast path).
+    if not (qty_match and price_match):
         return None
 
-    invoice = _normalize_invoice(invoice_match.group(1))
+    invoice = _normalize_invoice(invoice_match.group(1)) if invoice_match else ""
     qty = _word_to_int_id(qty_match.group(1))
     price = _word_to_int_id(price_match.group(1))
     if qty is None or price is None:
@@ -180,26 +184,17 @@ JSON:"""
 
 
 def llm_parse(transcript: str) -> dict[str, Any] | None:
-    """Call Qwen3:8b via Ollama for free-form transcripts. Returns None on any failure."""
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-    url = f"{base_url}/api/generate"
+    """Call LLM (provider via LLM_PROVIDER: ollama/openai) for free-form transcripts.
+    Returns None on any failure."""
     prompt = _PROMPT_TEMPLATE.format(transcript=transcript)
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {"temperature": 0.05, "num_predict": 400},
-    }
     try:
-        res = requests.post(url, json=payload, timeout=120)
-        res.raise_for_status()
-        raw = res.json().get("response", "").strip()
+        raw = llm_generate(
+            prompt, json_mode=True, temperature=0.05, max_tokens=400, timeout=120
+        )
         if not raw:
             return None
         data = json.loads(raw)
-    except (requests.RequestException, json.JSONDecodeError, ValueError):
+    except Exception:  # noqa: BLE001 — LLM/parse gagal → fallback ke None
         return None
 
     try:

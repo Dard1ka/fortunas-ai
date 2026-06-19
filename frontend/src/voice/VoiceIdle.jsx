@@ -33,8 +33,9 @@ export default function VoiceIdle({ onStart, supported = true }) {
         <em style={{ fontStyle: 'normal', color: 'var(--violet)' }}>tanpa ngetik.</em>
       </h2>
 
-      <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, maxWidth: 280, lineHeight: 1.5 }}>
-        Sebut nomor invoice, produk, jumlah, dan harga. AI akan memformat sendiri.
+      <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, maxWidth: 290, lineHeight: 1.5 }}>
+        Sebut produk, jumlah, harga, dan nama pelanggan (opsional). Nomor invoice
+        dibuat otomatis — tak perlu disebut.
       </p>
 
       <div style={{ marginTop: 28 }}>
@@ -97,10 +98,10 @@ export default function VoiceIdle({ onStart, supported = true }) {
           CONTOH UCAPAN
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55 }}>
-          “<span style={{ background: 'var(--lime)', padding: '0 3px' }}>Invoice INV-2024</span>,{' '}
-          <span style={{ background: 'var(--peach-soft)', padding: '0 3px' }}>sabun cuci</span>, qty{' '}
+          “<span style={{ background: 'var(--peach-soft)', padding: '0 3px' }}>sabun cuci</span>, qty{' '}
           <span style={{ background: 'var(--violet-soft)', padding: '0 3px' }}>10</span>, harga{' '}
-          <span style={{ background: 'var(--violet-soft)', padding: '0 3px' }}>delapan ribu lima ratus</span>.”
+          <span style={{ background: 'var(--violet-soft)', padding: '0 3px' }}>delapan ribu lima ratus</span>,{' '}
+          pelanggan <span style={{ background: 'var(--lime)', padding: '0 3px' }}>Budi</span>.”
         </div>
       </div>
     </div>

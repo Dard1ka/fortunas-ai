@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ask, briefing, health, ingest, report, upload, voice, whatsapp
+from app.api.routes import ask, auth, briefing, health, ingest, report, upload, voice, whatsapp
 from app.core.config import get_settings
 from app.core.deps import get_insight_agent, get_rag_agent
 from app.core.scheduler import start_scheduler, stop_scheduler
+from app.db import init_db
 from app.services import report_store
 from app.services.pipeline import run_full_briefing
 
@@ -18,24 +19,10 @@ log = logging.getLogger("fortunas")
 
 
 def _run_daily_briefing_job() -> None:
-    settings = get_settings()
-    try:
-        briefing = run_full_briefing(
-            insight_agent=get_insight_agent(),
-            rag_agent=get_rag_agent(),
-        )
-        report_store.save_report(
-            path=settings.daily_report_path,
-            executive_summary=briefing["executive_summary"],
-            sections=briefing["sections"],
-        )
-        log.info(
-            "Daily briefing saved: %s (%d successful sections)",
-            briefing["message"],
-            sum(1 for s in briefing["sections"] if s.get("status") == "success"),
-        )
-    except Exception as exc:
-        log.exception("Daily briefing job failed: %s", exc)
+    # Multi-tenant: briefing terjadwal per-tenant belum diimplementasi.
+    # Tiap tenant pakai POST /report/daily/run (on-demand) lewat token-nya.
+    # Scheduler briefing dimatikan via BRIEFING_SCHEDULER_ENABLED=false.
+    log.info("Scheduled briefing dilewati (multi-tenant: pakai /report/daily/run per tenant).")
 
 
 def _run_wa_retry_job() -> None:
@@ -54,6 +41,7 @@ def _run_wa_retry_job() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()  # pastikan tabel SQLite (tenants/users) ada
     start_scheduler(_run_daily_briefing_job, wa_retry_job=_run_wa_retry_job)
     try:
         yield
@@ -79,6 +67,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(ask.router)
     app.include_router(briefing.router)
     app.include_router(ingest.router)

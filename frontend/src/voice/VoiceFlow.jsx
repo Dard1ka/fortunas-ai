@@ -6,8 +6,7 @@ import VoiceListening from './VoiceListening.jsx';
 import VoiceParsed from './VoiceParsed.jsx';
 import VoiceSuccess from './VoiceSuccess.jsx';
 import useSpeechRecognition, { isSpeechRecognitionSupported } from './useSpeechRecognition.js';
-import { api } from '../api/client.js';
-import { RECENT_VOICE_KEY } from '../screens/HistoryScreen.jsx';
+import { api, voiceHistoryKey } from '../api/client.js';
 
 // States: idle → listening → parsing → parsed → success
 const TITLE_FOR_STATE = {
@@ -20,10 +19,11 @@ const TITLE_FOR_STATE = {
 
 function pushVoiceHistory(tx) {
   try {
-    const prev = JSON.parse(localStorage.getItem(RECENT_VOICE_KEY) || '[]');
+    const key = voiceHistoryKey();   // per-tenant
+    const prev = JSON.parse(localStorage.getItem(key) || '[]');
     const entry = { ...tx, savedAt: new Date().toISOString() };
     const next = [entry, ...prev].slice(0, 20);
-    localStorage.setItem(RECENT_VOICE_KEY, JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
   } catch { /* non-fatal */ }
 }
 

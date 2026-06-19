@@ -11,15 +11,17 @@ const TEAM = [
   { name: 'Michael Ivan Santoso',          role: 'Tim Riset' },
 ];
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ onLogout }) {
   const [health, setHealth] = useState(null);
   const [healthErr, setHealthErr] = useState(null);
+  const [me, setMe] = useState(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
     api.health(ctrl.signal)
       .then(setHealth)
-      .catch((err) => setHealthErr(err.message));
+      .catch((err) => { if (err.name === 'AbortError') return; setHealthErr(err.message); });
+    api.me(ctrl.signal).then(setMe).catch(() => { /* abaikan */ });
     return () => ctrl.abort();
   }, []);
 
@@ -37,10 +39,19 @@ export default function ProfileScreen() {
         </p>
       </div>
 
+      {/* Akun card */}
+      <Card>
+        <CardKicker>Akun</CardKicker>
+        <Row label="Bisnis" value={me?.tenant_name || '—'} />
+        <Row label="Email" value={me?.email || '—'} />
+        <Row label="Workspace" value={me?.table_prefix || '—'} mono />
+        {me?.business_profile?.jenis && <Row label="Jenis usaha" value={me.business_profile.jenis} />}
+      </Card>
+
       {/* AI engine card */}
       <Card>
         <CardKicker>AI Engine</CardKicker>
-        <Row label="Model" value="Qwen3:8b · Ollama lokal" />
+        <Row label="Model" value="Gemini 2.5 Flash (Google)" />
         <Row
           label="Status"
           value={
@@ -57,9 +68,9 @@ export default function ProfileScreen() {
       {/* Storage card */}
       <Card>
         <CardKicker>Penyimpanan Data</CardKicker>
-        <Row label="Audit" value="Google Sheets staging" mono />
-        <Row label="Warehouse" value="BigQuery · fortunasai.fortunas_ai.online_retail" mono />
-        <Row label="Vector DB" value="ChromaDB · umkm_knowledge" mono />
+        <Row label="Warehouse" value="BigQuery · tabel per-tenant ({prefix}_transactions)" mono />
+        <Row label="Pelanggan" value="BigQuery · {prefix}_customers" mono />
+        <Row label="Vector DB" value="ChromaDB · umkm_knowledge (RAG)" mono />
       </Card>
 
       {/* About / team */}
@@ -77,10 +88,10 @@ export default function ProfileScreen() {
         <SettingsRow label="Notifikasi briefing pagi" hint="PWA notification — coming soon." disabled />
       </Card>
 
-      {/* Compliance hint */}
+      {/* Info isolasi */}
       <div
         style={{
-          margin: '0 18px 28px',
+          margin: '0 18px 12px',
           padding: '14px 16px',
           background: 'var(--violet)',
           color: '#fff',
@@ -94,9 +105,32 @@ export default function ProfileScreen() {
       >
         <Icon name="bolt" size={18} stroke="var(--lime)" strokeWidth={2.2} />
         <div style={{ fontSize: 11.5, lineHeight: 1.55 }}>
-          <strong>Data tidak meninggalkan server.</strong> LLM berjalan lokal via Ollama. Sesuai dengan
-          UU PDP No. 27/2022.
+          <strong>Data tiap bisnis terisolasi.</strong> Tiap akun punya tabel BigQuery sendiri;
+          jawaban AI hanya dari data bisnismu. Insight diproses Gemini (cloud).
         </div>
+      </div>
+
+      {/* Logout */}
+      <div style={{ margin: '0 18px 28px' }}>
+        <button
+          type="button"
+          onClick={onLogout}
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: 14,
+            border: '1.5px solid var(--ink)',
+            background: 'var(--surface)',
+            color: 'var(--error)',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 700,
+            fontSize: 13.5,
+            cursor: 'pointer',
+            boxShadow: '2px 2px 0 var(--ink)',
+          }}
+        >
+          Keluar
+        </button>
       </div>
     </div>
   );

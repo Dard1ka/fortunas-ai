@@ -150,9 +150,10 @@ def validate_payload(raw: dict[str, str]) -> dict[str, Any]:
 # ────────────────────── Duplicate check ──────────────────────
 
 
-def check_duplicate_in_bq(invoice: int, stock_code: str) -> bool:
+def check_duplicate_in_bq(invoice: int, stock_code: str, table_ref: str | None = None) -> bool:
     """Cek apakah kombinasi (Invoice, StockCode) sudah ada di BigQuery.
 
+    table_ref = ref tabel transaksi tenant (tanpa backtick); None → tabel .env.
     Return True kalau DUPLICATE (artinya tolak).
     Gagal silent (return False) kalau BQ error — biar bot tetap jalan.
     """
@@ -160,11 +161,10 @@ def check_duplicate_in_bq(invoice: int, stock_code: str) -> bool:
         from app.bigquery_service import get_bigquery_client
         from app.core.config import get_settings
 
-        settings = get_settings()
-        table = (
-            f"`{settings.bigquery_project_id}."
-            f"{settings.bigquery_dataset}.{settings.bigquery_table}`"
-        )
+        if table_ref is None:
+            settings = get_settings()
+            table_ref = f"{settings.bigquery_project_id}.{settings.bigquery_dataset}.{settings.bigquery_table}"
+        table = f"`{table_ref}`"
         sql = (
             f"SELECT COUNT(1) AS n FROM {table} "
             f"WHERE Invoice = @invoice AND StockCode = @stock LIMIT 1"

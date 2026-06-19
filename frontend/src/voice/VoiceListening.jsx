@@ -58,7 +58,7 @@ export default function VoiceListening({ transcript, state, onStop, supported = 
           <textarea
             value={textFallback}
             onChange={(e) => onTextChange(e.target.value)}
-            placeholder="Ketik transaksi: Invoice INV-2024, sabun cuci, qty 10, harga 8500"
+            placeholder="Ketik transaksi: sabun cuci, qty 10, harga 8500, pelanggan Budi"
             rows={4}
             style={{
               width: '100%',

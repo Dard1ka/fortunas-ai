@@ -75,7 +75,24 @@ def _example_output() -> dict:
     }
 
 
-def build_llm_prompt(question: str, mapped_analysis: str, rows: list) -> str:
+def _business_context(business_profile: dict | None) -> str:
+    """Blok konteks bisnis (dari registry tenant) untuk personalisasi jawaban."""
+    if not business_profile:
+        return ""
+    parts = [f"{k}: {v}" for k, v in business_profile.items() if v]
+    if not parts:
+        return ""
+    return (
+        "Profil bisnis ini (pakai untuk menyesuaikan gaya bahasa & relevansi "
+        "rekomendasi, JANGAN mengarang data dari sini):\n- "
+        + "\n- ".join(parts)
+        + "\n\n"
+    )
+
+
+def build_llm_prompt(
+    question: str, mapped_analysis: str, rows: list, business_profile: dict | None = None
+) -> str:
     rows_preview = rows[:5]
     result_count = len(rows_preview)
 
@@ -103,8 +120,9 @@ Tugas kamu:
 18. Pertahankan nama produk, customer_id, dan nilai field persis seperti di input.
 19. Jangan memperbaiki, memendekkan, menerjemahkan, atau mengubah ejaan nama produk.
 20. Peringkat 1 HARUS berasal dari rows[0], peringkat 2 dari rows[1], dan peringkat 3 dari rows[2].
+21. Jika sebuah baris punya field customer_name yang TERISI, setiap kali menyebut pelanggan itu tulis dengan format: customer_name (customer_id). Contoh: Sari (18103). Jika customer_name kosong, cukup tulis: pelanggan (customer_id).
 
-Pertanyaan user:
+{_business_context(business_profile)}Pertanyaan user:
 {question}
 
 Jenis analisis:
@@ -144,6 +162,7 @@ def build_llm_prompt_with_rag(
     mapped_analysis: str,
     rows: list,
     rag_context: list[str],
+    business_profile: dict | None = None,
 ) -> str:
     rows_preview = rows[:5]
     result_count = len(rows)
@@ -173,6 +192,7 @@ Tugas kamu:
 18. Pertahankan nama produk, customer_id, dan nilai field persis seperti di input.
 19. Jangan memperbaiki, memendekkan, menerjemahkan, atau mengubah ejaan nama produk.
 20. Peringkat 1 HARUS berasal dari rows[0], peringkat 2 dari rows[1], dan peringkat 3 dari rows[2].
+21. Jika sebuah baris punya field customer_name yang TERISI, setiap kali menyebut pelanggan itu tulis dengan format: customer_name (customer_id). Contoh: Sari (18103). Jika customer_name kosong, cukup tulis: pelanggan (customer_id).
 
 Aturan penggunaan knowledge:
 - Knowledge dipakai untuk memperkaya saran bisnis, misalnya promo ringan, paket hemat, follow-up pelanggan, atau persiapan stok.
@@ -180,7 +200,7 @@ Aturan penggunaan knowledge:
 - Knowledge TIDAK boleh mengubah urutan ranking.
 - Jika knowledge bertentangan dengan data, prioritaskan data.
 
-Pertanyaan user:
+{_business_context(business_profile)}Pertanyaan user:
 {question}
 
 Jenis analisis:

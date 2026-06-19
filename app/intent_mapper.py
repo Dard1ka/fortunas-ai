@@ -26,6 +26,11 @@ INTENT_CONFIG = {
             "pelanggan mana yang paling sering belanja",
             "siapa pembeli paling loyal",
             "siapa pelanggan yang sering belanja",
+            "siapa pelanggan paling setia",
+            "pelanggan paling setia",
+            "pelanggan setia",
+            "customer paling setia",
+            "siapa langganan saya",
         ],
         "keywords": [
             "loyal",
@@ -35,6 +40,9 @@ INTENT_CONFIG = {
             "transaksi terbanyak",
             "pelanggan tetap",
             "sering belanja",
+            "setia",
+            "pelanggan setia",
+            "langganan",
         ],
     },
     "high_value_customer": {
@@ -84,6 +92,10 @@ INTENT_CONFIG = {
             "jam belanja paling padat",
             "jam belanja paling ramai",
             "kapan pembeli paling ramai",
+            "jam toko paling rame",
+            "toko paling rame",
+            "jam paling rame",
+            "kapan toko paling rame",
         ],
         "keywords": [
             "checkout",
@@ -95,6 +107,8 @@ INTENT_CONFIG = {
             "peak hour",
             "jam belanja",
             "padat",
+            "rame",
+            "toko rame",
         ],
     },
     "bundle_opportunity": {
@@ -145,7 +159,8 @@ def _score_intent(normalized_question: str, intent_key: str) -> int:
 
     if intent_key == "repeat_customer":
         if ("customer" in tokens or "pelanggan" in tokens or "pembeli" in tokens) and (
-            "loyal" in tokens or "repeat" in tokens or "sering" in tokens or "tetap" in tokens
+            "loyal" in tokens or "repeat" in tokens or "sering" in tokens
+            or "tetap" in tokens or "setia" in tokens or "langganan" in tokens
         ):
             score += 4
         if "transaksi" in tokens and ("terbanyak" in tokens or "sering" in tokens):
@@ -166,11 +181,15 @@ def _score_intent(normalized_question: str, intent_key: str) -> int:
     elif intent_key == "peak_hour":
         if "checkout" in tokens:
             score += 4
-        if "jam" in tokens and ("ramai" in tokens or "sibuk" in tokens or "padat" in tokens):
+        if "jam" in tokens and (
+            "ramai" in tokens or "rame" in tokens or "sibuk" in tokens or "padat" in tokens
+        ):
             score += 4
-        if "transaksi" in tokens and ("ramai" in tokens or "sering" in tokens):
+        if "transaksi" in tokens and ("ramai" in tokens or "rame" in tokens or "sering" in tokens):
             score += 4
-        if "belanja" in tokens and ("padat" in tokens or "ramai" in tokens):
+        if "belanja" in tokens and ("padat" in tokens or "ramai" in tokens or "rame" in tokens):
+            score += 4
+        if "rame" in tokens and ("jam" in tokens or "toko" in tokens):
             score += 4
 
     elif intent_key == "bundle_opportunity":

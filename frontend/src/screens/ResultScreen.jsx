@@ -165,7 +165,64 @@ function ResultScreenInner({ q }) {
             color: 'var(--ink-2)',
           }}
         >
-          {error}
+          {error && error !== 'null' ? error : 'Terjadi kesalahan tak terduga. Coba lagi.'}
+        </div>
+      )}
+
+      {/* Pertanyaan tak dikenali / tidak ada data: tampilkan pesan ramah, bukan kosong */}
+      {!loading && !error && data && !data.llm_output && (
+        <div style={{ padding: '0 18px 18px' }}>
+          <div
+            style={{
+              padding: '16px 18px',
+              background: 'var(--surface)',
+              border: '1.5px solid var(--ink)',
+              borderRadius: 18,
+              boxShadow: '2px 2px 0 var(--ink)',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                fontWeight: 700,
+                color: 'var(--ink-3)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                marginBottom: 8,
+              }}
+            >
+              {data.status === 'success' ? 'Belum ada data' : 'Pertanyaan belum dikenali'}
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.55, margin: 0 }}>
+              {data.message || 'Coba tanyakan tentang pelanggan loyal, jam ramai, pelanggan paling bernilai, atau produk yang sering dibeli bersama.'}
+            </p>
+            <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+              {[
+                'Siapa pelanggan paling setia?',
+                'Jam berapa toko paling rame?',
+                'Produk apa yang sering dibeli bareng?',
+              ].map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => navigate(`/result?q=${encodeURIComponent(ex)}`)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    background: 'var(--surface-soft)',
+                    border: '1px solid var(--border-soft)',
+                    borderRadius: 10,
+                    fontSize: 12.5,
+                    color: 'var(--ink-2)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  → {ex}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

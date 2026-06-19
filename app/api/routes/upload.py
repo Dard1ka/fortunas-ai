@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from app.core.tenancy import TenantContext, get_current_tenant
 from app.schemas import UploadPreviewResponse, UploadResponse
 from app.services.excel_upload import (
     ALLOWED_EXTENSIONS,
@@ -26,7 +27,10 @@ def _check_ext(filename: str) -> None:
 
 
 @router.post("/upload/preview", response_model=UploadPreviewResponse)
-async def preview_upload(file: UploadFile = File(...)) -> UploadPreviewResponse:
+async def preview_upload(
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> UploadPreviewResponse:
     _check_ext(file.filename or "")
     content = await file.read()
     try:
@@ -40,11 +44,16 @@ async def preview_upload(file: UploadFile = File(...)) -> UploadPreviewResponse:
 
 
 @router.post("/upload/excel", response_model=UploadResponse)
-async def upload_excel_endpoint(file: UploadFile = File(...)) -> UploadResponse:
+async def upload_excel_endpoint(
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> UploadResponse:
     _check_ext(file.filename or "")
     content = await file.read()
     try:
-        result = upload_excel(content, file.filename or "upload.xlsx")
+        result = upload_excel(
+            content, file.filename or "upload.xlsx", table_ref=tenant.table("transactions")
+        )
     except ExcelValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except PermissionError as exc:

@@ -6,6 +6,7 @@ from app.agents.insight_agent import InsightAgent
 from app.agents.rag_agent import RAGAgent
 from app.analysis_registry import ANALYSIS_REGISTRY
 from app.core.deps import get_insight_agent, get_rag_agent
+from app.core.tenancy import TenantContext, get_current_tenant
 from app.intent_mapper import map_question_to_analysis
 from app.schemas import AskRequest, AskResponse, LLMOutput
 from app.services.pipeline import run_ask
@@ -28,11 +29,13 @@ def ask_question(
     payload: AskRequest,
     insight_agent: InsightAgent = Depends(get_insight_agent),
     rag_agent: RAGAgent | None = Depends(get_rag_agent),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> AskResponse:
     result = run_ask(
         question=payload.question,
         insight_agent=insight_agent,
         rag_agent=rag_agent,
+        tenant=tenant,
     )
 
     llm_payload = result["llm_output"]

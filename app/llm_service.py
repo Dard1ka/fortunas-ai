@@ -4,6 +4,8 @@ import re
 import requests
 from dotenv import load_dotenv
 
+from app.llm_provider import check_llm_health, llm_generate
+
 load_dotenv()
 
 
@@ -15,30 +17,8 @@ def extract_json_object(text: str):
 
 
 def check_ollama_health() -> dict:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-
-    try:
-        response = requests.get(f"{base_url}/api/tags", timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        models = [m.get("name", "") for m in data.get("models", [])]
-        return {
-            "status": "ok",
-            "base_url": base_url,
-            "model": model,
-            "available_models": models,
-            "model_available": model in models,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "base_url": base_url,
-            "model": model,
-            "available_models": [],
-            "model_available": False,
-            "error": str(e),
-        }
+    # Nama dipertahankan untuk kompatibilitas; sekarang provider-aware.
+    return check_llm_health()
 
 
 def _as_clean_str(value) -> str:
@@ -75,6 +55,13 @@ def _join_id(items: list[str]) -> str:
     return ", ".join(items[:-1]) + f", dan {items[-1]}"
 
 
+def _fmt_customer(row: dict) -> str:
+    """Format pelanggan: 'nama (id)' kalau customer_name ada, selain itu 'id' saja."""
+    cid = row.get("customer_id")
+    name = (row.get("customer_name") or "").strip()
+    return f"{name} ({cid})" if name else str(cid)
+
+
 def _build_summary_from_rows(mapped_analysis: str, rows: list) -> str:
     top = rows[:3]
     if not top:
@@ -83,20 +70,19 @@ def _build_summary_from_rows(mapped_analysis: str, rows: list) -> str:
     n = len(top)
 
     if mapped_analysis == "repeat_customer":
-        ids = _join_id([r.get("customer_id") for r in top])
+        ids = _join_id([_fmt_customer(r) for r in top])
         orders = _join_id([r.get("total_orders") for r in top])
-        noun = "Customer" if n == 1 else "Customer"
         tail = "pelanggan paling loyal" if n == 1 else "pelanggan loyal teratas"
         return (
-            f"{noun} {ids} merupakan {tail} berdasarkan total_orders {orders}."
+            f"{ids} merupakan {tail} berdasarkan total_orders {orders}."
         )
 
     if mapped_analysis == "high_value_customer":
-        ids = _join_id([r.get("customer_id") for r in top])
+        ids = _join_id([_fmt_customer(r) for r in top])
         spents = _join_id([r.get("total_spent") for r in top])
         tail = "pelanggan paling bernilai" if n == 1 else "pelanggan paling bernilai teratas"
         return (
-            f"Customer {ids} merupakan {tail} berdasarkan total_spent {spents}."
+            f"{ids} merupakan {tail} berdasarkan total_spent {spents}."
         )
 
     if mapped_analysis == "peak_hour":
@@ -125,14 +111,14 @@ def _build_top_findings_from_rows(mapped_analysis: str, rows: list) -> list[str]
     if mapped_analysis == "repeat_customer":
         for idx, row in enumerate(top3, start=1):
             findings.append(
-                f"Peringkat {idx} adalah customer {row['customer_id']} dengan total_orders {row['total_orders']}, "
+                f"Peringkat {idx} adalah {_fmt_customer(row)} dengan total_orders {row['total_orders']}, "
                 f"total_spent {row['total_spent']}, dan top_products: {row.get('top_products', '')}."
             )
 
     elif mapped_analysis == "high_value_customer":
         for idx, row in enumerate(top3, start=1):
             findings.append(
-                f"Peringkat {idx} adalah customer {row['customer_id']} dengan total_spent {row['total_spent']}, "
+                f"Peringkat {idx} adalah {_fmt_customer(row)} dengan total_spent {row['total_spent']}, "
                 f"total_orders {row['total_orders']}, avg_order_value {row.get('avg_order_value', '')}, "
                 f"dan top_products: {row.get('top_products', '')}."
             )
@@ -161,19 +147,19 @@ def _build_recommendations_from_rows(mapped_analysis: str, rows: list) -> list[s
     top3 = rows[:3]
 
     if mapped_analysis == "repeat_customer":
-        ids = [str(r["customer_id"]) for r in top3 if "customer_id" in r]
+        ids = [_fmt_customer(r) for r in top3 if "customer_id" in r]
         joined = ", ".join(ids[:3]) if ids else "pelanggan teratas"
         return [
-            f"Kasih promo ringan yang beda untuk customer {joined} supaya mereka makin sering belanja.",
+            f"Kasih promo ringan yang beda untuk {joined} supaya mereka makin sering belanja.",
             "Gunakan produk yang paling sering mereka beli sebagai dasar promo atau rekomendasi berikutnya.",
             "Jaga komunikasi tetap simpel, sopan, dan relevan supaya pelanggan merasa diperhatikan, bukan dikejar-kejar."
         ]
 
     if mapped_analysis == "high_value_customer":
-        ids = [str(r["customer_id"]) for r in top3 if "customer_id" in r]
+        ids = [_fmt_customer(r) for r in top3 if "customer_id" in r]
         joined = ", ".join(ids[:3]) if ids else "pelanggan utama"
         return [
-            f"Utamakan customer {joined} untuk penawaran yang lebih personal karena nilai belanjanya paling besar.",
+            f"Utamakan {joined} untuk penawaran yang lebih personal karena nilai belanjanya paling besar.",
             "Coba beri benefit sederhana seperti bonus kecil, akses promo lebih dulu, atau penawaran khusus tanpa harus diskon besar.",
             "Jaga komunikasi tetap relevan dan tidak terlalu sering supaya pelanggan utama tetap nyaman."
         ]
@@ -219,57 +205,39 @@ def _repair_output(parsed: dict, mapped_analysis: str | None = None, rows: list 
     top_findings = _as_clean_list(parsed.get("top_findings", []))
     recommendation = _as_clean_list(parsed.get("recommendation", []))
 
+    # UTAMAKAN output LLM (sudah di-ground ke rows[0..] oleh prompt). Template
+    # deterministik dari data hanya dipakai sebagai FALLBACK kalau LLM kosong —
+    # supaya jawaban tetap muncul & akurat meski LLM gagal.
     if mapped_analysis and rows:
-        summary = _build_summary_from_rows(mapped_analysis, rows)
-        top_findings = _build_top_findings_from_rows(mapped_analysis, rows)
-        recommendation = _build_recommendations_from_rows(mapped_analysis, rows)
-    else:
-        recommendation = recommendation[:3]
-
-    while len(recommendation) < 3:
-        recommendation.append("")
+        if not summary:
+            summary = _build_summary_from_rows(mapped_analysis, rows)
+        if not top_findings:
+            top_findings = _build_top_findings_from_rows(mapped_analysis, rows)
+        if not recommendation:
+            recommendation = _build_recommendations_from_rows(mapped_analysis, rows)
 
     if not summary:
-        if mapped_analysis and rows:
-            summary = _build_summary_from_rows(mapped_analysis, rows)
-        else:
-            summary = "Insight berhasil dibuat berdasarkan hasil analisis yang tersedia."
+        summary = "Insight berhasil dibuat berdasarkan hasil analisis yang tersedia."
 
-    while len(top_findings) < 3:
-        top_findings.append("")
+    # Buang item kosong supaya tidak ada kartu kosong di UI.
+    top_findings = [f for f in top_findings if f][:3]
+    recommendation = [r for r in recommendation if r][:3]
 
     return {
         "summary": summary.strip(),
-        "top_findings": top_findings[:3],
-        "recommendation": recommendation[:3],
+        "top_findings": top_findings,
+        "recommendation": recommendation,
     }
 
 
 def call_ollama(prompt: str, mapped_analysis: str | None = None, rows: list | None = None) -> dict:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-
-    url = f"{base_url}/api/generate"
-
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": 0.1,
-            "num_predict": 1000
-        }
-    }
-
-    response = requests.post(url, json=payload, timeout=300)
-    response.raise_for_status()
-
-    data = response.json()
-    raw_text = data.get("response", "").strip()
+    # Nama dipertahankan untuk kompatibilitas; routing via LLM_PROVIDER (ollama/openai).
+    raw_text = llm_generate(
+        prompt, json_mode=True, temperature=0.1, max_tokens=1000, timeout=300
+    )
 
     if not raw_text:
-        raise ValueError("Ollama mengembalikan response kosong.")
+        raise ValueError("LLM mengembalikan response kosong.")
 
     try:
         parsed = json.loads(raw_text)

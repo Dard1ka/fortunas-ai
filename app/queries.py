@@ -1,4 +1,12 @@
+"""Named analytics SQL — sekarang tenant-aware.
+
+Tiap query dibangun dari FUNGSI yang menerima `tx` = ref tabel transaksi
+(tanpa backtick), mis. `project.dataset.tokoA_transactions`. Multi-tenant:
+caller kirim tabel milik tenant. Backward-compat: NAMED_QUERIES/QUERY_MAP tetap
+ada (pakai tabel default dari .env) untuk kode lama / single-tenant.
+"""
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,29 +15,23 @@ PROJECT_ID = os.getenv("BIGQUERY_PROJECT_ID", "fortunasai")
 DATASET = os.getenv("BIGQUERY_DATASET", "fortunas_ai")
 TABLE = os.getenv("BIGQUERY_TABLE", "online_retail")
 
-FULL_TABLE = f"`{PROJECT_ID}.{DATASET}.{TABLE}`"
+# Ref tabel default (.env) untuk backward-compat (single-tenant / sql_agent).
+_ENV_TX = f"{PROJECT_ID}.{DATASET}.{TABLE}"
 
-# ─────────────────────────────────────────────────────────────────────────
-# Schema BigQuery (aktual):
-#   Invoice (INTEGER)      StockCode (STRING)    Description (STRING)
-#   Quantity (INTEGER)     InvoiceDate (TIMESTAMP)  Price (FLOAT)
-#   `Customer ID` (FLOAT, pakai backtick karena ada spasi)  Country (STRING)
-#
-# Alias output query tetap snake_case (customer_id, invoice_date, dst.)
-# supaya llm_service.py & prompt_builder.py tidak perlu diubah.
-# ─────────────────────────────────────────────────────────────────────────
+# Schema tabel transaksi (sama untuk tiap tenant):
+#   Invoice INT, StockCode STR, Description STR, Quantity INT,
+#   InvoiceDate TIMESTAMP, Price FLOAT, `Customer ID` FLOAT, Country STR
 
 
-# ---------- SQL definitions ----------
-_HIGH_VALUE_CUSTOMER_SQL = f"""
+def _high_value_customer_sql(tx: str) -> str:
+    return f"""
 WITH customer_summary AS (
   SELECT
     CAST(`Customer ID` AS STRING) AS customer_id,
     COUNT(DISTINCT Invoice) AS total_orders,
     ROUND(SUM(Quantity * Price), 2) AS total_spent,
-    -- AOV yang benar: total_spent dibagi jumlah invoice unik, BUKAN rata-rata per line item
     ROUND(SUM(Quantity * Price) / NULLIF(COUNT(DISTINCT Invoice), 0), 2) AS avg_order_value
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE `Customer ID` IS NOT NULL AND Quantity > 0 AND Price > 0
   GROUP BY CAST(`Customer ID` AS STRING)
 ),
@@ -38,7 +40,7 @@ product_summary AS (
     CAST(`Customer ID` AS STRING) AS customer_id,
     Description AS description,
     SUM(Quantity) AS total_qty
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE `Customer ID` IS NOT NULL AND Description IS NOT NULL
     AND Quantity > 0 AND Price > 0
   GROUP BY CAST(`Customer ID` AS STRING), Description
@@ -61,13 +63,15 @@ ORDER BY cs.total_spent DESC
 LIMIT 10
 """
 
-_REPEAT_CUSTOMER_SQL = f"""
+
+def _repeat_customer_sql(tx: str) -> str:
+    return f"""
 WITH customer_summary AS (
   SELECT
     CAST(`Customer ID` AS STRING) AS customer_id,
     COUNT(DISTINCT Invoice) AS total_orders,
     ROUND(SUM(Quantity * Price), 2) AS total_spent
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE `Customer ID` IS NOT NULL AND Quantity > 0 AND Price > 0
   GROUP BY CAST(`Customer ID` AS STRING)
   HAVING COUNT(DISTINCT Invoice) > 1
@@ -77,7 +81,7 @@ product_summary AS (
     CAST(`Customer ID` AS STRING) AS customer_id,
     Description AS description,
     SUM(Quantity) AS total_qty
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE `Customer ID` IS NOT NULL AND Description IS NOT NULL
     AND Quantity > 0 AND Price > 0
   GROUP BY CAST(`Customer ID` AS STRING), Description
@@ -100,18 +104,20 @@ ORDER BY cs.total_orders DESC, cs.total_spent DESC
 LIMIT 10
 """
 
-_PEAK_HOUR_SQL = f"""
+
+def _peak_hour_sql(tx: str) -> str:
+    return f"""
 WITH hour_summary AS (
   SELECT EXTRACT(HOUR FROM InvoiceDate) AS purchase_hour,
          COUNT(DISTINCT Invoice) AS total_orders
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE Quantity > 0 AND Price > 0
   GROUP BY purchase_hour
 ),
 product_summary AS (
   SELECT EXTRACT(HOUR FROM InvoiceDate) AS purchase_hour,
          Description AS description, SUM(Quantity) AS total_qty
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE Description IS NOT NULL AND Quantity > 0 AND Price > 0
   GROUP BY purchase_hour, Description
 ),
@@ -133,14 +139,12 @@ ORDER BY hs.total_orders DESC
 LIMIT 10
 """
 
-# OPTIMISASI bundle_opportunity:
-# - Pre-filter di CTE supaya self-join scan jauh lebih kecil
-# - Quantity > 0 dan Price > 0 di kedua sisi
-# - Description IS NOT NULL di CTE, bukan di JOIN
-_BUNDLE_OPPORTUNITY_SQL = f"""
+
+def _bundle_opportunity_sql(tx: str) -> str:
+    return f"""
 WITH clean_lines AS (
   SELECT Invoice AS invoice, Description AS description
-  FROM {FULL_TABLE}
+  FROM `{tx}`
   WHERE Description IS NOT NULL
     AND Quantity > 0
     AND Price > 0
@@ -159,30 +163,31 @@ LIMIT 10
 """
 
 
-# ---------- Named query registry dengan metadata ----------
-NAMED_QUERIES = {
-    "high_value_customer": {
-        "sql": _HIGH_VALUE_CUSTOMER_SQL,
-        "cost_tier": "cheap",
-        "estimated_gb": 0.05,
-    },
-    "repeat_customer": {
-        "sql": _REPEAT_CUSTOMER_SQL,
-        "cost_tier": "cheap",
-        "estimated_gb": 0.05,
-    },
-    "peak_hour": {
-        "sql": _PEAK_HOUR_SQL,
-        "cost_tier": "cheap",
-        "estimated_gb": 0.03,
-    },
-    "bundle_opportunity": {
-        "sql": _BUNDLE_OPPORTUNITY_SQL,
-        "cost_tier": "expensive",  # self-join
-        "estimated_gb": 0.5,
-    },
+# Builder per analisis (terima ref tabel transaksi tenant).
+QUERY_BUILDERS = {
+    "high_value_customer": _high_value_customer_sql,
+    "repeat_customer": _repeat_customer_sql,
+    "peak_hour": _peak_hour_sql,
+    "bundle_opportunity": _bundle_opportunity_sql,
+}
+
+_COST_TIER = {
+    "high_value_customer": "cheap",
+    "repeat_customer": "cheap",
+    "peak_hour": "cheap",
+    "bundle_opportunity": "expensive",
 }
 
 
-# ---------- Backward compat: main.py masih import QUERY_MAP ----------
+def build_query(analysis_key: str, tx_table: str) -> str | None:
+    """SQL untuk analisis pada tabel transaksi tenant (tx_table tanpa backtick)."""
+    builder = QUERY_BUILDERS.get(analysis_key)
+    return builder(tx_table) if builder else None
+
+
+# ---------- Backward-compat (single-tenant / sql_agent): pakai tabel .env ----------
+NAMED_QUERIES = {
+    key: {"sql": builder(_ENV_TX), "cost_tier": _COST_TIER.get(key, "unknown")}
+    for key, builder in QUERY_BUILDERS.items()
+}
 QUERY_MAP = {key: meta["sql"] for key, meta in NAMED_QUERIES.items()}

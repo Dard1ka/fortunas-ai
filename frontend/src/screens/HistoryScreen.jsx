@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
 import Pill from '../ui/Pill.jsx';
 import Icon from '../ui/Icon.jsx';
-import { api } from '../api/client.js';
-
-const VOICE_KEY = 'fortunas.recentVoice.v1';
+import { api, voiceHistoryKey } from '../api/client.js';
 
 function readVoiceHistory() {
   try {
-    return JSON.parse(localStorage.getItem(VOICE_KEY) || '[]');
+    return JSON.parse(localStorage.getItem(voiceHistoryKey()) || '[]');
   } catch { return []; }
 }
 
@@ -180,5 +178,3 @@ function EmptyHint({ children }) {
     </div>
   );
 }
-
-export { VOICE_KEY as RECENT_VOICE_KEY };

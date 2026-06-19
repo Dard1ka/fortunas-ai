@@ -130,44 +130,18 @@ SQL:"""
         return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
     def _generate_sql_with_ollama(self, prompt: str) -> str:
-        import requests
-
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-        model = os.getenv("OLLAMA_SQL_MODEL", os.getenv("OLLAMA_MODEL", "qwen3:8b"))
-
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "think": False,  # Disable reasoning mode (Ollama parameter resmi)
-            "options": {
-                "temperature": 0.1,
-                "num_predict": 1500,
-            },
-        }
+        # Nama dipertahankan untuk kompatibilitas; routing via LLM_PROVIDER (ollama/openai).
+        from app.llm_provider import llm_generate
 
         try:
-            response = requests.post(f"{base_url}/api/generate", json=payload, timeout=300)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise SQLAgentError(f"Gagal call Ollama: {e}") from e
-
-        data = response.json()
-
-        if data.get("error"):
-            raise SQLAgentError(f"Ollama error: {data['error']}")
-
-        # Primary: ambil dari "response"
-        raw = (data.get("response") or "").strip()
-
-        # Fallback: kalau kosong, ambil dari "thinking" (Qwen3 di Ollama baru)
-        if not raw:
-            raw = (data.get("thinking") or "").strip()
-
-        if not raw:
-            raise SQLAgentError(
-                f"Ollama return response & thinking kosong. Payload keys: {list(data.keys())}"
+            raw = llm_generate(
+                prompt, json_mode=False, temperature=0.1, max_tokens=1500, timeout=300
             )
+        except Exception as e:  # noqa: BLE001
+            raise SQLAgentError(f"Gagal call LLM: {e}") from e
 
-        # Strip <think> block kalau ada (jaga-jaga untuk model lain)
+        if not raw:
+            raise SQLAgentError("LLM mengembalikan SQL kosong.")
+
+        # Strip <think> block kalau ada (untuk model yang pakai reasoning)
         return self._strip_think_block(raw)

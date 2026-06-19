@@ -30,6 +30,20 @@ export default function BriefingScreen() {
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [running, setRunning] = useState(false);
+
+  const runBriefing = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      const data = await api.reportRun();
+      if (data?.latest) setLatest(data.latest);
+    } catch (err) {
+      setError(err.message || 'Gagal menjalankan briefing.');
+    } finally {
+      setRunning(false);
+    }
+  };
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -42,7 +56,11 @@ export default function BriefingScreen() {
         }
         setLoading(false);
       })
-      .catch((err) => { setError(err.message); setLoading(false); });
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setError(err.message);
+        setLoading(false);
+      });
     return () => ctrl.abort();
   }, []);
 
@@ -68,8 +86,34 @@ export default function BriefingScreen() {
             ? 'Mengambil data terakhir dari server…'
             : (latest
                 ? `${latest.sections?.length ?? 0} analisis selesai.`
-                : 'Jalankan POST /report/daily/run dari Swagger atau klik "Mulai Briefing" di sesi sebelumnya untuk mengisi.')}
+                : 'Belum ada briefing. Klik tombol di bawah untuk membuatnya dari data bisnismu.')}
         </p>
+
+        {!loading && (
+          <button
+            type="button"
+            onClick={runBriefing}
+            disabled={running}
+            style={{
+              marginTop: 12,
+              padding: '11px 16px',
+              borderRadius: 14,
+              border: '1.5px solid var(--ink)',
+              background: running ? 'var(--surface)' : 'var(--ink)',
+              color: running ? 'var(--ink-3)' : 'var(--lime)',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 700,
+              fontSize: 13.5,
+              cursor: running ? 'default' : 'pointer',
+              boxShadow: 'var(--shadow-pop)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            {running ? 'Menjalankan… (±30 detik)' : (latest ? 'Perbarui Briefing' : 'Jalankan Briefing')}
+          </button>
+        )}
       </div>
 
       {error && (

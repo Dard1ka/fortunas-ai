@@ -46,6 +46,7 @@ class InsightAgent:
         analysis_key: str,
         rows: list[dict[str, Any]],
         rag_context: list[str],
+        business_profile: dict | None = None,
     ) -> str:
         if rag_context:
             return build_llm_prompt_with_rag(
@@ -53,12 +54,14 @@ class InsightAgent:
                 mapped_analysis=analysis_key,
                 rows=rows,
                 rag_context=rag_context,
+                business_profile=business_profile,
             )
 
         return build_llm_prompt(
             question=question,
             mapped_analysis=analysis_key,
             rows=rows,
+            business_profile=business_profile,
         )
 
     def generate(
@@ -66,6 +69,7 @@ class InsightAgent:
         question: str,
         analysis_key: str,
         bq_rows: list[dict[str, Any]],
+        business_profile: dict | None = None,
     ) -> dict[str, Any]:
         rag_context = self.retrieve_context(
             question=question,
@@ -78,6 +82,7 @@ class InsightAgent:
             analysis_key=analysis_key,
             rows=bq_rows,
             rag_context=rag_context,
+            business_profile=business_profile,
         )
 
         llm_result = call_ollama(
