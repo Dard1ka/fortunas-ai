@@ -1,3 +1,7 @@
+> ⚠️ **USANG (pra-v4.0).** Panduan ini untuk versi lama (Ollama/Google Sheets,
+> single-tenant, tanpa auth). Untuk setup terkini lihat **Quick Start di [README.md](README.md)**
+> dan deploy di **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Disimpan sebagai arsip.
+
 # Fortunas AI — Panduan Setup
 
 Panduan lengkap untuk menyiapkan Fortunas di mesin baru. Ikuti urut dari atas ke bawah.

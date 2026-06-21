@@ -1,3 +1,8 @@
+> ⚠️ **OUTDATED (pre-v4.0).** This file predates the multi-tenant SaaS rewrite
+> (auth/JWT, per-tenant BigQuery tables, Gemini LLM, VPS deploy). For current
+> context use [`memory.md`](memory.md) and [`README.md`](README.md); for setup
+> see README Quick Start and [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Kept for history.
+
 # AI_CONTEXT.md — Fortunas AI
 
 > **Audience:** Any AI assistant (Claude, GPT, Gemini, Llama, etc.) reading this codebase for the first time. This file is the single source of truth — no other reading required to start being productive.

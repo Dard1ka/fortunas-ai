@@ -1,3 +1,7 @@
+> ⚠️ **USANG (pra-v4.0).** Stack Docker ini mendahului multi-tenant + auth, dan
+> bukan jalur deploy yang didukung sekarang. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
+> (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
+
 # Fortunas AI — Docker Setup Guide
 
 Panduan lengkap menjalankan Fortunas AI menggunakan Docker.

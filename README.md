@@ -4,21 +4,20 @@
 
 # Fortunas AI
 
-**Conversational Business Intelligence for Indonesian MSMEs**
+**Conversational Business Intelligence for Indonesian MSMEs — Multi-Tenant SaaS**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Flutter](https://img.shields.io/badge/Flutter-mobile-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![BigQuery](https://img.shields.io/badge/BigQuery-Google_Cloud-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/bigquery)
-[![Ollama](https://img.shields.io/badge/Ollama-Qwen3%3A8b-black?logo=ollama&logoColor=white)](https://ollama.com)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini_2.5_Flash-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5-FF6B35)](https://trychroma.com)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0-gold)](https://github.com/Dard1ka/fortunas-ai/releases/tag/v2.0.0)
+[![Auth](https://img.shields.io/badge/Auth-JWT_multi--tenant-000000)](#-multi-tenant--auth)
+[![Version](https://img.shields.io/badge/version-4.0.0-gold)](https://github.com/Dard1ka/fortunas-ai)
 
 **Ask your sales data anything — in plain Bahasa Indonesia.**
 
-[🐳 Docker Setup](#-quick-start-docker-recommended) · [Demo](#-demo) · [Architecture](#-architecture) · [API Docs](#-api-reference) · [Changelog](#-changelog)
+[Multi-Tenant](#-multi-tenant--auth) · [Architecture](#-architecture) · [Quick Start](#-quick-start-local-dev) · [Deploy](#-deployment-vps) · [API](#-api-reference)
 
 </div>
 
@@ -26,13 +25,12 @@
 
 ## 🔍 What is Fortunas AI?
 
-Fortunas AI bridges the gap between raw transaction data and actionable business insight for Indonesian MSMEs (Usaha Mikro, Kecil, dan Menengah). Instead of navigating complex BI dashboards or writing SQL queries, business owners simply **type a question in natural language** — and get a detailed, data-backed answer in seconds.
+Fortunas AI bridges the gap between raw transaction data and actionable business insight for Indonesian MSMEs (UMKM). Instead of dashboards or SQL, a business owner just **asks a question in natural Bahasa Indonesia** (typed or by voice) and gets a structured, data-backed answer in seconds.
 
-> **"Pelanggan mana yang paling sering beli bulan ini?"**
-> → Fortunas AI queries BigQuery, retrieves context from ChromaDB, generates a structured insight report with findings and recommendations via a local LLM — all in under 5 seconds.
+> **"Siapa pelanggan paling setia bulan ini?"**
+> → Fortunas AI maps the intent, queries that tenant's BigQuery tables, enriches with RAG, and Gemini writes a grounded report (summary + findings + recommendations) — e.g. *"Sari (18103), Budi (18105)..."*.
 
-### 💬 WhatsApp-Style Simulator
-The frontend includes a **WhatsApp-like chat simulator** that replicates the familiar messaging UX Indonesian UMKM owners already use daily. This allows frictionless adoption without requiring any WhatsApp Business API integration during the MVP phase. Full WhatsApp Business Cloud API integration is scoped as a planned enhancement.
+It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the final client is a **mobile app (Flutter)**, with a React web app for demos.
 
 ---
 
@@ -40,250 +38,156 @@ The frontend includes a **WhatsApp-like chat simulator** that replicates the fam
 
 | Feature | Description |
 |---|---|
-| **Conversational Query** | Ask business questions in natural Bahasa Indonesia |
+| **Multi-tenant + Auth** | Email/password (bcrypt) + JWT. Each business sees only its own data. |
+| **Conversational Query** | Ask in natural Bahasa Indonesia → grounded insight (`/ask`) |
 | **4 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` |
-| **Daily Briefing** | Automated morning business summary (APScheduler cron) |
-| **📱 Mobile PWA (v2.1)** | Mobile-first chat UI · installable to home screen · iOS + Android via single codebase |
-| **🎤 Voice Input (v2.1)** | Speak transactions in Bahasa Indonesia · AI parses to structured fields · saves to Sheets + BigQuery |
-| **Transaction Ingestion** | Voice or text → validated → Google Sheets staging → BigQuery |
-| **RAG Knowledge Base** | UMKM business context retrieved from ChromaDB per query |
-| **Local LLM** | Qwen3:8b via Ollama — zero token cost, full data privacy |
-| **Dual-Layer Staging** | Google Sheets audit trail + BigQuery analytics warehouse |
-| **Auto-Retry Pipeline** | APScheduler retries `failed`/`pending` rows automatically |
-| **🐳 Docker Support** | One-command setup — no manual Python/Node/Ollama install needed |
+| **Daily Briefing** | On-demand per-tenant business summary (4 analyses + executive summary) |
+| **🎤 Voice Input** | Speak transactions in Bahasa Indonesia → parsed → saved to that tenant's BigQuery |
+| **Customer naming** | Auto-assign numeric Customer ID per name; shown as `Nama (id)` |
+| **RAG Knowledge Base** | UMKM tips retrieved from ChromaDB to enrich recommendations |
+| **Pluggable LLM** | `LLM_PROVIDER` = `gemini` (default) · `openai` · `ollama` (local, zero-cost) |
+| **Mobile (Flutter)** | Final client — single codebase iOS + Android (auth WIP) |
+
+---
+
+## 🔐 Multi-Tenant & Auth
+
+- `POST /auth/register` → creates a user (bcrypt) + tenant + JWT, and **provisions two BigQuery tables**: `{prefix}_transactions` and `{prefix}_customers`.
+- `POST /auth/login` → returns a JWT. Every data endpoint requires `Authorization: Bearer <token>`.
+- **Isolation is enforced at the data layer**, not the LLM: each request resolves its tenant (`get_current_tenant`) and only touches that tenant's tables. Gemini is stateless — it only ever sees one tenant's data per request, so one API key safely serves all tenants.
+- Account metadata (users, tenants) lives in **SQLite** (`app/data/fortunas.db`); business data lives in **BigQuery** (shared project, per-tenant tables).
 
 ---
 
 ## 🏗 Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    User (Browser)                        │
-│         React 19 + Vite  —  WA Chat Simulator           │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTP / REST
-┌────────────────────────▼────────────────────────────────┐
-│               FastAPI Backend (Python 3.11)              │
-│                                                          │
-│  /wa/simulate   /ask   /briefing   /ingest   /report     │
-│                                                          │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ Intent      │  │ RAG Agent    │  │ Insight Agent  │  │
-│  │ Mapper      │  │ (ChromaDB +  │  │ (Ollama LLM)   │  │
-│  │             │  │  Embeddings) │  │                │  │
-│  └──────┬──────┘  └──────┬───────┘  └───────┬────────┘  │
-│         │                │                  │            │
-│  ┌──────▼────────────────▼──────────────────▼────────┐  │
-│  │              SQL Agent (BigQuery)                  │  │
-│  └────────────────────────────────────────────────────┘  │
-└──────────────┬───────────────────┬─────────────────────-─┘
-               │                   │
-   ┌───────────▼───┐     ┌─────────▼─────────┐
-   │ Google Sheets │     │   Google BigQuery   │
-   │ (Audit Trail  │────▶│  (Analytics DWH)    │
-   │  + Staging)   │     │  online_retail tbl  │
-   └───────────────┘     └─────────────────────┘
-          ▲
-          │ Auto-Retry (APScheduler)
-          │ failed/pending rows
+   Mobile (Flutter) / React (demo)
+            │  HTTP + Authorization: Bearer <JWT>
+            ▼
+        nginx :80  ──►  uvicorn :8000  (FastAPI)
+            │
+            ├─ Auth (JWT) ─► get_current_tenant ─► tenant's tables only
+            ├─ Intent Mapper ─► BigQuery (named SQL on {prefix}_transactions)
+            ├─ RAG (ChromaDB + MiniLM) ─► UMKM tips
+            └─ LLM provider ─► Gemini 2.5 Flash ─► grounded insight (JSON)
+            │
+   ┌────────┴─────────┐
+   │ BigQuery (cloud) │  per-tenant: {prefix}_transactions / {prefix}_customers
+   │ SQLite           │  accounts & tenants (fortunas.db)
+   └──────────────────┘
 ```
 
-**Data Flow — Transaction Input:**
-```
-Chat Input → Pydantic Validation → Google Sheets (staging)
-    → BigQuery INSERT → bq_status updated in Sheet
-    → Embedding → ChromaDB (vector index for RAG)
-```
+**Query flow:** NL question → intent → tenant's BigQuery SQL → enrich customer names → RAG → prompt (+ business profile) → Gemini → `{summary, top_findings, recommendation, rag_sources}`.
 
-**Data Flow — Query:**
-```
-Natural Language Question → Intent Classification
-    → ChromaDB top-K retrieval → BigQuery SQL execution
-    → Prompt assembly → Qwen3:8b (Ollama) → Structured answer
-```
+**Voice flow:** browser STT → `/voice/parse` (regex → LLM fallback) → review → `/voice/transaction` → validate → insert to tenant's BigQuery (invoice auto-increment, customer auto-assign).
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Mobile (v2.2) | Flutter + Dart | 3.27+ / 3.6+ |
-| Frontend (v2.1 legacy) | React + Vite | 19 / 8 |
-| Backend | FastAPI (async) | 0.135 |
-| Validation | Pydantic | 2.x |
-| Staging | Google Sheets (`gspread`) | 6.x |
-| Data Warehouse | Google BigQuery | — |
-| Scheduler | APScheduler | 3.x |
-| Vector DB | ChromaDB | 1.5 |
-| Embedding | `paraphrase-multilingual-MiniLM-L12-v2` | sentence-transformers 4.x |
-| LLM | Qwen3:8b via Ollama | — |
-| Containerization | Docker + Docker Compose | v2 |
-| Reverse Proxy | nginx:alpine | — |
-| Demo Dataset | UCI Online Retail (Chen, 2015) | 1M+ rows |
+| Layer | Technology |
+|---|---|
+| Mobile (final client) | Flutter + Dart (Riverpod, go_router, dio, speech_to_text) |
+| Web (demo) | React 19 + Vite 8 |
+| Backend | FastAPI (async), Python 3.11/3.12 |
+| Auth | bcrypt + PyJWT (JWT), SQLite metadata |
+| LLM | Gemini 2.5 Flash (default) · switchable to OpenAI / Ollama-Qwen via `app/llm_provider.py` |
+| Data Warehouse | Google BigQuery — per-tenant tables |
+| Vector DB / RAG | ChromaDB 1.5 + `paraphrase-multilingual-MiniLM-L12-v2` |
+| Deploy | VPS (Ubuntu) · systemd · nginx · ufw |
+| Demo Dataset | UCI Online Retail (Chen, 2015) |
 
 ---
 
-## ⚡ Quick Start — Docker (Recommended)
+## ⚡ Quick Start (Local Dev)
 
-> **v2.0.0** ships with full Docker support. No manual Python/Node/Ollama install required.
-> See [DOCKER.md](DOCKER.md) for the complete guide.
+> Credentials & full step-by-step (incl. VPS access) are in `HANDOVER.txt` (gitignored, internal). Project context: [`memory.md`](memory.md).
 
-### Prerequisites
-
-| Requirement | Version | Check |
-|---|---|---|
-| Docker Desktop | 25+ | `docker --version` |
-| Docker Compose | v2 (bundled) | `docker compose version` |
-| RAM | min 8 GB free | — |
-| Disk | min 10 GB free | (model weights ~4.8 GB) |
-| GCP service account | BigQuery + Sheets enabled | `.json` file |
-
-### 1. Clone
+**Prerequisites:** Python 3.11/3.12, Node 20+, a GCP service-account JSON (BigQuery), a Gemini API key.
 
 ```bash
 git clone https://github.com/Dard1ka/fortunas-ai.git
 cd fortunas-ai
-```
 
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-# Open .env and fill in:
-#   GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/service-account.json
-#   BIGQUERY_PROJECT_ID=your-project-id
-#   GOOGLE_SHEETS_ID=your-sheet-id
-```
-
-### 3. Add Google Cloud Credentials
-
-```bash
-mkdir credentials
-cp /path/to/your-service-account.json credentials/service-account.json
-```
-
-### 4. Build & Start
-
-```bash
-docker compose up --build
-```
-
-### 5. Pull LLM Model (once, ~4.8 GB)
-
-Open a new terminal while containers are running:
-
-```bash
-docker compose exec ollama ollama pull qwen3:8b
-```
-
-### 6. Open the App 🎉
-
-```
-http://localhost:3000
-```
-
----
-
-<details>
-<summary>⚙️ Manual Setup (without Docker)</summary>
-
-### Prerequisites
-
-| Requirement | Version |
-|---|---|
-| Python | 3.11 or 3.12 |
-| Node.js | 20+ |
-| Ollama | latest |
-
-```bash
 # Backend
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+.venv/Scripts/python -m pip install -r requirements.txt   # Windows
+# (Linux/Mac: source .venv/bin/activate && pip install -r requirements.txt)
 
-# Frontend
-cd frontend && npm install && cd ..
+# Credentials + .env
+mkdir credentials   # put fortunas-service-account.json here
+cp deploy/.env.production.example .env   # then edit: GEMINI_API_KEY, JWT_SECRET, BIGQUERY_*
 
-# Pull & run Ollama model
-ollama pull qwen3:8b
-ollama serve
+# (optional) build RAG index
+.venv/Scripts/python -m app.knowledge.ingest
 
-# Ingest knowledge base (once)
-python -m app.knowledge.ingest
+# Run backend
+.venv/Scripts/python -m uvicorn app.main:app --port 8000
 
-# Start servers (two terminals)
-uvicorn app.main:app --reload --port 8000
-cd frontend && npm run dev
+# Run web demo (separate terminal)
+cd frontend && npm install && npm run dev      # http://localhost:3000
 ```
 
-See [SETUP.md](SETUP.md) for full manual setup guide.
+Then open `http://localhost:3000` → **Register** a business or **Login**. To point the web demo at a deployed backend instead of localhost:
+```bash
+# in frontend/
+VITE_API_TARGET=http://<vps-ip> npm run dev      # PowerShell: $env:VITE_API_TARGET="http://<vps-ip>"; npm run dev
+```
 
-</details>
+Minimal `.env`:
+```
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+JWT_SECRET=...            # openssl rand -hex 32
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/fortunas-service-account.json
+BIGQUERY_PROJECT_ID=fortunasai
+BIGQUERY_DATASET=fortunas_ai
+VOICE_DRY_RUN=false
+BRIEFING_SCHEDULER_ENABLED=false
+```
 
 ---
 
-## 🎬 Demo
+## 🚀 Deployment (VPS)
 
-### WA Chat Simulator — Transaction Input
-```
-You:  Invoice INV-2024, sabun cuci, qty 10, harga 8500, negara Indonesia
-Bot:  ✅ Transaksi INV-2024 berhasil dicatat.
-      Tersimpan di Google Sheets (audit) + BigQuery (analytics).
-```
+The backend is deployed on a VPS (Ubuntu + systemd + nginx). Full guide: **[`deploy/DEPLOY.md`](deploy/DEPLOY.md)** (artifacts in `deploy/`: systemd unit, nginx conf, `.env.production.example`).
 
-### WA Chat Simulator — Business Query
+Update a running deployment:
+```bash
+cd /opt/fortunas-ai && git pull && sudo systemctl restart fortunas-backend
 ```
-You:  Pelanggan mana yang paling sering beli?
-Bot:  📊 Analisis Repeat Customer
+HTTPS (when a domain is available): certbot — see DEPLOY.md §9.
 
-      Temuan:
-      1. Customer C12345 melakukan 47 transaksi (tertinggi)
-      2. Rata-rata frekuensi top-10 customer: 28 transaksi/bulan
-      3. 85% repeat customer berasal dari region United Kingdom
-
-      Rekomendasi:
-      • Buat program loyalitas untuk C12345 dan 9 customer teratas
-      • Fokus retensi di region UK yang dominan
-      • Tawarkan early access produk baru ke repeat customers
-```
-
-### Available Queries
-```
-"Siapa customer dengan belanja tertinggi?"     → high_value_customer
-"Kapan waktu paling ramai transaksi?"          → peak_hour
-"Produk apa yang sering dibeli bersama?"       → bundle_opportunity
-"Siapa customer yang paling sering beli?"      → repeat_customer
-```
-
-Try the **Briefing Bisnis** tab for a fully automated, no-prompt daily business summary.
+> Docker files (`docker/`, `docker-compose*.yml`) remain in the repo but predate multi-tenant/auth — the supported path is now the VPS guide above.
 
 ---
 
 ## 📡 API Reference
 
-Interactive docs: **http://localhost:8000/docs**
+Interactive docs: **`/docs`**. All data endpoints require `Authorization: Bearer <JWT>`.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Health check |
-| `POST` | `/ask` | Direct analytics query (NL → SQL → LLM insight) |
-| `GET` | `/briefing` | Run 4 analyses + executive summary |
-| `GET` | `/briefing/stream` | Streaming briefing (Server-Sent Events) |
-| `GET` | `/report/daily` | Get latest saved briefing + history |
-| `POST` | `/report/daily/run` | Run and save daily briefing |
-| `POST` | `/voice/parse` | Parse voice transcript → structured transaction (preview) |
-| `POST` | `/voice/transaction` | Confirm voice transaction → save to Sheets + BigQuery |
-| `POST` | `/ingest` | Re-ingest RAG knowledge base to ChromaDB |
-| `POST` | `/upload` | Bulk upload CSV/Excel transactions |
-| `POST` | `/wa/simulate` | Legacy text-format transaction simulator |
-
-### Example: WA Simulator
+| Method | Endpoint | Auth | Description |
+|---|---|:--:|---|
+| `POST` | `/auth/register` | — | Create business + user, provision BQ tables, return JWT |
+| `POST` | `/auth/login` | — | Login → JWT |
+| `GET` | `/auth/me` | ✅ | Current account/tenant info |
+| `POST` | `/ask` | ✅ | NL question → grounded insight |
+| `GET` | `/briefing` | ✅ | Run 4 analyses + executive summary |
+| `POST` | `/report/daily/run` | ✅ | Run + save daily briefing (per-tenant) |
+| `GET` | `/report/daily` | ✅ | Latest saved briefing + history |
+| `POST` | `/voice/parse` | ✅ | Voice transcript → structured preview |
+| `POST` | `/voice/transaction` | ✅ | Confirm → save to tenant's BigQuery |
+| `POST` | `/upload/excel` | ✅ | Bulk CSV/Excel → tenant's BigQuery |
+| `GET` | `/health` · `/rag/health` · `/llm/health` | — | Health checks |
 
 ```bash
-curl -X POST http://localhost:8000/wa/simulate \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "body=Siapa+customer+paling+sering+beli&sender=user_demo"
+# login then ask
+TOKEN=$(curl -s -X POST .../auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"demo@fortunas.test","password":"demo12345"}' | jq -r .access_token)
+curl -X POST .../ask -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"question":"siapa pelanggan paling bernilai"}'
 ```
 
 ---
@@ -293,164 +197,76 @@ curl -X POST http://localhost:8000/wa/simulate \
 ```
 fortunas-ai/
 ├── app/
+│   ├── api/routes/          # auth, ask, briefing, voice, upload, report, health
+│   ├── core/                # config, deps, scheduler, auth (JWT/bcrypt), tenancy
+│   ├── db.py                # SQLite: users & tenants
 │   ├── agents/              # sql_agent, rag_agent, insight_agent
-│   ├── api/routes/          # ask, briefing, health, ingest, report, whatsapp
-│   ├── core/                # config, deps, scheduler
+│   ├── services/            # pipeline, wa_pipeline_structured, tenant_provisioning, excel_upload
+│   ├── llm_provider.py      # gemini / openai / ollama switch
+│   ├── llm_service.py, prompt_builder.py
+│   ├── queries.py           # per-tenant SQL builders
+│   ├── intent_mapper.py, analysis_registry.py, bigquery_service.py, schemas.py
 │   ├── knowledge/           # ingest.py + umkm_docs/ (RAG corpus)
-│   ├── services/            # pipeline, sheets_service, wa_pipeline
-│   ├── analysis_registry.py # intent → analysis mapping
-│   ├── bigquery_service.py
-│   ├── intent_mapper.py     # NL intent classification
-│   ├── llm_service.py       # Ollama wrapper
-│   ├── prompt_builder.py    # RAG prompt assembly
-│   ├── queries.py           # BigQuery SQL templates
-│   ├── schemas.py           # Pydantic models
-│   └── main.py              # FastAPI app factory
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx          # Main React component
-│   │   ├── App.css          # Component styles
-│   │   └── index.css        # Global theme (dark + gold)
-│   ├── public/
-│   │   ├── logo.svg         # Fortunas AI wordmark
-│   │   └── favicon.svg
-│   └── package.json
-├── .env.example             # Environment template
-├── requirements.txt         # Python dependencies
-├── SETUP.md                 # Detailed setup guide
-├── DEMO_SCRIPT.md           # Demo scenarios
-└── README.md                # This file
+│   └── main.py
+├── frontend/                # React web demo (login, ask, briefing, voice, history, profile)
+├── mobile/                  # Flutter app (final client; auth WIP)
+├── deploy/                  # DEPLOY.md, systemd unit, nginx conf, .env.production.example
+├── scripts/                 # BQ maintenance utilities
+├── memory.md                # project context (credential-free)
+└── requirements.txt
 ```
 
 ---
 
-## 🔒 Data Privacy
+## 🔒 Data Privacy & Isolation
 
-- **LLM runs locally** via Ollama — transaction data never leaves your server
-- **`.env` and `credentials/`** are git-ignored — never commit credentials
-- Google Sheets staging provides a human-readable audit trail
-- Compliant with Indonesian UU PDP No. 27/2022 architecture principles
+- **Tenant isolation** at the data layer: each request only accesses its own tenant's BigQuery tables.
+- **LLM trade-off:** with `LLM_PROVIDER=gemini` (default), prompts are sent to Google (cloud) — fast, high quality. For strict "data never leaves" requirements, set `LLM_PROVIDER=ollama` to run a local Qwen model (zero token cost, fully on-prem).
+- `.env`, `credentials/`, `*.db`, `chroma_db/`, `HANDOVER.txt` are git-ignored — never commit secrets.
 
 ---
 
 ## 🗺 Roadmap
 
-- [x] **v1.0.0** — MVP: RAG pipeline, WA chat simulator, BigQuery integration, React dashboard
-- [x] **v2.0.0** — Docker support: one-command setup, nginx reverse proxy, containerized Ollama
-- [ ] **v2.x** — WhatsApp Business Cloud API (real channel; infrastructure ready, blocked by Meta region restriction)
-- [ ] Fine-tune embedding model on Indonesian retail corpus
-- [ ] Add `demand_forecast` and `inventory_alert` intent modules
-- [ ] Alternative credit scoring module based on transaction history
-- [ ] Multi-tenant SaaS deployment
+- [x] v1–v2 — RAG pipeline, BigQuery, Docker, React PWA + voice
+- [x] v3.0.0 — Flutter mobile app
+- [x] **v4.0.0 — Multi-tenant SaaS** (JWT auth, per-tenant tables, Gemini provider) + **VPS deploy**
+- [ ] Mobile app auth (login → JWT) — connect Flutter to the deployed API
+- [ ] HTTPS (domain + certbot) before mobile release
+- [ ] WhatsApp Business Cloud API (infra ready; blocked by Meta region restriction)
+- [ ] `demand_forecast` / `inventory_alert` analysis modules
 
 ---
 
-## 📋 Changelog
+## 📋 Changelog (recent)
 
-### v2.2.0 — Flutter Migration
-> Pre-release · branch in progress
+### v4.0.0 — Multi-Tenant SaaS + Deploy
+- Auth: register/login (bcrypt + JWT), `get_current_tenant` dependency; SQLite account store (`app/db.py`)
+- Per-tenant BigQuery tables (`{prefix}_transactions/_customers`) + provisioning on register
+- All flows tenant-scoped (`/ask`, `/voice`, `/briefing`, `/upload`, `/report`); Google Sheets removed from the data path
+- LLM provider layer (`gemini`/`openai`/`ollama`); Gemini default; insight uses LLM output (grounded) + RAG; customer shown as `Nama (id)`
+- React: login/register screen + token handling; `deploy/` kit (systemd, nginx, guide); **deployed to VPS**
 
-**Added**
-- 📱 `mobile/` — full Flutter 3.27+ project (Material 3 + custom neo-brutalist theme)
-- Riverpod + go_router + dio + speech_to_text — stack per design hand-off spec
-- 5 screens (Home/Briefing/Result/History/Profile) ported from React
-- Full voice flow (idle → listening → parsing → parsed → success) with native `speech_to_text` (id_ID)
-- `mobile/MIGRATION.md` — React → Flutter mapping reference
-
-**Changed**
-- Frontend pivot: React PWA → Flutter native mobile (iOS + Android single codebase)
-- Voice STT: Web Speech API → `speech_to_text` plugin (privacy gap unchanged — Android still routes audio to Google STT cloud; iOS 15+ on-device)
-- Distribution model: PWA install → Play Store / App Store
-
-**Kept**
-- `frontend/` (React PWA) retained as fallback reference until Flutter is device-verified
-- Backend (FastAPI + Ollama + BigQuery + all `app/services/`) unchanged
-- All API endpoints (`/ask`, `/briefing`, `/voice/*`, etc.) — Flutter app uses the same REST contract
-
----
-
-### v2.1.0 — Mobile Redesign + Voice Flow (React PWA)
-> Pre-release · React frontend in `frontend/` (now legacy reference)
-
-**Added**
-- 📱 Full mobile-first redesign — React Router based, 5 screens (Tanya / Briefing / Result / Riwayat / Saya)
-- 🎤 Voice-to-transaction flow — 4 states (idle → listening → parsed → success) via Web Speech API (id-ID)
-- `app/api/routes/voice.py` — `POST /voice/parse` + `POST /voice/transaction`
-- `app/services/voice_parser.py` — regex fast-path + Qwen3:8b fallback parser for free-form voice transcripts (handles "delapan ribu lima ratus" → 8500)
-- `app/services/wa_pipeline_structured.py` — bridges voice payload to existing Sheets + BigQuery pipeline (no parse step)
-- PWA `manifest.webmanifest` + Apple PWA meta — installable to home screen
-- HTTPS dev mode (`npm run dev:https` via `vite-plugin-mkcert`) — for testing mic on physical phones over WiFi
-- `docs/Fortunas-AI-Overview.pdf` — user-facing overview generated via `docs/generate_pdf.py` (ReportLab)
-- `AI_CONTEXT.md` — single-source context file for any AI assistant or new developer
-
-**Changed**
-- Frontend: monolithic `App.jsx` → React Router root + screens/ + ui/ + voice/ + api/ structure
-- Design language → neo-brutalist (cream + ink + violet + lime, Space Grotesk + Inter + JetBrains Mono)
-- `wa_pipeline` service layer is now reused by voice flow — backend stays consistent with proposal pipeline
-
-**Pivoted**
-- WhatsApp Business API integration → mobile PWA with voice (Meta region restriction blocker; novelty #5 disclaimer "tanpa setup WA Business API" was always anticipating this). See `AI_CONTEXT.md` §1b for the full story.
-
----
-
-### v2.0.0 — Docker Release
-> Branch: `main` · Tag: [`v2.0.0`](https://github.com/Dard1ka/fortunas-ai/releases/tag/v2.0.0)
-
-**Added**
-- 🐳 Full Docker Compose stack: `backend`, `frontend`, `ollama` services
-- `docker/backend/Dockerfile` — Python 3.11-slim image with smart entrypoint
-- `docker/backend/entrypoint.sh` — waits for Ollama → auto-ingest on first boot → starts uvicorn
-- `docker/frontend/Dockerfile` — multi-stage: Node 20 build → nginx:alpine serve
-- `docker/frontend/nginx.conf` — SPA routing + `/api/*` reverse proxy to backend (mirrors Vite proxy)
-- `docker-compose.yml` — production stack with named volumes and internal network
-- `docker-compose.dev.yml` — hot-reload stack (source mounted, Vite HMR)
-- `Makefile` — shortcut commands (`make up`, `make pull-model`, `make dev`, etc.)
-- `DOCKER.md` — complete Docker setup guide for new developers
-- `.dockerignore` — excludes secrets and build artifacts from image context
-
-**Changed**
-- `README.md` — Docker Quick Start as primary setup method; manual setup collapsed
-- `.env.example` — added `OLLAMA_BASE_URL` Docker note (`http://ollama:11434`)
-- `.gitignore` — improved coverage
-
-**Fixed**
-- `.env.example` was accidentally containing real credentials — replaced with safe placeholders
-
----
-
-### v1.0.0 — MVP Release
-> Tag: [`v1.0.0`](https://github.com/Dard1ka/fortunas-ai/releases/tag/v1.0.0)
-
-- FastAPI backend with full RAG pipeline
-- React 19 frontend with WhatsApp-style chat simulator
-- 4 intent analyses: repeat\_customer, high\_value\_customer, peak\_hour, bundle\_opportunity
-- Google Sheets → BigQuery dual-layer staging with auto-retry
-- Daily briefing scheduler via APScheduler
-- Fortunas AI logo assets
+### v3.0.0 — Flutter mobile app + voice multi-item
+### v2.x — Docker, React PWA, voice flow, RAG, BigQuery (see git history)
 
 ---
 
 ## 👥 Team
 
-| Name | Role | NIM |
-|---|---|---|
-| Gregorius Darrel Andika Setya | Backend API · Frontend · Pipeline | 2702299882 |
-| Filo Alvian Ongky | — | 2702375613 |
-| Go Steven Sanjaya | — | 2702397225 |
-| Michael Ivan Santoso | — | 2702300120 |
+| Name | NIM |
+|---|---|
+| Gregorius Darrel Andika Setya | 2702299882 |
+| Filo Alvian Ongky | 2702375613 |
+| Go Steven Sanjaya | 2702397225 |
+| Michael Ivan Santoso | 2702300120 |
 
 **Computer Science — Binus University · MIS Student Grant 2026**
 
----
-
 ## 📄 License
-
 [MIT](LICENSE) © 2026 Fortunas AI Team
 
----
-
 ## 📚 References
-
-- Lewis, P. et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. NeurIPS. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
+- Lewis, P. et al. (2020). *Retrieval-Augmented Generation*. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
 - Reimers, N. & Gurevych, I. (2019). *Sentence-BERT*. [arXiv:1908.10084](https://arxiv.org/abs/1908.10084)
 - Chen, D. (2015). *UCI Online Retail Dataset*. [DOI:10.24432/C5BW33](http://archive.ics.uci.edu/dataset/352/online+retail)
