@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (ruff + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Deps minimal — cukup untuk lint + smoke test kontrak (schemas).
+      # JANGAN install requirements.txt penuh (torch/chromadb) di smoke ini.
+      # Tambah dep di sini saat ada test yang butuh modul app lebih berat.
+      - name: Install deps
+        run: pip install ruff==0.15.10 pytest==9.0.2 pydantic==2.12.5
+      - name: Lint (ruff)
+        run: ruff check app tests
+      - name: Test (pytest smoke)
+        run: python -m pytest tests/ -v
+
+  mobile:
+    name: Mobile (flutter analyze)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.7"
+          channel: stable
+          cache: true
+      - name: Flutter deps
+        run: flutter pub get
+        working-directory: mobile
+      # --no-fatal-infos: gagal hanya pada error/warning, bukan info gaya.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+        working-directory: mobile

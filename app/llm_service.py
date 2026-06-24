@@ -1,7 +1,5 @@
-import os
 import json
 import re
-import requests
 from dotenv import load_dotenv
 
 from app.llm_provider import check_llm_health, llm_generate
