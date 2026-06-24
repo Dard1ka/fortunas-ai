@@ -13,6 +13,7 @@ from app.schemas import (
     CustomerBootstrapRequest,
     CustomerProfile,
     CustomerProfileUpdate,
+    DeviceTokenRequest,
     DPAPayload,
     DPAUpdateRequest,
     QRSessionResponse,
@@ -150,3 +151,18 @@ def test_dpa_update_valid():
         password="rahasia",
     )
     assert "rokok" in d.forbidden_rules
+
+
+def test_device_token_valid():
+    t = DeviceTokenRequest(fcm_token="f" * 20, platform="android")
+    assert t.platform == "android" and t.user_type is None
+
+
+def test_device_token_rejects_bad_platform():
+    with pytest.raises(ValidationError):
+        DeviceTokenRequest(fcm_token="f" * 20, platform="symbian")
+
+
+def test_device_token_rejects_short_token():
+    with pytest.raises(ValidationError):
+        DeviceTokenRequest(fcm_token="x", platform="ios")

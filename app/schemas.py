@@ -280,3 +280,11 @@ class DPAUpdateRequest(BaseModel):
     allowed_rules: list[str] = Field(default_factory=list)
     forbidden_rules: list[str] = Field(default_factory=list)
     password: str = Field(min_length=1)  # konfirmasi (MVP; email-OTP → v5.1)
+
+
+# ── Device Token (FCM) (🔵 v5.1 — kontrak saja) — REQUIREMENTS §6.6/§7.4 ──
+
+class DeviceTokenRequest(BaseModel):
+    fcm_token: str = Field(min_length=10)
+    platform: Literal["android", "ios", "web"]
+    user_type: Literal["customer", "umkm"] | None = None

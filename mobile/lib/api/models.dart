@@ -618,6 +618,25 @@ class DpaUpdateRequest {
       };
 }
 
+// ── Device Token (FCM — v5.1) ──
+class DeviceTokenRequest {
+  final String fcmToken;
+  final String platform; // android | ios | web
+  final String? userType; // customer | umkm
+
+  const DeviceTokenRequest({
+    required this.fcmToken,
+    required this.platform,
+    this.userType,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'fcm_token': fcmToken,
+        'platform': platform,
+        if (userType != null) 'user_type': userType,
+      };
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {
