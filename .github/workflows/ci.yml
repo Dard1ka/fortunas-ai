@@ -19,9 +19,9 @@ jobs:
       # JANGAN install requirements.txt penuh (torch/chromadb) di smoke ini.
       # Tambah dep di sini saat ada test yang butuh modul app lebih berat.
       - name: Install deps
-        run: pip install ruff==0.15.10 pytest==9.0.2 pydantic==2.12.5
+        run: pip install ruff==0.15.10 pytest==9.0.2 pydantic==2.12.5 SQLAlchemy==2.0.46
       - name: Lint (ruff)
-        run: ruff check app tests
+        run: ruff check app tests --extend-exclude=app/migrations
       - name: Test (pytest smoke)
         run: python -m pytest tests/ -v
 
