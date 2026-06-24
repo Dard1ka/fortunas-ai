@@ -566,6 +566,58 @@ class CheckoutConfirmResponse {
       );
 }
 
+// ── DPA Policy ──
+class DpaPayload {
+  final String rawText;
+  final List<String> allowedRules;
+  final List<String> forbiddenRules;
+  final String? policySummary;
+  final int version;
+  final String? verifiedAt;
+  final String? updatedAt;
+
+  const DpaPayload({
+    this.rawText = '',
+    this.allowedRules = const [],
+    this.forbiddenRules = const [],
+    this.policySummary,
+    this.version = 0,
+    this.verifiedAt,
+    this.updatedAt,
+  });
+
+  factory DpaPayload.fromJson(Map<String, dynamic> j) => DpaPayload(
+        rawText: j['raw_text']?.toString() ?? '',
+        allowedRules: _stringList(j['allowed_rules']),
+        forbiddenRules: _stringList(j['forbidden_rules']),
+        policySummary: j['policy_summary']?.toString(),
+        version: (j['version'] as num?)?.toInt() ?? 0,
+        verifiedAt: j['verified_at']?.toString(),
+        updatedAt: j['updated_at']?.toString(),
+      );
+}
+
+class DpaUpdateRequest {
+  final String rawText;
+  final List<String> allowedRules;
+  final List<String> forbiddenRules;
+  final String password;
+
+  const DpaUpdateRequest({
+    required this.rawText,
+    this.allowedRules = const [],
+    this.forbiddenRules = const [],
+    required this.password,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'raw_text': rawText,
+        'allowed_rules': allowedRules,
+        'forbidden_rules': forbiddenRules,
+        'password': password,
+      };
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

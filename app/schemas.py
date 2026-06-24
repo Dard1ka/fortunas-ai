@@ -261,3 +261,22 @@ class CheckoutConfirmResponse(BaseModel):
     member_since: str | None = None
     points_earned: int | None = None  # 🟡 null di MVP-now
     promo_redeemed: str | None = None  # 🟡 promo_id kalau ada
+
+
+# ── DPA Policy (guardrail) (🟢) — REQUIREMENTS §7.2, REKOMENDASI A4 ──
+
+class DPAPayload(BaseModel):
+    raw_text: str = ""
+    allowed_rules: list[str] = Field(default_factory=list)
+    forbidden_rules: list[str] = Field(default_factory=list)
+    policy_summary: str | None = None
+    version: int = 0
+    verified_at: str | None = None
+    updated_at: str | None = None
+
+
+class DPAUpdateRequest(BaseModel):
+    raw_text: str = Field(min_length=1)
+    allowed_rules: list[str] = Field(default_factory=list)
+    forbidden_rules: list[str] = Field(default_factory=list)
+    password: str = Field(min_length=1)  # konfirmasi (MVP; email-OTP → v5.1)

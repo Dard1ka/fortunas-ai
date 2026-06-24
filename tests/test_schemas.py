@@ -13,6 +13,8 @@ from app.schemas import (
     CustomerBootstrapRequest,
     CustomerProfile,
     CustomerProfileUpdate,
+    DPAPayload,
+    DPAUpdateRequest,
     QRSessionResponse,
     QRValidateRequest,
     QRValidateResponse,
@@ -124,3 +126,27 @@ def test_checkout_grand_total_sums_items():
 def test_checkout_response_optional_loyalty_fields_default_none():
     resp = CheckoutConfirmResponse(ok=True, status="ok", reply="sip")
     assert resp.points_earned is None and resp.promo_redeemed is None
+
+
+def test_dpa_payload_defaults_empty():
+    d = DPAPayload()
+    assert d.raw_text == "" and d.allowed_rules == [] and d.version == 0
+
+
+def test_dpa_update_requires_raw_text():
+    with pytest.raises(ValidationError):
+        DPAUpdateRequest(raw_text="", password="rahasia")
+
+
+def test_dpa_update_requires_password():
+    with pytest.raises(ValidationError):
+        DPAUpdateRequest(raw_text="Tidak jual rokok", password="")
+
+
+def test_dpa_update_valid():
+    d = DPAUpdateRequest(
+        raw_text="Tidak menjual produk tembakau.",
+        forbidden_rules=["rokok", "tembakau"],
+        password="rahasia",
+    )
+    assert "rokok" in d.forbidden_rules
