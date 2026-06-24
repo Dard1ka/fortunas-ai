@@ -196,3 +196,26 @@ class CustomerProfileUpdate(BaseModel):
         if v is None:
             return v
         return _validate_past_date(v, "birth_date")
+
+
+# ── QR Identity + Validate (🟢) — REQUIREMENTS §6.3, REKOMENDASI A5 ──
+
+class QRSessionResponse(BaseModel):
+    qr_token: str
+    nonce: str
+    issued_at: str
+    expires_at: str
+    ttl_seconds: int = 90
+
+
+class QRValidateRequest(BaseModel):
+    customer_qr_token: str = Field(min_length=10)
+
+
+class QRValidateResponse(BaseModel):
+    valid: bool
+    customer_user_id: str | None = None
+    username: str | None = None
+    is_new_member: bool = False
+    member_since: str | None = None
+    reason: str | None = None  # invalid: "expired" | "tampered" | "replayed"

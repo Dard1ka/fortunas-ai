@@ -403,6 +403,64 @@ class CustomerProfileUpdate {
       };
 }
 
+// ── QR Identity + Validate ──
+class QrSessionResponse {
+  final String qrToken;
+  final String nonce;
+  final String issuedAt;
+  final String expiresAt;
+  final int ttlSeconds;
+
+  const QrSessionResponse({
+    required this.qrToken,
+    required this.nonce,
+    required this.issuedAt,
+    required this.expiresAt,
+    this.ttlSeconds = 90,
+  });
+
+  factory QrSessionResponse.fromJson(Map<String, dynamic> j) => QrSessionResponse(
+        qrToken: j['qr_token']?.toString() ?? '',
+        nonce: j['nonce']?.toString() ?? '',
+        issuedAt: j['issued_at']?.toString() ?? '',
+        expiresAt: j['expires_at']?.toString() ?? '',
+        ttlSeconds: (j['ttl_seconds'] as num?)?.toInt() ?? 90,
+      );
+}
+
+class QrValidateRequest {
+  final String customerQrToken;
+  const QrValidateRequest({required this.customerQrToken});
+  Map<String, dynamic> toJson() => {'customer_qr_token': customerQrToken};
+}
+
+class QrValidateResponse {
+  final bool valid;
+  final String? customerUserId;
+  final String? username;
+  final bool isNewMember;
+  final String? memberSince;
+  final String? reason;
+
+  const QrValidateResponse({
+    required this.valid,
+    this.customerUserId,
+    this.username,
+    this.isNewMember = false,
+    this.memberSince,
+    this.reason,
+  });
+
+  factory QrValidateResponse.fromJson(Map<String, dynamic> j) => QrValidateResponse(
+        valid: j['valid'] == true,
+        customerUserId: j['customer_user_id']?.toString(),
+        username: j['username']?.toString(),
+        isNewMember: j['is_new_member'] == true,
+        memberSince: j['member_since']?.toString(),
+        reason: j['reason']?.toString(),
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {
