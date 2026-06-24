@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 from app.queries import NAMED_QUERIES
-from app.bigquery_service import run_query_safe, dry_run
+from app.bigquery_service import run_query_safe
 from app.sql_guards import validate_adhoc_sql
 from app.schema_context import get_schema_context
 

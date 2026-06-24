@@ -8,11 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import ask, auth, briefing, health, ingest, report, upload, voice, whatsapp
 from app.core.config import get_settings
-from app.core.deps import get_insight_agent, get_rag_agent
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.db import init_db
-from app.services import report_store
-from app.services.pipeline import run_full_briefing
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fortunas")

@@ -14,11 +14,9 @@ confidence. Field types are not yet coerced — that happens in wa_validator.
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Any
 
-import requests
 
 from app.llm_provider import llm_generate
 
