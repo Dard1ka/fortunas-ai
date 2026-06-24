@@ -461,6 +461,111 @@ class QrValidateResponse {
       );
 }
 
+// ── Checkout (multi-item) ──
+class CheckoutLineItem {
+  final String product;
+  final int qty;
+  final int unitPrice;
+  final int total;
+
+  const CheckoutLineItem({
+    required this.product,
+    required this.qty,
+    required this.unitPrice,
+    int? total,
+  }) : total = total ?? qty * unitPrice;
+
+  Map<String, dynamic> toJson() => {
+        'product': product,
+        'qty': qty,
+        'unit_price': unitPrice,
+        'total': total,
+      };
+
+  factory CheckoutLineItem.fromJson(Map<String, dynamic> j) {
+    final q = (j['qty'] as num?)?.toInt() ?? 1;
+    final p = (j['unit_price'] as num?)?.toInt() ?? 0;
+    return CheckoutLineItem(
+      product: j['product']?.toString() ?? '',
+      qty: q,
+      unitPrice: p,
+      total: (j['total'] as num?)?.toInt() ?? q * p,
+    );
+  }
+}
+
+class CheckoutConfirmRequest {
+  final List<CheckoutLineItem> items;
+  final String customer;
+  final String country;
+  final String? invoice;
+  final String? customerQrToken;
+  final String? promoCode;
+
+  const CheckoutConfirmRequest({
+    required this.items,
+    this.customer = '',
+    this.country = 'Indonesia',
+    this.invoice,
+    this.customerQrToken,
+    this.promoCode,
+  });
+
+  int get grandTotal => items.fold(0, (sum, it) => sum + it.total);
+
+  Map<String, dynamic> toJson() => {
+        'items': [for (final it in items) it.toJson()],
+        'customer': customer,
+        'country': country,
+        if (invoice != null) 'invoice': invoice,
+        if (customerQrToken != null) 'customer_qr_token': customerQrToken,
+        if (promoCode != null) 'promo_code': promoCode,
+      };
+}
+
+class CheckoutConfirmResponse {
+  final bool ok;
+  final String status;
+  final String reply;
+  final String? invoice;
+  final int itemCount;
+  final int grandTotal;
+  final String? customerUserId;
+  final bool isNewMember;
+  final String? memberSince;
+  final int? pointsEarned;
+  final String? promoRedeemed;
+
+  const CheckoutConfirmResponse({
+    required this.ok,
+    required this.status,
+    required this.reply,
+    this.invoice,
+    this.itemCount = 0,
+    this.grandTotal = 0,
+    this.customerUserId,
+    this.isNewMember = false,
+    this.memberSince,
+    this.pointsEarned,
+    this.promoRedeemed,
+  });
+
+  factory CheckoutConfirmResponse.fromJson(Map<String, dynamic> j) =>
+      CheckoutConfirmResponse(
+        ok: j['ok'] == true,
+        status: j['status']?.toString() ?? '',
+        reply: j['reply']?.toString() ?? '',
+        invoice: j['invoice']?.toString(),
+        itemCount: (j['item_count'] as num?)?.toInt() ?? 0,
+        grandTotal: (j['grand_total'] as num?)?.toInt() ?? 0,
+        customerUserId: j['customer_user_id']?.toString(),
+        isNewMember: j['is_new_member'] == true,
+        memberSince: j['member_since']?.toString(),
+        pointsEarned: (j['points_earned'] as num?)?.toInt(),
+        promoRedeemed: j['promo_redeemed']?.toString(),
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

@@ -7,6 +7,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas import (
+    CheckoutConfirmRequest,
+    CheckoutConfirmResponse,
+    CheckoutLineItem,
     CustomerBootstrapRequest,
     CustomerProfile,
     CustomerProfileUpdate,
@@ -84,3 +87,40 @@ def test_qr_validate_request_rejects_short_token():
 def test_qr_validate_response_invalid_carries_reason():
     r = QRValidateResponse(valid=False, reason="expired")
     assert r.valid is False and r.customer_user_id is None and r.reason == "expired"
+
+
+def test_line_item_autofills_total():
+    it = CheckoutLineItem(product="Kopi", qty=3, unit_price=15000)
+    assert it.total == 45000
+
+
+def test_line_item_rejects_zero_qty():
+    with pytest.raises(ValidationError):
+        CheckoutLineItem(product="Kopi", qty=0, unit_price=15000)
+
+
+def test_line_item_rejects_empty_product():
+    with pytest.raises(ValidationError):
+        CheckoutLineItem(product="", qty=1, unit_price=1000)
+
+
+def test_checkout_requires_at_least_one_item():
+    with pytest.raises(ValidationError):
+        CheckoutConfirmRequest(items=[])
+
+
+def test_checkout_grand_total_sums_items():
+    req = CheckoutConfirmRequest(
+        items=[
+            CheckoutLineItem(product="Kopi", qty=2, unit_price=15000),
+            CheckoutLineItem(product="Roti", qty=1, unit_price=12000),
+        ]
+    )
+    assert req.grand_total == 42000
+    assert req.country == "Indonesia"  # default
+    assert req.customer_qr_token is None  # opt-in scan
+
+
+def test_checkout_response_optional_loyalty_fields_default_none():
+    resp = CheckoutConfirmResponse(ok=True, status="ok", reply="sip")
+    assert resp.points_earned is None and resp.promo_redeemed is None

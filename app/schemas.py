@@ -219,3 +219,45 @@ class QRValidateResponse(BaseModel):
     is_new_member: bool = False
     member_since: str | None = None
     reason: str | None = None  # invalid: "expired" | "tampered" | "replayed"
+
+
+# ── Checkout (multi-item, baru) (🟢) — REQUIREMENTS §7.6 ──────────
+
+class CheckoutLineItem(BaseModel):
+    product: str = Field(min_length=1)
+    qty: int = Field(gt=0)
+    unit_price: int = Field(ge=0)
+    total: int | None = None
+
+    @model_validator(mode="after")
+    def _fill_total(self) -> "CheckoutLineItem":
+        if self.total is None:
+            self.total = self.qty * self.unit_price
+        return self
+
+
+class CheckoutConfirmRequest(BaseModel):
+    items: list[CheckoutLineItem] = Field(min_length=1)
+    customer: str = ""
+    country: str = "Indonesia"
+    invoice: str | None = None  # auto kalau kosong
+    customer_qr_token: str | None = None  # opt-in (REKOMENDASI A7)
+    promo_code: str | None = None
+
+    @property
+    def grand_total(self) -> int:
+        return sum((it.total or it.qty * it.unit_price) for it in self.items)
+
+
+class CheckoutConfirmResponse(BaseModel):
+    ok: bool
+    status: str
+    reply: str
+    invoice: str | None = None
+    item_count: int = 0
+    grand_total: int = 0
+    customer_user_id: str | None = None
+    is_new_member: bool = False
+    member_since: str | None = None
+    points_earned: int | None = None  # 🟡 null di MVP-now
+    promo_redeemed: str | None = None  # 🟡 promo_id kalau ada
