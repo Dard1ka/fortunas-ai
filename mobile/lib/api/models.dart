@@ -317,6 +317,92 @@ class VoiceTransactionResponse {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// v5.0 MVP contracts — mirror app/schemas.py
+// ═══════════════════════════════════════════════════════════════
+
+// ── Customer Auth & Profile ──
+class CustomerProfile {
+  final String customerUserId;
+  final String username;
+  final String phoneNumber;
+  final String birthDate;
+  final String createdAt;
+
+  const CustomerProfile({
+    required this.customerUserId,
+    required this.username,
+    this.phoneNumber = '',
+    this.birthDate = '',
+    this.createdAt = '',
+  });
+
+  factory CustomerProfile.fromJson(Map<String, dynamic> j) => CustomerProfile(
+        customerUserId: j['customer_user_id']?.toString() ?? '',
+        username: j['username']?.toString() ?? '',
+        phoneNumber: j['phone_number']?.toString() ?? '',
+        birthDate: j['birth_date']?.toString() ?? '',
+        createdAt: j['created_at']?.toString() ?? '',
+      );
+}
+
+class CustomerBootstrapRequest {
+  final String firebaseIdToken;
+  final String username;
+  final String birthDate;
+
+  const CustomerBootstrapRequest({
+    required this.firebaseIdToken,
+    required this.username,
+    required this.birthDate,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'firebase_id_token': firebaseIdToken,
+        'username': username,
+        'birth_date': birthDate,
+      };
+}
+
+class CustomerBootstrapResponse {
+  final String accessToken;
+  final String tokenType;
+  final String role;
+  final bool isNewUser;
+  final CustomerProfile profile;
+
+  const CustomerBootstrapResponse({
+    required this.accessToken,
+    this.tokenType = 'bearer',
+    this.role = 'customer',
+    this.isNewUser = false,
+    required this.profile,
+  });
+
+  factory CustomerBootstrapResponse.fromJson(Map<String, dynamic> j) =>
+      CustomerBootstrapResponse(
+        accessToken: j['access_token']?.toString() ?? '',
+        tokenType: j['token_type']?.toString() ?? 'bearer',
+        role: j['role']?.toString() ?? 'customer',
+        isNewUser: j['is_new_user'] == true,
+        profile: j['profile'] is Map
+            ? CustomerProfile.fromJson((j['profile'] as Map).cast<String, dynamic>())
+            : const CustomerProfile(customerUserId: '', username: ''),
+      );
+}
+
+class CustomerProfileUpdate {
+  final String? username;
+  final String? birthDate;
+
+  const CustomerProfileUpdate({this.username, this.birthDate});
+
+  Map<String, dynamic> toJson() => {
+        if (username != null) 'username': username,
+        if (birthDate != null) 'birth_date': birthDate,
+      };
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

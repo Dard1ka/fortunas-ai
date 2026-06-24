@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from datetime import date
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class AskRequest(BaseModel):
@@ -118,3 +121,78 @@ class VoiceTransactionResponse(BaseModel):
     reply: str
     invoice: str | None = None
     row_number: int | None = None
+
+
+# ═══════════════════════════════════════════════════════════════
+# v5.0 MVP — kontrak baru (additive). Status: 🟢 now · 🟡 thin · 🔵 v5.1
+# ═══════════════════════════════════════════════════════════════
+
+
+def _validate_past_date(v: str, field_name: str) -> str:
+    """Pastikan string 'YYYY-MM-DD' valid & di masa lalu. Return ISO normalized."""
+    try:
+        d = date.fromisoformat(v.strip())
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"{field_name} harus format YYYY-MM-DD.") from exc
+    if d >= date.today():
+        raise ValueError(f"{field_name} harus di masa lalu.")
+    return d.isoformat()
+
+
+# ── Customer Auth & Profile (🟢) — REQUIREMENTS §5.1 ──────────────
+
+class CustomerBootstrapRequest(BaseModel):
+    firebase_id_token: str = Field(min_length=10)
+    username: str = Field(min_length=2, max_length=40)
+    birth_date: str  # "YYYY-MM-DD"
+
+    @field_validator("username")
+    @classmethod
+    def _trim_username(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("username minimal 2 karakter.")
+        return v
+
+    @field_validator("birth_date")
+    @classmethod
+    def _check_birth_date(cls, v: str) -> str:
+        return _validate_past_date(v, "birth_date")
+
+
+class CustomerProfile(BaseModel):
+    customer_user_id: str
+    username: str
+    phone_number: str = ""
+    birth_date: str = ""
+    created_at: str = ""
+
+
+class CustomerBootstrapResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str = "customer"
+    is_new_user: bool = False
+    profile: CustomerProfile
+
+
+class CustomerProfileUpdate(BaseModel):
+    username: str | None = Field(default=None, max_length=40)
+    birth_date: str | None = None
+
+    @field_validator("username")
+    @classmethod
+    def _trim_username(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("username minimal 2 karakter.")
+        return v
+
+    @field_validator("birth_date")
+    @classmethod
+    def _check_birth_date(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return _validate_past_date(v, "birth_date")
