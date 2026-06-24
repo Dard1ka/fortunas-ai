@@ -11,9 +11,9 @@ Migrasi metadata-store SQLite → PostgreSQL (SQLAlchemy 2.0 + Alembic). Branch 
 - `app/db_pg.py` — engine/SessionLocal/Base; `DATABASE_URL` (default SQLite, cutover ke `postgresql+psycopg2://`).
 - `app/models.py` — **7 ORM model** (tenants, tenant_users, tenant_settings, customer_users, customer_tenant_memberships, tenant_dpa_policies, device_tokens).
 - `app/db.py` — di-refactor jadi wrapper SQLAlchemy; public API & return shape **tidak berubah** → auth.py/tenancy.py/main.py utuh.
-- `app/migrations/` + `001_foundation_schema` — bikin 7 tabel + index (`firebase_uid`, `phone_number`).
+- `app/migrations/` + `001_foundation_schema` — bikin 7 tabel + 2 index (`ix_customer_users_firebase_uid` unique, `ix_customer_users_phone_number`).
 - `scripts/migrate_sqlite_to_pg.py` (defensif/idempotent) + `scripts/setup_pg.sql`.
-- Test: `test_db_pg`, `test_models`, `test_db_repository`, `test_migrate_script` — semua di SQLite in-memory; total suite hijau.
+- Test: `test_db_pg`, `test_models`, `test_db_repository`, `test_migrate_script` — semua di SQLite in-memory; **total suite hijau: 48 passed** (29 lama + 19 baru) → baseline regresi untuk Dev C.
 - CI: +`SQLAlchemy`, ruff exclude `app/migrations`.
 
 ## ⚠️ PENTING — scope Day 3 ditarik maju
