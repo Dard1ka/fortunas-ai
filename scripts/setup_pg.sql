@@ -16,4 +16,6 @@ $$;
 SELECT 'CREATE DATABASE fortunas_app_dev OWNER fortunas_app'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'fortunas_app_dev')\gexec
 
+-- Catatan: di PostgreSQL 15+/18, role HARUS jadi OWNER database (di atas) agar
+-- 'alembic upgrade head' bisa CREATE tabel di schema public. GRANT di bawah cuma pelengkap.
 GRANT ALL PRIVILEGES ON DATABASE fortunas_app_dev TO fortunas_app;

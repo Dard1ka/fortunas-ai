@@ -48,7 +48,7 @@ def _tenant_to_dict(t: Tenant | None) -> dict[str, Any] | None:
 def create_tenant(name: str, table_prefix: str, business_profile: dict | None = None) -> int:
     if not is_valid_prefix(table_prefix):
         raise ValueError(
-            "table_prefix tidak valid (huruf kecil/angka/underscore, mulai huruf, maks 31)."
+            "table_prefix tidak valid (huruf kecil/angka/underscore, mulai huruf, panjang 2-31)."
         )
     now = _now()
     with SessionLocal() as s:

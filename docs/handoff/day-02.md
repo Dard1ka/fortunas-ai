@@ -47,5 +47,5 @@ HTTPS aktif di VPS + endpoint customer/dpa. Skema DB sudah siap (lihat di atas).
 ## 📌 Catatan teknis
 
 - Timestamp/tanggal = TEXT ISO-8601 (portable SQLite↔PG, cocok kontrak). `tenant_settings.loyalty` = blob JSON `LoyaltySettings`. `create_tenant` auto-seed settings default.
-- `init_db()` (create_all) tetap dipanggil di startup (idempotent) — untuk prod jalankan `alembic upgrade head` dulu, create_all lalu no-op.
+- `init_db()` (create_all) tetap dipanggil di startup (idempotent) — untuk prod jalankan `alembic upgrade head` dulu, create_all lalu no-op. **Catatan:** setelah migration 002 ditambah, startup `create_all` di prod HARUS di-gate ke dev-only atau dihapus agar tidak menyembunyikan "forgot to run migration" error.
 - PostgreSQL lokal Steven = versi **18** (plan tulis 15; kompatibel).

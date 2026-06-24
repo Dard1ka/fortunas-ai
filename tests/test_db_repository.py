@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.db_pg import SessionLocal
-from app.models import TenantSettings
+from app.models import Tenant, TenantSettings
 
 
 def test_create_and_get_tenant_roundtrip():
@@ -67,6 +67,5 @@ def test_duplicate_prefix_violates_unique():
 def test_select_smoke_after_create():
     db.create_tenant("Smoke", "smoke")
     with SessionLocal() as s:
-        from app.models import Tenant
         names = s.scalars(select(Tenant.name)).all()
     assert "Smoke" in names
