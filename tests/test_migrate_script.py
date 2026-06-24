@@ -6,7 +6,7 @@ import sqlite3
 from sqlalchemy import select
 
 from app.db_pg import SessionLocal
-from app.models import Tenant, TenantUser
+from app.models import Tenant, TenantSettings, TenantUser
 from scripts.migrate_sqlite_to_pg import migrate
 
 
@@ -40,6 +40,9 @@ def test_migrate_copies_rows(tmp_path):
         assert t is not None and t.business_profile == {"x": 1}
         u = s.scalar(select(TenantUser).where(TenantUser.email == "a@lama.com"))
         assert u is not None and u.tenant_id == t.id
+        settings = s.get(TenantSettings, t.id)
+        assert settings is not None
+        assert settings.loyalty["min_points_to_generate_promo"] == 30
 
 
 def test_migrate_idempotent_skips_existing(tmp_path):
@@ -63,3 +66,4 @@ def test_migrate_idempotent_skips_existing(tmp_path):
     assert summary2["skipped_tenants"] == 1
     assert summary2["skipped_users"] == 1
     assert summary2["tenants"] == 0
+    assert summary2["users"] == 0

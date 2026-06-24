@@ -75,7 +75,11 @@ def migrate(sqlite_path: str) -> dict[str, int]:
                     if s.scalar(select(TenantUser).where(TenantUser.email == row["email"])):
                         summary["skipped_users"] += 1
                         continue
-                    new_tid = old_to_new.get(row["tenant_id"], row["tenant_id"])
+                    new_tid = old_to_new.get(row["tenant_id"])
+                    if new_tid is None:
+                        # Tenant tak ter-resolusi (orphan / tabel tenants tak ada) -> lewati defensif.
+                        summary["skipped_users"] += 1
+                        continue
                     s.add(
                         TenantUser(
                             email=row["email"],
