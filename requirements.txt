@@ -117,3 +117,8 @@ gspread==6.1.4
 
 # Submission overview PDF generator (docs/generate_pdf.py)
 reportlab==4.5.1
+
+# PostgreSQL metadata-store (Hari 2)
+SQLAlchemy==2.0.46
+alembic==1.18.3
+psycopg2-binary==2.9.11
