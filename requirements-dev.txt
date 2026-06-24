@@ -1,0 +1,3 @@
+# Dev/test only (tidak ikut image produksi). Install: pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.0.2
