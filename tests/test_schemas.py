@@ -16,9 +16,17 @@ from app.schemas import (
     DeviceTokenRequest,
     DPAPayload,
     DPAUpdateRequest,
+    LoyaltySettings,
+    PointsBalanceResponse,
+    PointsLedgerEntry,
+    PromoGenerateRequest,
+    PromoGenerateResponse,
+    PromoInstance,
+    PromoListResponse,
     QRSessionResponse,
     QRValidateRequest,
     QRValidateResponse,
+    SpinWheelSegment,
 )
 
 
@@ -166,3 +174,41 @@ def test_device_token_rejects_bad_platform():
 def test_device_token_rejects_short_token():
     with pytest.raises(ValidationError):
         DeviceTokenRequest(fcm_token="x", platform="ios")
+
+
+def test_loyalty_settings_defaults_valid():
+    s = LoyaltySettings()
+    assert s.min_points_to_generate_promo == 30
+    assert s.promo_valid_days == 7
+    assert abs(sum(seg.probability for seg in s.spin_wheel) - 1.0) < 1e-9
+    assert s.points_earning_rule.points_per_amount == 10000
+
+
+def test_loyalty_settings_rejects_bad_probability_sum():
+    with pytest.raises(ValidationError):
+        LoyaltySettings(spin_wheel=[
+            SpinWheelSegment(discount_amount=10000, probability=0.3),
+            SpinWheelSegment(discount_amount=50000, probability=0.3),
+        ])
+
+
+def test_spin_wheel_segment_probability_bounds():
+    with pytest.raises(ValidationError):
+        SpinWheelSegment(discount_amount=10000, probability=1.5)
+
+
+def test_promo_generate_response_nests_promo_and_spin():
+    resp = PromoGenerateResponse(
+        promo=PromoInstance(
+            promo_id="p1", tenant_id=1, name="Diskon Kopi", code="KOPI25",
+            discount_amount=25000,
+        ),
+        spin_result=SpinWheelSegment(discount_amount=25000, probability=0.25),
+    )
+    assert resp.promo.status == "generated"  # default
+    assert resp.spin_result.discount_amount == 25000
+
+
+def test_points_balance_defaults():
+    b = PointsBalanceResponse(customer_user_id="cu_1")
+    assert b.balance == 0 and b.recent == []

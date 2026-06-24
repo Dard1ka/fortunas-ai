@@ -288,3 +288,84 @@ class DeviceTokenRequest(BaseModel):
     fcm_token: str = Field(min_length=10)
     platform: Literal["android", "ios", "web"]
     user_type: Literal["customer", "umkm"] | None = None
+
+
+# ── Loyalty + Points + Promo (🟡 MVP-thin) — REQUIREMENTS §6.4/§6.5/§7.5 ──
+
+class SpinWheelSegment(BaseModel):
+    discount_amount: int = Field(ge=0)
+    probability: float = Field(ge=0, le=1)
+
+
+def _default_spin_wheel() -> list[SpinWheelSegment]:
+    # EV = Rp22.250 (REKOMENDASI "Catatan Ekonomi"). Jangan ubah tanpa kalibrasi.
+    return [
+        SpinWheelSegment(discount_amount=100_000, probability=0.05),
+        SpinWheelSegment(discount_amount=50_000, probability=0.10),
+        SpinWheelSegment(discount_amount=25_000, probability=0.25),
+        SpinWheelSegment(discount_amount=10_000, probability=0.60),
+    ]
+
+
+class PointsEarningRule(BaseModel):
+    type: Literal["per_amount", "per_invoice"] = "per_amount"
+    points_per_amount: int = 10_000  # 1 poin / Rp10.000 (REKOMENDASI A1)
+    points_per_invoice: int = 1
+
+
+class LoyaltySettings(BaseModel):
+    min_points_to_generate_promo: int = 30
+    spin_wheel: list[SpinWheelSegment] = Field(default_factory=_default_spin_wheel)
+    promo_valid_days: int = 7
+    points_earning_rule: PointsEarningRule = Field(default_factory=PointsEarningRule)
+
+    @model_validator(mode="after")
+    def _check_probabilities(self) -> "LoyaltySettings":
+        total = sum(s.probability for s in self.spin_wheel)
+        if abs(total - 1.0) > 0.001:
+            raise ValueError(f"Total probability spin_wheel harus 1.0 (sekarang {total}).")
+        return self
+
+
+class PointsLedgerEntry(BaseModel):
+    event_type: str  # "earn" | "redeem" | "expire" | "adjust"
+    points_delta: int
+    invoice: str | None = None
+    promo_id: str | None = None
+    tenant_id: int | None = None
+    created_at: str = ""
+
+
+class PointsBalanceResponse(BaseModel):
+    customer_user_id: str
+    balance: int = 0
+    recent: list[PointsLedgerEntry] = Field(default_factory=list)
+
+
+class PromoInstance(BaseModel):
+    promo_id: str
+    tenant_id: int
+    name: str
+    code: str
+    description: str = ""
+    discount_amount: int
+    target_product: str | None = None
+    status: str = "generated"  # "generated" | "redeemed" | "expired"
+    points_cost: int = 0
+    generated_at: str = ""
+    expires_at: str = ""
+    redeemed_at: str | None = None
+    qr_payload: str | None = None
+
+
+class PromoGenerateRequest(BaseModel):
+    tenant_id: int
+
+
+class PromoGenerateResponse(BaseModel):
+    promo: PromoInstance
+    spin_result: SpinWheelSegment
+
+
+class PromoListResponse(BaseModel):
+    promos: list[PromoInstance] = Field(default_factory=list)

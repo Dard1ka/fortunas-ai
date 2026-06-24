@@ -637,6 +637,207 @@ class DeviceTokenRequest {
       };
 }
 
+// ── Loyalty + Points + Promo (MVP-thin) ──
+class SpinWheelSegment {
+  final int discountAmount;
+  final double probability;
+  const SpinWheelSegment({required this.discountAmount, required this.probability});
+
+  Map<String, dynamic> toJson() =>
+      {'discount_amount': discountAmount, 'probability': probability};
+
+  factory SpinWheelSegment.fromJson(Map<String, dynamic> j) => SpinWheelSegment(
+        discountAmount: (j['discount_amount'] as num?)?.toInt() ?? 0,
+        probability: (j['probability'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class PointsEarningRule {
+  final String type; // per_amount | per_invoice
+  final int pointsPerAmount;
+  final int pointsPerInvoice;
+  const PointsEarningRule({
+    this.type = 'per_amount',
+    this.pointsPerAmount = 10000,
+    this.pointsPerInvoice = 1,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'points_per_amount': pointsPerAmount,
+        'points_per_invoice': pointsPerInvoice,
+      };
+
+  factory PointsEarningRule.fromJson(Map<String, dynamic> j) => PointsEarningRule(
+        type: j['type']?.toString() ?? 'per_amount',
+        pointsPerAmount: (j['points_per_amount'] as num?)?.toInt() ?? 10000,
+        pointsPerInvoice: (j['points_per_invoice'] as num?)?.toInt() ?? 1,
+      );
+}
+
+class LoyaltySettings {
+  final int minPointsToGeneratePromo;
+  final List<SpinWheelSegment> spinWheel;
+  final int promoValidDays;
+  final PointsEarningRule pointsEarningRule;
+
+  const LoyaltySettings({
+    this.minPointsToGeneratePromo = 30,
+    this.spinWheel = const [],
+    this.promoValidDays = 7,
+    this.pointsEarningRule = const PointsEarningRule(),
+  });
+
+  Map<String, dynamic> toJson() => {
+        'min_points_to_generate_promo': minPointsToGeneratePromo,
+        'spin_wheel': [for (final s in spinWheel) s.toJson()],
+        'promo_valid_days': promoValidDays,
+        'points_earning_rule': pointsEarningRule.toJson(),
+      };
+
+  factory LoyaltySettings.fromJson(Map<String, dynamic> j) => LoyaltySettings(
+        minPointsToGeneratePromo:
+            (j['min_points_to_generate_promo'] as num?)?.toInt() ?? 30,
+        spinWheel: (j['spin_wheel'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(SpinWheelSegment.fromJson)
+            .toList(),
+        promoValidDays: (j['promo_valid_days'] as num?)?.toInt() ?? 7,
+        pointsEarningRule: j['points_earning_rule'] is Map
+            ? PointsEarningRule.fromJson(
+                (j['points_earning_rule'] as Map).cast<String, dynamic>())
+            : const PointsEarningRule(),
+      );
+}
+
+class PointsLedgerEntry {
+  final String eventType;
+  final int pointsDelta;
+  final String? invoice;
+  final String? promoId;
+  final int? tenantId;
+  final String createdAt;
+
+  const PointsLedgerEntry({
+    required this.eventType,
+    required this.pointsDelta,
+    this.invoice,
+    this.promoId,
+    this.tenantId,
+    this.createdAt = '',
+  });
+
+  factory PointsLedgerEntry.fromJson(Map<String, dynamic> j) => PointsLedgerEntry(
+        eventType: j['event_type']?.toString() ?? '',
+        pointsDelta: (j['points_delta'] as num?)?.toInt() ?? 0,
+        invoice: j['invoice']?.toString(),
+        promoId: j['promo_id']?.toString(),
+        tenantId: (j['tenant_id'] as num?)?.toInt(),
+        createdAt: j['created_at']?.toString() ?? '',
+      );
+}
+
+class PointsBalanceResponse {
+  final String customerUserId;
+  final int balance;
+  final List<PointsLedgerEntry> recent;
+
+  const PointsBalanceResponse({
+    required this.customerUserId,
+    this.balance = 0,
+    this.recent = const [],
+  });
+
+  factory PointsBalanceResponse.fromJson(Map<String, dynamic> j) =>
+      PointsBalanceResponse(
+        customerUserId: j['customer_user_id']?.toString() ?? '',
+        balance: (j['balance'] as num?)?.toInt() ?? 0,
+        recent: (j['recent'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(PointsLedgerEntry.fromJson)
+            .toList(),
+      );
+}
+
+class PromoInstance {
+  final String promoId;
+  final int tenantId;
+  final String name;
+  final String code;
+  final String description;
+  final int discountAmount;
+  final String? targetProduct;
+  final String status;
+  final int pointsCost;
+  final String generatedAt;
+  final String expiresAt;
+  final String? redeemedAt;
+  final String? qrPayload;
+
+  const PromoInstance({
+    required this.promoId,
+    required this.tenantId,
+    required this.name,
+    required this.code,
+    this.description = '',
+    required this.discountAmount,
+    this.targetProduct,
+    this.status = 'generated',
+    this.pointsCost = 0,
+    this.generatedAt = '',
+    this.expiresAt = '',
+    this.redeemedAt,
+    this.qrPayload,
+  });
+
+  factory PromoInstance.fromJson(Map<String, dynamic> j) => PromoInstance(
+        promoId: j['promo_id']?.toString() ?? '',
+        tenantId: (j['tenant_id'] as num?)?.toInt() ?? 0,
+        name: j['name']?.toString() ?? '',
+        code: j['code']?.toString() ?? '',
+        description: j['description']?.toString() ?? '',
+        discountAmount: (j['discount_amount'] as num?)?.toInt() ?? 0,
+        targetProduct: j['target_product']?.toString(),
+        status: j['status']?.toString() ?? 'generated',
+        pointsCost: (j['points_cost'] as num?)?.toInt() ?? 0,
+        generatedAt: j['generated_at']?.toString() ?? '',
+        expiresAt: j['expires_at']?.toString() ?? '',
+        redeemedAt: j['redeemed_at']?.toString(),
+        qrPayload: j['qr_payload']?.toString(),
+      );
+}
+
+class PromoGenerateRequest {
+  final int tenantId;
+  const PromoGenerateRequest({required this.tenantId});
+  Map<String, dynamic> toJson() => {'tenant_id': tenantId};
+}
+
+class PromoGenerateResponse {
+  final PromoInstance promo;
+  final SpinWheelSegment spinResult;
+  const PromoGenerateResponse({required this.promo, required this.spinResult});
+
+  factory PromoGenerateResponse.fromJson(Map<String, dynamic> j) =>
+      PromoGenerateResponse(
+        promo: PromoInstance.fromJson((j['promo'] as Map).cast<String, dynamic>()),
+        spinResult:
+            SpinWheelSegment.fromJson((j['spin_result'] as Map).cast<String, dynamic>()),
+      );
+}
+
+class PromoListResponse {
+  final List<PromoInstance> promos;
+  const PromoListResponse({this.promos = const []});
+
+  factory PromoListResponse.fromJson(Map<String, dynamic> j) => PromoListResponse(
+        promos: (j['promos'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(PromoInstance.fromJson)
+            .toList(),
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {
