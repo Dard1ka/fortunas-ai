@@ -6,7 +6,7 @@
 
 ## ✅ Selesai hari ini — DPA jadi "pagar AI" (MVP fitur #7)
 
-Slice backend penuh untuk Data Processing Agreement: UMKM simpan aturan boleh/larang, backend menegakkan **deterministik (Pre + Post)** di `/ask` + inject ke prompt Gemini. **Nol kredensial eksternal**, semua diuji offline. 9 commit, **74 test hijau** (48 baseline + 26 baru), ruff bersih.
+Slice backend penuh untuk Data Processing Agreement: UMKM simpan aturan boleh/larang, backend menegakkan **deterministik (Pre + Post)** di `/ask` + inject ke prompt Gemini. **Nol kredensial eksternal**, semua diuji offline. 11 commit, **74 test hijau** (48 baseline + 26 baru), ruff bersih.
 
 - `app/dpa_repo.py` — `get_dpa`/`upsert_dpa` atas tabel `tenant_dpa_policies` (sudah ada Day 2). Default-safe: tenant tanpa DPA → payload kosong version 0. Versioned.
 - `app/services/dpa_guard.py` — guardrail PURE (nol I/O): `normalize_rules`, `find_violations` (word-boundary regex, case-insensitive), `check_question`, `check_answer`, `build_refusal`.
@@ -27,9 +27,8 @@ Slice backend penuh untuk Data Processing Agreement: UMKM simpan aturan boleh/la
 
 ## 📦 State branch
 
-- Current: `feat/dpa-backend` (commits `940cdff..cafacd4`).
-- Push terakhir: **BELUM** (nunggu konfirmasi Steven; verifikasi `gh` aktif `GoStevenSanjaya` sebelum push/PR).
-- PR open: belum.
+- Branch `feat/dpa-backend` (11 commit `940cdff..16c4275`) **sudah MERGED ke `main`** via PR #4 (squash, commit `5d28ecd`, 2026-06-25). Kedua CI check hijau (Backend ruff+pytest, Mobile flutter analyze).
+- Branch sudah dihapus (lokal + remote, pruned). `main` pasca-merge: 74 test hijau, ruff bersih.
 
 ## 🎯 Goal berikutnya
 
