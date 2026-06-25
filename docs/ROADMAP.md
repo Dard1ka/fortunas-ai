@@ -24,6 +24,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | Day 2 | PostgreSQL foundation (SQLAlchemy 2.0 + Alembic, **7 tabel** termasuk skema customer/DPA/device) | #3 (`345b667`) |
 | Day 3 | **DPA "pagar AI" backend** — guardrail deterministik Pre+Post + `GET/PUT /umkm/dpa` + inject prompt | #4 (`5d28ecd`) |
 | — | Rapikan handoff day-03 (doc) | #5 |
+| Day 4 | **Customer JWT + QR identity backend** — bootstrap (Firebase seam) + QR signed 90s single-use + scan→auto-membership | #7 |
 
 **8 Fitur MVP — peta done/belum:**
 
@@ -31,16 +32,16 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 |---|---|---|
 | 1. Login UMKM + HTTPS | 🟡 sebagian | Auth backend UMKM ✅ (v4.0). **Belum:** layar login Flutter, HTTPS/domain VPS |
 | 2. PostgreSQL | ✅ selesai | PR #3. Cutover Postgres prod (smoke asli) masih nunggu kredensial |
-| 3. Customer login HP + OTP | ❌ belum | Butuh Firebase Phone Auth (eksternal) |
-| 4. QR identitas customer | ❌ belum | Backend sign/verify QR **credential-free** → kandidat slice berikutnya |
-| 5. Scan QR → auto-member | ❌ belum | Backend validate + auto-membership **credential-free** |
+| 3. Customer login HP + OTP | 🟡 sebagian | Backend bootstrap + Firebase seam ✅ (Day 4, dev stub `FORTUNAS_DEV_AUTH=1`). **Belum:** Firebase real wiring + 3 layar mobile |
+| 4. QR identitas customer | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. Sisa: render QR di mobile |
+| 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
 | 6. Checkout nyambung customer | ❌ belum | Kontrak ada (`CheckoutConfirm*`); endpoint + insert BQ belum |
 | 7. DPA jadi "pagar" AI | 🟡 backend ✅ | **Backend SELESAI (PR #4).** Sisa: UI mobile DPA (onboarding + edit), roadmap Hari 12 |
 | 8. Analisis `top_product` | ❌ belum | SQL builder + intent rules **credential-free** |
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** Customer JWT + QR identity backend (#4/#5) → analisis `top_product` (#8) → checkout endpoint (#6). UI mobile DPA (#7 sisanya) = track Flutter terpisah.
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → checkout endpoint (#6) → analisis `top_product` (#8). UI mobile (DPA #7-sisanya + customer/QR) = track Flutter terpisah.
 
 ---
 

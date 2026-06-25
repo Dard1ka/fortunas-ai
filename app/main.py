@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ask, auth, briefing, dpa, health, ingest, report, upload, voice, whatsapp
+from app.api.routes import (
+    ask, auth, briefing, customer, dpa, health, ingest, report, scan, upload, voice, whatsapp,
+)
 from app.core.config import get_settings
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.db import init_db
@@ -68,6 +70,8 @@ def create_app() -> FastAPI:
     app.include_router(ask.router)
     app.include_router(briefing.router)
     app.include_router(dpa.router)
+    app.include_router(customer.router)
+    app.include_router(scan.router)
     app.include_router(ingest.router)
     app.include_router(report.router)
     app.include_router(upload.router)
