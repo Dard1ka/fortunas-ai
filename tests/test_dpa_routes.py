@@ -28,6 +28,8 @@ def test_get_dpa_default_empty():
     body = r.json()
     assert body["version"] == 0
     assert body["forbidden_rules"] == []
+    assert body["allowed_rules"] == []
+    assert body["raw_text"] == ""
 
 
 def test_put_dpa_correct_password_persists_and_increments():
@@ -51,6 +53,7 @@ def test_put_dpa_wrong_password_403():
     r = client.put("/umkm/dpa", headers={"Authorization": f"Bearer {token}"}, json={
         "raw_text": "x", "allowed_rules": [], "forbidden_rules": [], "password": "salah"})
     assert r.status_code == 403
+    assert r.json()["detail"] == "Konfirmasi password salah."
 
 
 def test_put_dpa_empty_raw_text_422():
