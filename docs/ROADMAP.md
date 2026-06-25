@@ -35,7 +35,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 3. Customer login HP + OTP | 🟡 sebagian | Backend bootstrap + Firebase seam ✅ (Day 4, dev stub `FORTUNAS_DEV_AUTH=1`). **Belum:** Firebase real wiring + 3 layar mobile |
 | 4. QR identitas customer | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. Sisa: render QR di mobile |
 | 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
-| 6. Checkout nyambung customer | ✅ backend selesai | **Backend SELESAI (Day 5, branch `feat/checkout-confirm`)**: POST /checkout/confirm multi-item + opt-in QR loyalty link (best-effort SETELAH sale). Sisa: UI mobile + kolom BQ enriched |
+| 6. Checkout nyambung customer | 🟡 backend ✅ | **Backend SELESAI (Day 5, branch `feat/checkout-confirm`)**: POST /checkout/confirm multi-item + opt-in QR loyalty link (best-effort SETELAH sale). Sisa: UI mobile + kolom BQ enriched |
 | 7. DPA jadi "pagar" AI | 🟡 backend ✅ | **Backend SELESAI (PR #4).** Sisa: UI mobile DPA (onboarding + edit), roadmap Hari 12 |
 | 8. Analisis `top_product` | ❌ belum | SQL builder + intent rules **credential-free** |
 

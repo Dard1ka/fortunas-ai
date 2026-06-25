@@ -6,14 +6,14 @@ import bersih di CI (tanpa google-cloud). Pola lazy = firebase_auth/pipeline.
 """
 from __future__ import annotations
 
-import os  # noqa: F401
-from typing import Any  # noqa: F401
+import os
+from typing import Any
 
-from app import customer_repo  # noqa: F401
-from app.core.tenancy import TenantContext  # noqa: F401
-from app.qr_nonce_repo import consume_nonce  # noqa: F401
-from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse  # noqa: F401
-from app.services.qr_service import verify_qr  # noqa: F401
+from app import customer_repo
+from app.core.tenancy import TenantContext
+from app.qr_nonce_repo import consume_nonce
+from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse
+from app.services.qr_service import verify_qr
 
 
 def resolve_bq_customer_name(req: CheckoutConfirmRequest, qr_username: str | None) -> str:
@@ -70,8 +70,11 @@ def persist_basket(
     tx_table: str,
     customers_table: str,
 ) -> dict:
-    explicit = bool((invoice or "").strip())
-    inv = (invoice or "").strip() or str(_bq_next_invoice(tx_table))
+    # Normalisasi invoice ke digit (konsisten dgn voice to_wa_payload yang strip non-digit),
+    # supaya dup-check int(inv) tidak pernah crash & invoice di response = yang tersimpan di BQ.
+    digits = "".join(ch for ch in (invoice or "") if ch.isdigit())
+    explicit = bool(digits)
+    inv = digits or str(_bq_next_invoice(tx_table))
     cid = _bq_resolve_customer_id(customer_name, customers_table, tx_table)
     cid_str = "" if cid is None else str(cid)
 

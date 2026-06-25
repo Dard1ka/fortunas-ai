@@ -82,3 +82,17 @@ def test_persist_validation_error(monkeypatch):
     _patch_bq(monkeypatch, raise_validation=True)
     res = persist_basket(_items(), "Budi", "Indonesia", None, "t.tx", "t.cust")
     assert res["status"] == "validation_error"
+
+
+def test_persist_normalizes_nondigit_explicit_invoice(monkeypatch):
+    # invoice "12ab3" → dinormalisasi ke "123"; dup-check int() tidak crash
+    _patch_bq(monkeypatch, insert=(1, []))
+    res = persist_basket(_items(), "Budi", "Indonesia", "12ab3", "t.tx", "t.cust")
+    assert res["status"] == "ok" and res["invoice"] == "123"
+
+
+def test_persist_allgarbage_invoice_falls_back_to_auto(monkeypatch):
+    # invoice tanpa digit sama sekali → diperlakukan seperti tidak ada → auto-allocate
+    _patch_bq(monkeypatch, insert=(1, []), max_invoice=40)
+    res = persist_basket(_items(), "Budi", "Indonesia", "abc", "t.tx", "t.cust")
+    assert res["status"] == "ok" and res["invoice"] == "41"
