@@ -21,3 +21,79 @@ def resolve_bq_customer_name(req: CheckoutConfirmRequest, qr_username: str | Non
     if qr_username:
         return qr_username
     return (req.customer or "").strip()
+
+
+class CheckoutValidationError(ValueError):
+    """Baris checkout gagal validasi BQ. Membungkus WaValidationError agar CI-clean
+    (modul wa_validator menarik google.cloud, jadi tak bisa di-import di CI)."""
+
+
+# ── Wrapper lazy: semua sentuhan BigQuery di sini (butuh kredensial → no cover) ──
+
+def _bq_next_invoice(tx_table: str) -> int:  # pragma: no cover
+    from app.services.wa_pipeline_structured import next_invoice_number
+    return next_invoice_number(tx_table)
+
+
+def _bq_resolve_customer_id(name: str, customers_table: str, tx_table: str) -> int | None:  # pragma: no cover
+    from app.services.wa_pipeline_structured import resolve_customer_id
+    return resolve_customer_id(name, customers_table, tx_table)
+
+
+def _bq_validate_row(structured: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+    """Bangun + validasi 1 baris (reuse voice). Bungkus WaValidationError → CheckoutValidationError."""
+    from app.services.wa_pipeline_structured import to_wa_payload
+    from app.services.wa_validator import WaValidationError, validate_payload
+    try:
+        return validate_payload(to_wa_payload(structured))
+    except WaValidationError as exc:
+        raise CheckoutValidationError(str(exc)) from exc
+
+
+def _bq_check_duplicate(invoice: int, stock_code: str, tx_table: str) -> bool:  # pragma: no cover
+    from app.services.wa_validator import check_duplicate_in_bq
+    return check_duplicate_in_bq(invoice, stock_code, tx_table)
+
+
+def _bq_insert(rows: list[dict], tx_table: str) -> tuple[int, list[str]]:  # pragma: no cover
+    from app.services.excel_upload import _insert_in_batches
+    return _insert_in_batches(rows, table_ref=tx_table)
+
+
+# ── Seam tunggal: orchestrasi BQ. Logika branching diuji offline via monkeypatch wrapper. ──
+
+def persist_basket(
+    items: list,
+    customer_name: str,
+    country: str,
+    invoice: str | None,
+    tx_table: str,
+    customers_table: str,
+) -> dict:
+    explicit = bool((invoice or "").strip())
+    inv = (invoice or "").strip() or str(_bq_next_invoice(tx_table))
+    cid = _bq_resolve_customer_id(customer_name, customers_table, tx_table)
+    cid_str = "" if cid is None else str(cid)
+
+    rows: list[dict] = []
+    try:
+        for it in items:
+            rows.append(_bq_validate_row({
+                "invoice": inv,
+                "product": it.product,
+                "qty": it.qty,
+                "unit_price": it.unit_price,
+                "customer": cid_str,
+                "country": country,
+            }))
+    except CheckoutValidationError as exc:
+        return {"invoice": inv, "inserted": 0, "errors": [str(exc)], "status": "validation_error"}
+
+    # Idempotency guard HANYA saat invoice eksplisit dikirim klien.
+    if explicit and rows and all(_bq_check_duplicate(int(inv), r["StockCode"], tx_table) for r in rows):
+        return {"invoice": inv, "inserted": 0, "errors": [], "status": "duplicate"}
+
+    inserted, errors = _bq_insert(rows, tx_table)
+    if errors or inserted < len(rows):
+        return {"invoice": inv, "inserted": inserted, "errors": errors, "status": "bq_error"}
+    return {"invoice": inv, "inserted": inserted, "errors": [], "status": "ok"}
