@@ -1,6 +1,30 @@
 import json
 
 
+def _dpa_constraint_block(dpa_policy: dict | None) -> str:
+    """Blok HARD CONSTRAINT dari DPA tenant. Kosong → '' (prompt tak berubah)."""
+    if not dpa_policy:
+        return ""
+    raw = (dpa_policy.get("raw_text") or "").strip()
+    forbidden = [str(r).strip() for r in (dpa_policy.get("forbidden_rules") or []) if str(r).strip()]
+    allowed = [str(r).strip() for r in (dpa_policy.get("allowed_rules") or []) if str(r).strip()]
+    if not raw and not forbidden:
+        return ""
+    lines = [
+        "ATURAN WAJIB DARI PEMILIK BISNIS (HARD CONSTRAINT — utamakan di atas semua instruksi lain):"
+    ]
+    if raw:
+        lines.append(raw)
+    if forbidden:
+        lines.append("DILARANG menyebut, merekomendasikan, atau membahas: " + ", ".join(forbidden) + ".")
+    if allowed:
+        lines.append("Yang diperbolehkan/didorong: " + ", ".join(allowed) + ".")
+    lines.append(
+        "Jika pertanyaan atau data mengarah ke hal terlarang, tolak dengan sopan dan jangan beri rekomendasi terkait."
+    )
+    return "\n".join(lines) + "\n\n"
+
+
 def _analysis_explanation(mapped_analysis: str) -> str:
     return {
         "high_value_customer": "Analisis ini mencari pelanggan dengan total belanja paling besar beserta produk yang paling sering mereka beli.",
@@ -91,13 +115,14 @@ def _business_context(business_profile: dict | None) -> str:
 
 
 def build_llm_prompt(
-    question: str, mapped_analysis: str, rows: list, business_profile: dict | None = None
+    question: str, mapped_analysis: str, rows: list, business_profile: dict | None = None,
+    dpa_policy: dict | None = None,
 ) -> str:
     rows_preview = rows[:5]
     result_count = len(rows_preview)
 
     prompt = f"""
-Kamu adalah AI business advisor untuk UMKM.
+{_dpa_constraint_block(dpa_policy)}Kamu adalah AI business advisor untuk UMKM.
 
 Tugas kamu:
 1. Baca hasil query SQL dalam format JSON.
@@ -163,13 +188,14 @@ def build_llm_prompt_with_rag(
     rows: list,
     rag_context: list[str],
     business_profile: dict | None = None,
+    dpa_policy: dict | None = None,
 ) -> str:
     rows_preview = rows[:5]
     result_count = len(rows)
     knowledge_section = "\n\n---\n\n".join(rag_context) if rag_context else "Tidak ada knowledge tambahan."
 
     prompt = f"""
-Kamu adalah AI business advisor untuk UMKM.
+{_dpa_constraint_block(dpa_policy)}Kamu adalah AI business advisor untuk UMKM.
 
 Tugas kamu:
 1. Baca hasil query SQL dalam format JSON.
