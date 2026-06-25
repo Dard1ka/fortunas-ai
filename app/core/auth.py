@@ -28,12 +28,25 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(*, user_id: int, email: str, tenant_id: int) -> str:
+def create_access_token(*, user_id: int, email: str, tenant_id: int, role: str = "umkm") -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "email": email,
         "tenant_id": tenant_id,
+        "role": role,
+        "iat": now,
+        "exp": now + timedelta(days=JWT_EXPIRE_DAYS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def create_customer_token(*, customer_user_id: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": customer_user_id,
+        "customer_user_id": customer_user_id,
+        "role": "customer",
         "iat": now,
         "exp": now + timedelta(days=JWT_EXPIRE_DAYS),
     }
