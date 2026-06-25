@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.api.routes import auth, checkout, customer
 from app.services import checkout_service
+from app.services import qr_service
 
 _BOOT = {"firebase_id_token": "xxxxxxxxxx", "username": "Budi", "birth_date": "1995-08-17"}
 _ITEMS = [{"product": "Kopi Susu", "qty": 2, "unit_price": 15000},
@@ -105,3 +106,69 @@ def test_customer_token_rejected(monkeypatch):
     ct = _customer_token(c, monkeypatch)
     r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {ct}"}, json={"items": _ITEMS})
     assert r.status_code == 401
+
+
+def test_qr_valid_links_membership_and_name_wins(monkeypatch):
+    c = _client()
+    u = _umkm_token(c)
+    ct = _customer_token(c, monkeypatch)
+    fake = _FakeBQ()
+    monkeypatch.setattr(checkout_service, "persist_basket", fake)
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": _ITEMS, "customer": "walk-in", "customer_qr_token": _qr(c, ct)})
+    b = r.json()
+    assert b["ok"] is True and b["customer_user_id"] is not None
+    assert b["is_new_member"] is True and b["member_since"]
+    assert fake.calls[-1]["customer_name"] == "Budi"  # QR username menang atas "walk-in"
+
+
+def test_qr_expired_sale_proceeds_link_skipped(monkeypatch):
+    c = _client()
+    u = _umkm_token(c)
+    ct = _customer_token(c, monkeypatch)
+    fake = _FakeBQ()
+    monkeypatch.setattr(checkout_service, "persist_basket", fake)
+    monkeypatch.setattr(qr_service, "QR_TTL_SECONDS", -1)
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": _ITEMS, "customer": "walk-in", "customer_qr_token": _qr(c, ct)})
+    b = r.json()
+    assert b["ok"] is True and b["status"] == "ok" and b["customer_user_id"] is None
+    assert fake.calls[-1]["customer_name"] == "walk-in"  # fallback ke nama request
+
+
+def test_qr_tampered_sale_proceeds(monkeypatch):
+    c = _client()
+    u = _umkm_token(c)
+    ct = _customer_token(c, monkeypatch)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": _ITEMS, "customer_qr_token": _qr(c, ct) + "x"})
+    assert r.json()["ok"] is True and r.json()["customer_user_id"] is None
+
+
+def test_qr_replay_second_checkout_link_skipped(monkeypatch):
+    c = _client()
+    u = _umkm_token(c)
+    ct = _customer_token(c, monkeypatch)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    h = {"Authorization": f"Bearer {u}"}
+    qr = _qr(c, ct)
+    r1 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
+    r2 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
+    assert r1.json()["customer_user_id"] is not None
+    assert r2.json()["ok"] is True and r2.json()["customer_user_id"] is None
+
+
+def test_bq_error_does_not_burn_qr(monkeypatch):
+    """Invariant write-ordering: sale gagal → nonce TIDAK dikonsumsi → QR masih reusable."""
+    c = _client()
+    u = _umkm_token(c)
+    ct = _customer_token(c, monkeypatch)
+    h = {"Authorization": f"Bearer {u}"}
+    qr = _qr(c, ct)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ(status="bq_error"))
+    r1 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
+    assert r1.json()["status"] == "bq_error"
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    r2 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
+    assert r2.json()["ok"] is True and r2.json()["customer_user_id"] is not None

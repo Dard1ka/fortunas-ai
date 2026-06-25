@@ -120,9 +120,21 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
             invoice=(req.invoice or None), item_count=item_count, grand_total=grand_total,
         )
 
-    # QR pre-check (PURE) — placeholder; logika QR penuh ditambah di Task 4.
+    # QR pre-check (PURE, belum ada efek samping).
+    qr = None
     qr_username = None
     link_note = ""
+    if req.customer_qr_token:
+        verified = verify_qr(req.customer_qr_token)
+        if verified["valid"]:
+            cust = customer_repo.get_customer(verified["customer_user_id"])
+            if cust is not None:
+                qr = verified
+                qr_username = cust["username"]
+            else:
+                link_note = " (QR pelanggan tidak dikenali — poin tidak terhubung.)"
+        else:
+            link_note = " (QR pelanggan tidak valid/kedaluwarsa — poin tidak terhubung.)"
 
     name = resolve_bq_customer_name(req, qr_username)
 
@@ -143,9 +155,25 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
             item_count=item_count, grand_total=grand_total,
         )
 
+    # ── Loyalty link (best-effort, SETELAH sale sukses) ──
+    customer_user_id = None
+    is_new_member = False
+    member_since = None
+    if qr is not None:  # QR valid + customer ada
+        if consume_nonce(qr["nonce"], qr["expires_at"]):
+            membership, is_new = customer_repo.ensure_membership(
+                qr["customer_user_id"], tenant.tenant_id
+            )
+            customer_user_id = qr["customer_user_id"]
+            is_new_member = is_new
+            member_since = membership["member_since"]
+            link_note = f" Pelanggan {qr_username} terhubung."
+        else:
+            link_note = " (QR sudah dipakai — poin tidak terhubung.)"
+
     return CheckoutConfirmResponse(
         ok=True, status="ok", reply=base_reply + link_note,
         invoice=res["invoice"], item_count=item_count, grand_total=grand_total,
-        customer_user_id=None, is_new_member=False, member_since=None,
+        customer_user_id=customer_user_id, is_new_member=is_new_member, member_since=member_since,
         points_earned=None, promo_redeemed=None,
     )
