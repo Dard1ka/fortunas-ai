@@ -38,3 +38,11 @@ def test_build_refusal_mentions_topic_and_tenant():
     msg = dpa_guard.build_refusal(["rokok"], tenant_name="Toko Sehat")
     assert "rokok" in msg
     assert "Toko Sehat" in msg
+
+
+def test_check_question_none_safe():
+    assert dpa_guard.check_question(None, ["rokok"]) == []
+
+
+def test_check_answer_empty_dict_safe():
+    assert dpa_guard.check_answer({}, ["rokok"]) == []
