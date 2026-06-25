@@ -23,7 +23,7 @@ Alur penuh credential-free & testable offline: customer bootstrap (Firebase seam
 - **Nol dep baru.** `firebase_admin` lazy-import HANYA jalur real (`# pragma: no cover`) → tak masuk CI. `requirements.txt`/`ci.yml` tak disentuh.
 - **Keamanan scan (urutan):** verify signature+exp → cek customer ada → consume nonce → membership. Token palsu/kedaluwarsa/asing tak membakar nonce; replay tetap ketahuan walau sudah member.
 - **Nol-regresi UMKM:** `create_access_token` additive; token UMKM lama (tanpa `role`) → diperlakukan `umkm`. `get_current_tenant` tak diubah.
-- Test: 8 baru, semua offline (SQLite in-memory + monkeypatch seam). Baseline 74 + baru = hijau, ruff bersih.
+- Test: 8 file test baru + 1 test ditambah ke `tests/test_models.py` (32 test fungsi baru), semua offline (SQLite in-memory + monkeypatch seam). Suite: 74 baseline → **106 hijau**, ruff bersih.
 
 ## 🔴 Blocker
 - TIDAK ADA. Slice merge-able default-safe. Bootstrap real butuh Firebase (seam di PENDING); dev pakai `FORTUNAS_DEV_AUTH=1`.
