@@ -243,6 +243,8 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ---
 
 ### 🗓 Hari 5 (Jum 2026-07-03) — Dev B
+> **✅ Aktual (ahead-of-schedule):** `feat/checkout-confirm` — POST /checkout/confirm multi-item + opt-in QR loyalty link (best-effort SETELAH sale). 19 test baru (suite 125 hijau), BQ di balik seam lazy (default-safe), nol dep CI baru.
+
 **Goal:** Polish mobile UMKM + customer bootstrap endpoint backend siap.
 
 **Tools dipakai:** Flutter · firebase-admin Python · Postman

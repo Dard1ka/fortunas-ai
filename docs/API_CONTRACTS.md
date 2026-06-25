@@ -76,6 +76,8 @@ Response invalid: `{ "valid": false, "reason": "expired" }`
 ## 🟢 Checkout (multi-item, baru)
 
 ### POST /checkout/confirm
+> **Status:** ✅ implemented (Day 5). Sale = sumber kebenaran; QR opt-in best-effort SETELAH sale (QR invalid/expired/replay → sale tetap jalan, `customer_user_id=null` + note). `points_earned`/`promo_redeemed` tetap `null`; `promo_code` diterima tapi diabaikan (v5.1).
+
 Endpoint **baru**, coexist dgn `/voice/transaction` lama (tidak diganggu). `customer_qr_token` opt-in.
 
 Request `CheckoutConfirmRequest`:
