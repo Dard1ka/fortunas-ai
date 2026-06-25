@@ -97,3 +97,55 @@ def persist_basket(
     if errors or inserted < len(rows):
         return {"invoice": inv, "inserted": inserted, "errors": errors, "status": "bq_error"}
     return {"invoice": inv, "inserted": inserted, "errors": [], "status": "ok"}
+
+
+def _rupiah(n: int) -> str:
+    return ("Rp{:,.0f}".format(n)).replace(",", ".")
+
+
+def _dry_run_enabled() -> bool:
+    """CHECKOUT_DRY_RUN=true → validasi alur tanpa tulis BigQuery (cermin VOICE_DRY_RUN)."""
+    return os.getenv("CHECKOUT_DRY_RUN", "false").lower() == "true"
+
+
+def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> CheckoutConfirmResponse:
+    item_count = len(req.items)
+    grand_total = req.grand_total
+    base_reply = f"Tercatat {item_count} item, total {_rupiah(grand_total)}."
+
+    if _dry_run_enabled():
+        return CheckoutConfirmResponse(
+            ok=True, status="dry_run",
+            reply=f"(Mode uji) {base_reply} Penyimpanan BigQuery belum diaktifkan.",
+            invoice=(req.invoice or None), item_count=item_count, grand_total=grand_total,
+        )
+
+    # QR pre-check (PURE) — placeholder; logika QR penuh ditambah di Task 4.
+    qr_username = None
+    link_note = ""
+
+    name = resolve_bq_customer_name(req, qr_username)
+
+    # ── SALE (primary) ──
+    res = persist_basket(
+        req.items, name, req.country, req.invoice,
+        tenant.table("transactions"), tenant.table("customers"),
+    )
+    if res["status"] != "ok":
+        msg = {
+            "duplicate": f"Invoice {res['invoice']} sudah tercatat. Transaksi tidak digandakan.",
+            "bq_error": f"Gagal menyimpan transaksi: {'; '.join(res['errors'][:2]) or 'kesalahan BigQuery'}.",
+            "validation_error": f"Transaksi ditolak: {'; '.join(res['errors'][:2])}.",
+        }.get(res["status"], "Transaksi gagal diproses.")
+        return CheckoutConfirmResponse(
+            ok=False, status=res["status"], reply=msg,
+            invoice=(res["invoice"] if res["status"] == "duplicate" else None),
+            item_count=item_count, grand_total=grand_total,
+        )
+
+    return CheckoutConfirmResponse(
+        ok=True, status="ok", reply=base_reply + link_note,
+        invoice=res["invoice"], item_count=item_count, grand_total=grand_total,
+        customer_user_id=None, is_new_member=False, member_since=None,
+        points_earned=None, promo_redeemed=None,
+    )
