@@ -40,3 +40,18 @@ def test_membership_unique_constraint_exists():
     uniques = [c for c in t.constraints if c.__class__.__name__ == "UniqueConstraint"]
     cols_sets = [set(c.columns.keys()) for c in uniques]
     assert {"customer_user_id", "tenant_id"} in cols_sets
+
+
+def test_qr_nonces_registered_and_roundtrip():
+    from app.db_pg import SessionLocal
+    from app.models import QRNonce
+
+    assert "qr_nonces" in Base.metadata.tables
+    with SessionLocal() as s:
+        s.add(QRNonce(nonce="abc", expires_at="2999-01-01T00:00:00+00:00",
+                      created_at="2026-06-25T00:00:00+00:00"))
+        s.commit()
+    with SessionLocal() as s:
+        row = s.get(QRNonce, "abc")
+        assert row is not None
+        assert row.expires_at.startswith("2999")

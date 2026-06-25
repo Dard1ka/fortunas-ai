@@ -88,3 +88,10 @@ class DeviceToken(Base):
     user_type = Column(Text, nullable=True)
     owner_ref = Column(Text, nullable=True)
     created_at = Column(Text, nullable=True)
+
+
+class QRNonce(Base):
+    __tablename__ = "qr_nonces"
+    nonce = Column(Text, primary_key=True)
+    expires_at = Column(Text, nullable=False)
+    created_at = Column(Text, nullable=True)
