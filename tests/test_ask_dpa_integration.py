@@ -46,6 +46,7 @@ def test_no_dpa_passes_through(monkeypatch):
     assert result["status"] == "success"
     assert result["llm_output"] is not None
     assert agent.called is True
+    assert result["rows"] == _BUNDLE_ROWS
 
 
 def test_pre_block_short_circuits(monkeypatch):
