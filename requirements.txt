@@ -122,3 +122,4 @@ reportlab==4.5.1
 SQLAlchemy==2.0.46
 alembic==1.18.3
 psycopg2-binary==2.9.11
+PyJWT==2.10.1

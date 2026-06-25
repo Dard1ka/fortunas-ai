@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.agents.insight_agent import InsightAgent
-from app.agents.rag_agent import RAGAgent
+if TYPE_CHECKING:
+    from app.agents.insight_agent import InsightAgent
+    from app.agents.rag_agent import RAGAgent
+
+from app import dpa_repo
 from app.analysis_registry import ANALYSIS_REGISTRY
-from app.bigquery_service import run_query
 from app.core.tenancy import TenantContext
 from app.intent_mapper import map_question_to_analysis
 from app.queries import build_query
+from app.services import dpa_guard
 
 
 def resolve_analysis(question: str) -> tuple[dict | None, dict | None]:
@@ -49,6 +52,8 @@ def resolve_analysis(question: str) -> tuple[dict | None, dict | None]:
 
 
 def execute_analysis(mapped_analysis: str, tx_table: str) -> tuple[list[dict] | None, str | None]:
+    from app.bigquery_service import run_query  # lazy: hindari import google.cloud di CI ringan
+
     sql = build_query(mapped_analysis, tx_table)
     if not sql:
         return None, f"Query untuk analisis '{mapped_analysis}' belum tersedia."
@@ -124,6 +129,23 @@ def run_ask(
     rag_agent: RAGAgent | None,
     tenant: TenantContext,
 ) -> dict[str, Any]:
+    dpa = dpa_repo.get_dpa(tenant.tenant_id)
+    forbidden = dpa_guard.normalize_rules(dpa["forbidden_rules"])
+
+    pre_violations = dpa_guard.check_question(question, forbidden)
+    if pre_violations:
+        return {
+            "status": "refused",
+            "mapped_analysis": map_question_to_analysis(question),
+            "message": dpa_guard.build_refusal(pre_violations, tenant.name),
+            "agent_trace": [
+                f"Question received: {question}",
+                f"DPA pre-block: {', '.join(pre_violations)}",
+            ],
+            "rows": [],
+            "llm_output": None,
+        }
+
     resolved, error = resolve_analysis(question)
     if error:
         return {
@@ -194,6 +216,7 @@ def run_ask(
             analysis_key=mapped_analysis,
             bq_rows=rows,
             business_profile=tenant.business_profile,
+            dpa_policy=dpa,
         )
     except Exception as exc:
         trace.append("LLM insight generation failed")
@@ -229,6 +252,18 @@ def run_ask(
         "rag_sources": rag_sources,
     }
 
+    post_violations = dpa_guard.check_answer(llm_output_payload, forbidden)
+    if post_violations:
+        trace.append(f"DPA post-block: {', '.join(post_violations)}")
+        return {
+            "status": "refused",
+            "mapped_analysis": mapped_analysis,
+            "message": dpa_guard.build_refusal(post_violations, tenant.name),
+            "agent_trace": trace,
+            "rows": rows,
+            "llm_output": None,
+        }
+
     return {
         "status": "success",
         "mapped_analysis": mapped_analysis,
@@ -252,6 +287,7 @@ def run_briefing_section(
     trace_lines: list[str] = [f"Running analysis: {analysis_config['label']}"]
     tx_table = tenant.table("transactions")
     customers_table = tenant.table("customers")
+    dpa = dpa_repo.get_dpa(tenant.tenant_id)
 
     try:
         rows, query_error = execute_analysis(analysis_key, tx_table)
@@ -294,6 +330,7 @@ def run_briefing_section(
             analysis_key=analysis_key,
             bq_rows=rows,
             business_profile=tenant.business_profile,
+            dpa_policy=dpa,
         )
     except Exception as exc:
         trace_lines.append(
