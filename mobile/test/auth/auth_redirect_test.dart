@@ -23,4 +23,10 @@ void main() {
     expect(authRedirect(AuthStatus.authenticated, '/briefing'), isNull);
     expect(authRedirect(AuthStatus.authenticated, '/'), isNull);
   });
+
+  test('protected /dpa: authenticated allowed, unauthenticated -> /login', () {
+    expect(authRedirect(AuthStatus.authenticated, '/dpa'), isNull);
+    expect(authRedirect(AuthStatus.unauthenticated, '/dpa'), '/login');
+    expect(authRedirect(AuthStatus.unknown, '/dpa'), '/splash');
+  });
 }
