@@ -104,4 +104,15 @@ class FakeApi extends FortunasApi {
     if (customerBootstrapError != null) throw customerBootstrapError!;
     return customerBootstrapResult!;
   }
+
+  QrSessionResponse? customerQrSessionResult;
+  Object? customerQrSessionError;
+  int customerQrSessionCallCount = 0;
+
+  @override
+  Future<QrSessionResponse> customerQrSession({CancelToken? cancelToken}) async {
+    customerQrSessionCallCount++;
+    if (customerQrSessionError != null) throw customerQrSessionError!;
+    return customerQrSessionResult!;
+  }
 }

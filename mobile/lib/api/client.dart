@@ -106,6 +106,11 @@ class FortunasApi {
     return CustomerBootstrapResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  Future<QrSessionResponse> customerQrSession({CancelToken? cancelToken}) async {
+    final r = await _dio.post('/customer/qr/session', cancelToken: cancelToken);
+    return QrSessionResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
   Future<DailyReportResponse> reportDailyRun({CancelToken? cancelToken}) async {
     final r = await _dio.post('/report/daily/run', cancelToken: cancelToken);
     return DailyReportResponse.fromJson((r.data as Map).cast<String, dynamic>());
