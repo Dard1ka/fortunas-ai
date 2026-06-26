@@ -63,7 +63,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) =>
         authRedirect(ref.read(authControllerProvider).status, state.uri.path),

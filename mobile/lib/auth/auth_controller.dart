@@ -16,6 +16,7 @@ class AuthController extends Notifier<AuthState> {
       ref.read(tokenProvider.notifier).state = token;
 
   Future<void> bootstrap() async {
+    if (state.status != AuthStatus.unknown) return; // run once; ignore re-entrant calls
     final stored = await _store.read();
     if (stored == null || stored.isEmpty) {
       state = const AuthState(status: AuthStatus.unauthenticated);
