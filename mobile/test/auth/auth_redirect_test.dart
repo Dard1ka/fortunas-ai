@@ -29,4 +29,17 @@ void main() {
     expect(authRedirect(AuthStatus.unauthenticated, '/dpa'), '/login');
     expect(authRedirect(AuthStatus.unknown, '/dpa'), '/splash');
   });
+
+  test('customer flow allowed while UMKM unauthenticated', () {
+    expect(authRedirect(AuthStatus.unauthenticated, '/customer/login'), isNull);
+    expect(authRedirect(AuthStatus.unauthenticated, '/customer/otp'), isNull);
+    expect(authRedirect(AuthStatus.unauthenticated, '/customer/profile'), isNull);
+    // non-customer protected path still bounces:
+    expect(authRedirect(AuthStatus.unauthenticated, '/random'), '/login');
+    // unknown still goes to splash even for customer paths:
+    expect(authRedirect(AuthStatus.unknown, '/customer/login'), '/splash');
+    // authenticated UMKM hitting a customer path is allowed through (null),
+    // because authRedirect only bounces onAuthPage or /splash to '/':
+    expect(authRedirect(AuthStatus.authenticated, '/customer/login'), isNull);
+  });
 }

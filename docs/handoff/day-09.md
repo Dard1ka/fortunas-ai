@@ -116,5 +116,63 @@ Layar kasir manual multi-item untuk UMKM: input produk + qty + harga → kirim k
 
 ## 🎯 Slice berikutnya (3–4, masih dalam branch ini)
 
-- **Slice 3:** Customer phone OTP (3 layar: HP → OTP → profil)
+- **Slice 3:** Customer phone OTP (3 layar: HP → OTP → profil) ✅ SELESAI
+- **Slice 4:** Render QR identity customer (`qr_flutter`, auto-refresh 90s)
+
+---
+
+## ✅ Slice 3 — Customer OTP Login (Flutter mobile)
+
+Alur login customer berbasis nomor HP + OTP: 3 layar (`PhoneScreen → OTPScreen → ProfileScreen`) + modul terisolasi `mobile/lib/customer/`. Backend seam sudah ada (Day 4, `FORTUNAS_DEV_AUTH=1`). Slice ini menambahkan sisi Flutter penuh tanpa menyentuh modul auth UMKM sama sekali.
+
+### File yang ditambahkan / diubah
+
+| File | Keterangan |
+|---|---|
+| `mobile/lib/customer/customer_auth_rules.dart` | Fungsi murni: validasi phone/OTP/username/birthDate + `devFirebaseToken` (dev-token path) |
+| `mobile/lib/customer/customer_auth_state.dart` | `CustomerAuthState` immutable + `copyWith` (clearProfile/clearError flags) |
+| `mobile/lib/customer/customer_auth_controller.dart` | `customerAuthControllerProvider` (Riverpod Notifier): `bootstrap()`, `logout()` |
+| `mobile/lib/api/client.dart` | Tambah method `customerBootstrap(phone, otp, username, birthDate)` — POST `/customer/auth/bootstrap` |
+| `mobile/lib/api/fake_api.dart` | Override `FakeApi.customerBootstrap` untuk test bebas jaringan |
+| `mobile/lib/customer/customer_phone_screen.dart` | Layar 1: input HP + validasi |
+| `mobile/lib/customer/customer_otp_screen.dart` | Layar 2: 6-digit OTP + resend + validasi |
+| `mobile/lib/customer/customer_profile_screen.dart` | Layar 3 dual-mode: setup form (username + birth_date) saat belum login ↔ profil + tombol Keluar saat sudah login |
+| `mobile/lib/auth/auth_redirect.dart` | Tambah additive allowance `/customer*` — flow customer reachable saat UMKM belum login |
+| `mobile/lib/app.dart` | Tambah 3 route top-level `/customer/phone`, `/customer/otp`, `/customer/profile` (PhoneFrame-wrapped, outside ShellRoute) |
+| `mobile/lib/screens/login_screen.dart` | Tambah entry "Saya pelanggan? Masuk di sini" |
+| `mobile/test/customer/customer_auth_rules_test.dart` | Unit test fungsi murni (validasi phone/OTP/username/birthDate) |
+| `mobile/test/customer/customer_auth_controller_test.dart` | Unit test controller (bootstrap sukses, bootstrap error, logout) |
+| `mobile/test/customer/customer_profile_screen_test.dart` | Widget test layar profil (setup mode ↔ logged-in mode, Keluar) |
+
+**Tidak ada perubahan backend/Python. Tidak ada dependency Flutter baru.**
+
+### Keputusan desain
+
+| Topik | Keputusan |
+|---|---|
+| Isolasi modul | Modul `mobile/lib/customer/` sepenuhnya terpisah — tidak ada perubahan ke state/controller UMKM |
+| OTP (dev path) | Semua 6 digit diterima; `devFirebaseToken = 'dev:<uid>:<phone>'`; tidak ada paket `firebase_auth` baru |
+| Sesi | In-memory saja (`customerAuthControllerProvider`) — tidak ada persistent storage di cold-start (deferred ke v5.1) |
+| Gate allowance | Additive-minimal: `auth_redirect.dart` menambahkan `/customer*` ke daftar path yang dibolehkan saat UMKM belum login |
+| Firebase real OTP | Deferred — lihat `PENDING_EXTERNAL_SETUP.md` untuk langkah go-live |
+
+### Catatan teknis
+
+- `customerBootstrap({phone, username, birthDate})` + `logout()` — API publik controller; state expose: `firebaseIdToken`, `customerProfile`, `error`, `submitting`, `isLoggedIn`.
+- `ProfileScreen` dual-mode: setup form saat `!isLoggedIn`, profil + Keluar saat `isLoggedIn`.
+- Test profil memverifikasi `firebaseIdToken == 'dev:08123456789:08123456789'` — sesuai `devFirebaseToken` dengan phone `'08123456789'` (normalize = identity).
+- `PR #15`
+
+## ⚙️ Catatan teknis Slice 3
+
+- Seam Firebase real phone-OTP dicatat di `PENDING_EXTERNAL_SETUP.md` (Day 9 Slice 3 entry).
+- Suite Flutter: **104 hijau** (naik dari 84 Slice 2). `flutter analyze --no-fatal-infos`: 7 info pre-existing (sama persis dengan slice 1 & 2), exit 0, **tidak ada issue baru**.
+- PR: **#<TBD>** (branch `feat/customer-otp-login`)
+
+## 🔴 Blocker Slice 3
+
+- TIDAK ADA.
+
+## 🎯 Slice berikutnya (4, masih dalam branch ini)
+
 - **Slice 4:** Render QR identity customer (`qr_flutter`, auto-refresh 90s)

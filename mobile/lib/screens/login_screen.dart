@@ -93,6 +93,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: () => context.go('/register'),
                     child: const Text('Belum punya akun? Daftar'),
                   ),
+                  TextButton(
+                    onPressed: () => context.push('/customer/login'),
+                    child: const Text('Saya pelanggan? Masuk di sini'),
+                  ),
                 ],
               ),
             ),

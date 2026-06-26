@@ -7,6 +7,9 @@ import 'auth/auth_redirect.dart';
 import 'auth/auth_state.dart';
 import 'screens/briefing_screen.dart';
 import 'screens/checkout_screen.dart';
+import 'screens/customer_otp_screen.dart';
+import 'screens/customer_phone_screen.dart';
+import 'screens/customer_profile_screen.dart';
 import 'screens/dpa_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
@@ -121,6 +124,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout',
         builder: (_, __) => const PhoneFrame(child: CheckoutScreen()),
+      ),
+      GoRoute(
+        path: '/customer/login',
+        builder: (_, __) => const PhoneFrame(child: CustomerPhoneScreen()),
+      ),
+      GoRoute(
+        path: '/customer/otp',
+        builder: (ctx, st) =>
+            PhoneFrame(child: CustomerOtpScreen(phone: st.extra as String? ?? '')),
+      ),
+      GoRoute(
+        path: '/customer/profile',
+        builder: (ctx, st) =>
+            PhoneFrame(child: CustomerProfileScreen(phone: st.extra as String? ?? '')),
       ),
     ],
   );
