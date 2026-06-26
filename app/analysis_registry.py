@@ -19,4 +19,9 @@ ANALYSIS_REGISTRY = {
         "description": "Mencari pasangan produk yang paling sering dibeli bersama untuk dijadikan bundling atau cross-sell.",
         "enabled": True,
     },
+    "top_product": {
+        "label": "Analisis Produk Terlaris",
+        "description": "Mencari produk dengan kontribusi omzet tertinggi beserta jumlah unit terjual, untuk fokus stok dan promosi.",
+        "enabled": True,
+    },
 }
