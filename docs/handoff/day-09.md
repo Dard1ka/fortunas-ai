@@ -59,3 +59,62 @@ Semua slice akan ditambahkan ke file `day-09.md` ini sebelum PR #13 di-merge.
 - Scanner QR sisi UMKM (`mobile_scanner` + kamera) — slice terpisah.
 - BigQuery kolom enriched `CustomerUserID`/`TenantID` di checkout — slice 2 scope.
 - Tidak ada seam eksternal baru → `PENDING_EXTERNAL_SETUP.md` tak berubah.
+
+---
+
+## ✅ Slice 2 — Checkout (Kasir) Screen (Flutter mobile)
+
+Layar kasir manual multi-item untuk UMKM: input produk + qty + harga → kirim ke `POST /checkout/confirm` → tampilkan hasil inline. Tidak ada promo, tidak ada scanner QR customer (deferred), `customer_qr_token` null by default.
+
+### File yang diubah
+
+| File | Keterangan |
+|---|---|
+| `mobile/lib/checkout/checkout_rules.dart` | Fungsi murni: `parseLineItem`, `canConfirm`, `grandTotal`, `withItem`, `withoutItemAt` |
+| `mobile/lib/checkout/checkout_state.dart` | `CheckoutLineItem`, `CheckoutResult`, `CheckoutState` (immutable + `copyWith` dengan `clearResult`/`clearError`) |
+| `mobile/lib/checkout/checkout_controller.dart` | `CheckoutController` (Riverpod `Notifier`): `addItem`, `removeItemAt`, `confirm`, `reset` |
+| `mobile/lib/api/client.dart` | Tambah method `checkoutConfirm(String rawText)` — thin wrapper `POST /checkout/confirm` |
+| `mobile/lib/api/fake_api.dart` | Override `FakeApi.checkoutConfirm` untuk test bebas jaringan |
+| `mobile/lib/screens/checkout/checkout_screen.dart` | Layar kasir: form input item, list item + hapus, pinned total + tombol Konfirmasi, inline success `_SuccessView` (invoice + total + reply AI + "Transaksi Baru"), error banner |
+| `mobile/lib/app.dart` | Tambah route `/checkout` ke `GoRouter` |
+| `mobile/lib/screens/home_screen.dart` | Kartu "Kasir" di quick-action grid (generalize `_QuickActionCard`) |
+| `mobile/test/checkout/checkout_rules_test.dart` | Unit test fungsi murni checkout rules (10 case) |
+| `mobile/test/checkout/checkout_controller_test.dart` | Unit test controller (5 case: addItem/removeItemAt, confirm sukses, confirm error, no-op tanpa item, reset) |
+| `mobile/test/screens/checkout_screen_test.dart` | Widget test: Konfirmasi disabled tanpa item, Tambah → update total + enable Konfirmasi |
+
+**Tidak ada perubahan backend/Python. Tidak ada dependency baru.**
+
+### Keputusan desain
+
+| Topik | Keputusan |
+|---|---|
+| Input transaksi | Manual multi-item kasir — satu baris per item (nama, qty, harga) |
+| `customer_qr_token` | `null` (scanner QR deferred ke slice terpisah) |
+| Customer name | Opsional — field kosong tetap lolos konfirmasi |
+| Success state | Inline (bukan navigasi): `_SuccessView` tampil di halaman yang sama dengan invoice, total, reply AI, dan tombol "Transaksi Baru" |
+| Promo | Tidak ada di slice ini — deferred ke v5.1 |
+| Scanner QR | Tidak ada di slice ini — deferred ke slice QR terpisah |
+| Pinned confirm bar | `SafeArea` + `Column` fixed di bawah layar — tidak ter-scroll |
+| Test transport | `FakeApi.checkoutConfirm` override (pola DPA/auth) — bebas jaringan |
+
+### Catatan teknis
+
+- `parseLineItem` returns `({CheckoutLineItem? item, String? error})` — named record. Dikonsumsi di screen sebagai `parsed.error` / `parsed.item!`.
+- `checkoutControllerProvider` expose state dengan getter convenience: `checkoutResult`, `checkoutError`, `lastCheckout`, `submitting`.
+- `_QuickActionCard` di `home_screen.dart` digeneralisasi (sebelumnya hardcoded DPA card) — tidak ada perubahan visual kartu yang sudah ada.
+- PR #13 masih terbuka (branch `feat/checkout-kasir-screen`, squash merge setelah semua slice selesai).
+
+## ⚙️ Catatan teknis Slice 2
+
+- Tidak ada seam eksternal baru.
+- Suite Flutter: **84 hijau** (naik dari 64 Day 9 slice 1). `flutter analyze --no-fatal-infos`: 7 info pre-existing (sama persis dengan slice 1), exit 0, **tidak ada issue baru**.
+- PR: **#14** (branch `feat/checkout-kasir-screen`)
+
+## 🔴 Blocker Slice 2
+
+- TIDAK ADA.
+
+## 🎯 Slice berikutnya (3–4, masih dalam branch ini)
+
+- **Slice 3:** Customer phone OTP (3 layar: HP → OTP → profil)
+- **Slice 4:** Render QR identity customer (`qr_flutter`, auto-refresh 90s)

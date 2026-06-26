@@ -346,6 +346,8 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ---
 
 ### 🗓 Hari 9 (Kam 2026-07-09) — Dev C
+> ✅ **Aktual (ahead-of-schedule, 2026-06-26, Day 9 slice 2):** Layar Checkout (Kasir) SELESAI via `feat/checkout-kasir-screen` (PR #14). Form multi-item manual kasir + `POST /checkout/confirm` + inline success state (`_SuccessView` dengan invoice/total/reply AI + "Transaksi Baru") + pinned Konfirmasi bar + kartu "Kasir" di home quick-action. `customer_qr_token` null (scanner deferred), customer name opsional, no promo. 84 test hijau (naik dari 64).
+
 **Goal:** Checkout endpoint enriched + voice flow integrate scan.
 
 **Tools dipakai:** Python · `google-cloud-bigquery` · Flutter

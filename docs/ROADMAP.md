@@ -26,6 +26,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | — | Rapikan handoff day-03 (doc) | #5 |
 | Day 4 | **Customer JWT + QR identity backend** — bootstrap (Firebase seam) + QR signed 90s single-use + scan→auto-membership | #7 |
 | Day 9 (slice 1) | **Briefing 5-analisis UI** — tampilkan semua 5 analisis incl. `top_product`; layout 2-col + kartu ganjil full-width (`pairRows`); identitas flame/warning | PR #13 |
+| Day 9 (slice 2) | **Layar checkout (Kasir)** — form multi-item kasir manual + `POST /checkout/confirm` + inline success state + pinned confirm bar + home Kasir entry | PR #14 |
 
 **8 Fitur MVP — peta done/belum:**
 
@@ -36,13 +37,13 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 3. Customer login HP + OTP | 🟡 sebagian | Backend bootstrap + Firebase seam ✅ (Day 4, dev stub `FORTUNAS_DEV_AUTH=1`). **Belum:** Firebase real wiring + 3 layar mobile |
 | 4. QR identitas customer | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. Sisa: render QR di mobile |
 | 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
-| 6. Checkout nyambung customer | 🟡 backend ✅ | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link (best-effort SETELAH sale). Sisa: UI mobile + kolom BQ enriched |
+| 6. Checkout nyambung customer | 🟡 sebagian | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link. **UI mobile (Kasir) SELESAI (Day 9 slice 2, PR #14)**: form multi-item + inline success. Sisa: kolom BQ enriched `CustomerUserID`/`TenantID` + scanner QR customer |
 | 7. DPA jadi "pagar" AI | ✅ selesai | **Backend SELESAI (PR #4)** + **UI mobile DPA (view+edit, chip editor, password confirm) — PR #12** |
 | 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6, PR #9)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)**. Semua backend credential-free selesai. UI mobile (customer/QR) = track Flutter terpisah.
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)**. Semua backend credential-free selesai. UI mobile (customer/QR) = track Flutter terpisah.
 
 ---
 

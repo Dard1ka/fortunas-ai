@@ -35,6 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openVoice() => context.push('/voice');
 
+  void _openCheckout() => context.push('/checkout');
+
   static const _exampleQuestions = [
     'Siapa pelanggan paling setia bulan ini?',
     'Jam berapa toko paling rame?',
@@ -191,7 +193,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              _AddTransactionCard(onTap: _openVoice),
+              _QuickActionCard(
+                title: 'Tambah Transaksi',
+                subtitle: 'Voice langsung aktif · Hands-free',
+                icon: Icons.add,
+                iconBg: FortunasColors.lime,
+                onTap: _openVoice,
+              ),
+              const SizedBox(height: 10),
+              _QuickActionCard(
+                title: 'Kasir',
+                subtitle: 'Catat penjualan multi-item',
+                icon: Icons.point_of_sale,
+                iconBg: FortunasColors.sky,
+                onTap: _openCheckout,
+              ),
             ],
           ),
         ),
@@ -252,9 +268,19 @@ class _SendButton extends StatelessWidget {
   }
 }
 
-class _AddTransactionCard extends StatelessWidget {
+class _QuickActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconBg;
   final VoidCallback onTap;
-  const _AddTransactionCard({required this.onTap});
+  const _QuickActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconBg,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -276,10 +302,10 @@ class _AddTransactionCard extends StatelessWidget {
               Container(
                 width: 40, height: 40,
                 decoration: BoxDecoration(
-                  color: FortunasColors.lime,
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.add, color: FortunasColors.ink, size: 22),
+                child: Icon(icon, color: FortunasColors.ink, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -287,20 +313,13 @@ class _AddTransactionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Tambah Transaksi',
-                      style: display(
-                        fontSize: 14, weight: FontWeight.w600,
-                        color: Colors.white, letterSpacing: -0.3, height: 1.2,
-                      ),
-                    ),
+                    Text(title,
+                        style: display(
+                          fontSize: 14, weight: FontWeight.w600,
+                          color: Colors.white, letterSpacing: -0.3, height: 1.2,
+                        )),
                     const SizedBox(height: 2),
-                    Text(
-                      'Voice langsung aktif · Hands-free',
-                      style: body(
-                        fontSize: 11, color: Color(0xB3FFFFFF),
-                      ),
-                    ),
+                    Text(subtitle, style: body(fontSize: 11, color: const Color(0xB3FFFFFF))),
                   ],
                 ),
               ),
