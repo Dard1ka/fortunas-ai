@@ -46,6 +46,14 @@ ANALYSIS_RULES = {
         "preferred_categories": ["marketing", "pricing"],
         "query_hint": "jam ramai transaksi promosi operasional display stok checkout cepat",
     },
+    "top_product": {
+        "preferred_doc_names": [
+            "pricing_strategy",
+            "inventory_management",
+        ],
+        "preferred_categories": ["pricing", "inventory"],
+        "query_hint": "produk terlaris omzet tertinggi unit terjual fokus stok produk unggulan promosi best seller",
+    },
 }
 
 

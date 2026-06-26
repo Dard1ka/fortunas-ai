@@ -30,7 +30,8 @@ def _analysis_explanation(mapped_analysis: str) -> str:
         "high_value_customer": "Analisis ini mencari pelanggan dengan total belanja paling besar beserta produk yang paling sering mereka beli.",
         "repeat_customer": "Analisis ini mencari pelanggan yang paling sering belanja beserta produk yang paling sering mereka beli.",
         "peak_hour": "Analisis ini mencari jam transaksi paling ramai beserta produk yang paling sering dibeli pada jam tersebut.",
-        "bundle_opportunity": "Analisis ini mencari pasangan produk yang paling sering dibeli bersama."
+        "bundle_opportunity": "Analisis ini mencari pasangan produk yang paling sering dibeli bersama.",
+        "top_product": "Analisis ini mencari produk dengan kontribusi omzet tertinggi beserta jumlah unit yang terjual.",
     }.get(mapped_analysis, "Analisis bisnis umum.")
 
 
@@ -79,7 +80,18 @@ def _analysis_rules(mapped_analysis: str) -> str:
 - Jangan menerjemahkan, memperbaiki, atau merapikan nama produk.
 - Recommendation harus pakai bahasa Indonesia yang umum, enak dibaca, dan gampang dipahami pemilik UMKM.
 - Gunakan kata-kata seperti "paket hemat", "jual bareng", "taruh berdampingan", atau "promo bundling ringan".
-"""
+""",
+        "top_product": """
+- Ranking produk ditentukan oleh total_omzet pada rows yang diberikan.
+- Peringkat 1 HARUS berasal dari rows[0].
+- Peringkat 2 HARUS berasal dari rows[1].
+- Peringkat 3 HARUS berasal dari rows[2].
+- Jangan memilih produk lain di luar tiga baris pertama untuk top_findings.
+- Untuk tiap produk, sebut total_omzet (dalam Rupiah) DAN total_qty (unit terjual).
+- Pertahankan nama produk dan angka persis seperti di input. Jangan menerjemahkan, memperbaiki, atau merapikan nama produk.
+- Recommendation harus pakai bahasa Indonesia yang umum dan gampang dipahami pemilik UMKM.
+- Gunakan kata-kata seperti "fokus stok produk terlaris", "jadikan produk unggulan untuk promo", atau "pastikan stok produk omzet tertinggi tidak habis".
+""",
     }.get(mapped_analysis, "")
 
 
