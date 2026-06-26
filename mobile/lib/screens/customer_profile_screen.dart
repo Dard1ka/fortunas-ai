@@ -117,6 +117,12 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
         _row('Nomor HP', p.phoneNumber.isEmpty ? widget.phone : p.phoneNumber),
         if (p.createdAt.isNotEmpty) _row('Member sejak', p.createdAt),
         const SizedBox(height: 18),
+        ElevatedButton(
+          key: const Key('cust_show_qr'),
+          onPressed: () => context.push('/customer/qr'),
+          child: const Text('Tampilkan QR'),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton(
           key: const Key('cust_logout'),
           onPressed: _logout,

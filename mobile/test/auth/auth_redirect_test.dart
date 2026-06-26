@@ -34,6 +34,7 @@ void main() {
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/login'), isNull);
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/otp'), isNull);
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/profile'), isNull);
+    expect(authRedirect(AuthStatus.unauthenticated, '/customer/qr'), isNull);
     // non-customer protected path still bounces:
     expect(authRedirect(AuthStatus.unauthenticated, '/random'), '/login');
     // unknown still goes to splash even for customer paths:

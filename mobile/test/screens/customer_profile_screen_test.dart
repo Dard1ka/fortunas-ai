@@ -18,6 +18,8 @@ GoRouter _router() => GoRouter(routes: [
       GoRoute(path: '/',
           builder: (_, __) => const CustomerProfileScreen(phone: '08123456789')),
       GoRoute(path: '/login', builder: (_, __) => const Scaffold(body: Text('LOGIN_REACHED'))),
+      GoRoute(path: '/customer/qr',
+          builder: (_, __) => const Scaffold(body: Text('QR_REACHED'))),
     ]);
 
 Future<void> _pump(WidgetTester tester, FakeApi api) async {
@@ -58,5 +60,17 @@ void main() {
     await tester.tap(find.byKey(const Key('cust_logout')));
     await tester.pumpAndSettle();
     expect(find.text('LOGIN_REACHED'), findsOneWidget);
+  });
+
+  testWidgets('logged-in shows Tampilkan QR entry that navigates', (tester) async {
+    final api = FakeApi()..customerBootstrapResult = _resp();
+    await _pump(tester, api); // existing helper pumps CustomerProfileScreen in a router
+    await tester.enterText(find.byKey(const Key('cust_username')), 'Sari');
+    await tester.tap(find.byKey(const Key('cust_submit')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cust_show_qr')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('cust_show_qr')));
+    await tester.pumpAndSettle();
+    expect(find.text('QR_REACHED'), findsOneWidget);
   });
 }

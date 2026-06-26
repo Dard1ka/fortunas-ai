@@ -10,6 +10,7 @@ import 'screens/checkout_screen.dart';
 import 'screens/customer_otp_screen.dart';
 import 'screens/customer_phone_screen.dart';
 import 'screens/customer_profile_screen.dart';
+import 'screens/customer_qr_screen.dart';
 import 'screens/dpa_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
@@ -138,6 +139,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/customer/profile',
         builder: (ctx, st) =>
             PhoneFrame(child: CustomerProfileScreen(phone: st.extra as String? ?? '')),
+      ),
+      GoRoute(
+        path: '/customer/qr',
+        builder: (_, __) => const PhoneFrame(child: CustomerQrScreen()),
       ),
     ],
   );

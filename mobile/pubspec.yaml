@@ -46,6 +46,9 @@ dependencies:
   # ── Vector assets — render brand SVGs (logo mark/full) ───
   flutter_svg: ^2.0.10
 
+  # ── QR identity render (customer) — pure-Dart, CI-safe ───
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

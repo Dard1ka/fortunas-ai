@@ -176,3 +176,62 @@ Alur login customer berbasis nomor HP + OTP: 3 layar (`PhoneScreen → OTPScreen
 ## 🎯 Slice berikutnya (4, masih dalam branch ini)
 
 - **Slice 4:** Render QR identity customer (`qr_flutter`, auto-refresh 90s)
+
+---
+
+## ✅ Slice 4 — Customer QR Render (Flutter mobile)
+
+Layar QR identity customer: fetch session token dari `POST /customer/qr/session` → render `QrImageView` besar → auto-refresh lead-5s sebelum expiry (90s session). Tampil dari menu profil customer. Backend QR endpoint sudah ada sejak Day 4 (PR #7) — **tidak ada perubahan backend di slice ini**.
+
+### File yang ditambahkan / diubah
+
+| File | Keterangan |
+|---|---|
+| `mobile/lib/customer/customer_qr_state.dart` | `CustomerQrState` immutable (session, loading, errorMessage) + `hasQr` + `copyWith(clearError/clearSession)` |
+| `mobile/lib/customer/customer_qr_controller.dart` | `customerQrControllerProvider` (Riverpod `AutoDisposeNotifier`): `refresh()` + timer auto-refresh lead-5s; timer di-cancel di `ref.onDispose` |
+| `mobile/lib/screens/customer_qr_screen.dart` | Render `QrImageView` dari QR session token; state: loading spinner / loaded QR / error banner; tombol manual "Perbarui" (`cust_qr_refresh`) |
+| `mobile/lib/api/client.dart` | Tambah method `customerQrSession()` — POST `/customer/qr/session` |
+| `mobile/lib/api/fake_api.dart` | Override `FakeApi.customerQrSession` untuk test bebas jaringan |
+| `mobile/lib/customer/customer_profile_screen.dart` | Entry "Tampilkan QR" (`cust_show_qr`) di profil logged-in view |
+| `mobile/lib/app.dart` | Tambah route `/customer/qr` (top-level, PhoneFrame-wrapped) |
+
+**Tidak ada perubahan backend/Python. Dependency baru: `qr_flutter ^4.1.0` (satu-satunya dep baru; pure-Dart, CI-safe). Gate (`auth_redirect.dart`) sudah mengizinkan `/customer/qr` sejak Slice 3 — tidak ada perubahan gate.**
+
+### Keputusan desain
+
+| Topik | Keputusan |
+|---|---|
+| QR widget | `QrImageView` (qr_flutter 4.x — bukan `QrImage` yang deprecated) |
+| Auto-refresh | `AutoDisposeNotifier` + timer lead-5s (refresh 85 detik setelah session dibuat, sebelum 90s expire) |
+| UX refresh | Seamless — tidak ada countdown per-detik; QR baru tampil langsung saat timer tembak |
+| Session storage | In-memory saja (`CustomerQrState.session`) — tidak ada persist ke disk |
+| Render-precedence | `hasQr` → tampil QR (pertahankan QR lama saat refresh gagal) · `error` (tanpa QR) → error banner · else → loading spinner |
+| Entry point | Menu profil customer logged-in → "Tampilkan QR" → route `/customer/qr` |
+| Scanner UMKM (#5) | **TETAP DEFER** — butuh device fisik + native plugin (`mobile_scanner`); di luar scope Day 9 |
+
+### Catatan teknis
+
+- `customerQrControllerProvider` adalah `AutoDisposeNotifier` (bukan `Notifier`) → timer otomatis di-cancel saat layar ditinggalkan (`ref.onDispose`).
+- Test widget auto-refresh pakai `tester.pump(Duration(seconds: 86))` (lead 85s) lalu unmount `pumpWidget(SizedBox())` agar tidak ada pending timer — tanpa import `fake_async`, pola konsisten dengan codebase.
+- Test cek `find.byKey('cust_qr_image')` (container pembungkus) → tidak perlu import `qr_flutter` di test.
+- PR: **#<TBD>** (branch `feat/customer-qr-render`)
+
+## ⚙️ Catatan teknis Slice 4
+
+- Tidak ada seam eksternal baru.
+- Suite Flutter: **111 hijau** (naik dari 104 Slice 3). `flutter analyze --no-fatal-infos`: 7 info pre-existing (sama persis dengan slice 1–3), exit 0, **tidak ada issue baru**.
+- PR: **#<TBD>** (branch `feat/customer-qr-render`)
+
+## 🔴 Blocker Slice 4
+
+- TIDAK ADA.
+
+## 🏁 Day-9 4-slice sprint SELESAI
+
+Semua 4 slice Day-9 telah dikerjakan dan didokumentasikan:
+- **Slice 1** — Briefing 5-analisis UI ✅ (PR #13)
+- **Slice 2** — Layar Checkout (Kasir) ✅ (PR #14)
+- **Slice 3** — Customer OTP Login Flutter ✅ (PR #15)
+- **Slice 4** — Customer QR Render ✅ (PR #16)
+
+Sprint Day-9 menutup seluruh UI mobile foundation untuk alur customer (login → profil → QR identity). **Scanner QR sisi UMKM (#5) tetap deferred** (butuh device fisik + `mobile_scanner` native plugin).
