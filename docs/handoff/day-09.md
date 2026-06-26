@@ -108,7 +108,7 @@ Layar kasir manual multi-item untuk UMKM: input produk + qty + harga → kirim k
 
 - Tidak ada seam eksternal baru.
 - Suite Flutter: **84 hijau** (naik dari 64 Day 9 slice 1). `flutter analyze --no-fatal-infos`: 7 info pre-existing (sama persis dengan slice 1), exit 0, **tidak ada issue baru**.
-- PR: **#<TBD>** (branch `feat/checkout-kasir-screen`)
+- PR: **#14** (branch `feat/checkout-kasir-screen`)
 
 ## 🔴 Blocker Slice 2
 
