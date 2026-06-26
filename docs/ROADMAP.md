@@ -43,7 +43,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #<TBD>, Day 9 slice 3)**. Semua backend credential-free selesai. Sisa UI mobile: QR render customer (slice 4).
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #15, Day 9 slice 3)**. Semua backend credential-free selesai. Sisa UI mobile: QR render customer (slice 4).
 
 ---
 
