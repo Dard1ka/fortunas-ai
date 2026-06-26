@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'screens/home_screen.dart';
+import 'auth/auth_controller.dart';
+import 'auth/auth_redirect.dart';
+import 'auth/auth_state.dart';
 import 'screens/briefing_screen.dart';
-import 'screens/result_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/result_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/tokens.dart';
 import 'ui/bottom_nav.dart';
 import 'voice/voice_flow.dart';
@@ -48,63 +55,104 @@ class PhoneFrame extends StatelessWidget {
   }
 }
 
-/// Root app. Mirrors the React `App.jsx` router shape:
+/// Provider-backed router with auth gate.
+/// Replaces the old top-level `_router` GoRouter instance.
+final routerProvider = Provider<GoRouter>((ref) {
+  final refresh = ValueNotifier<AuthStatus>(ref.read(authControllerProvider).status);
+  ref.listen(authControllerProvider, (_, next) => refresh.value = next.status);
+  ref.onDispose(refresh.dispose);
+
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: refresh,
+    redirect: (context, state) =>
+        authRedirect(ref.read(authControllerProvider).status, state.uri.path),
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => const PhoneFrame(child: SplashScreen()),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (_, __) => const PhoneFrame(child: LoginScreen()),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (_, __) => const PhoneFrame(child: RegisterScreen()),
+      ),
+      ShellRoute(
+        builder: (context, state, child) {
+          // Wrap every primary tab in a Scaffold that owns the bottom nav.
+          // VoiceFlow does NOT use this shell — it's a top-level route below.
+          final location = state.uri.path;
+          return PhoneFrame(
+            child: Scaffold(
+              backgroundColor: FortunasColors.bg,
+              extendBody: true,
+              body: SafeArea(bottom: false, child: child),
+              bottomNavigationBar: FortunasBottomNav(currentLocation: location),
+            ),
+          );
+        },
+        routes: [
+          GoRoute(path: '/',         builder: (_, __) => const HomeScreen()),
+          GoRoute(path: '/briefing', builder: (_, __) => const BriefingScreen()),
+          GoRoute(path: '/result',   builder: (ctx, st) {
+            final q = st.uri.queryParameters['q'] ?? '';
+            return ResultScreen(question: q);
+          }),
+          GoRoute(path: '/history',  builder: (_, __) => const HistoryScreen()),
+          GoRoute(path: '/me',       builder: (_, __) => const ProfileScreen()),
+        ],
+      ),
+      GoRoute(
+        path: '/voice',
+        pageBuilder: (ctx, st) => const MaterialPage(
+          fullscreenDialog: true,
+          child: PhoneFrame(child: VoiceFlow()),
+        ),
+      ),
+    ],
+  );
+});
+
+/// Root app widget. Bootstraps auth on first launch and drives navigation
+/// via [routerProvider] which gates routes based on [AuthStatus].
+///
+/// Mirrors the React `App.jsx` router shape:
 ///   /             → HomeScreen
 ///   /briefing     → BriefingScreen
 ///   /result?q=... → ResultScreen
 ///   /history      → HistoryScreen
 ///   /me           → ProfileScreen
+///   /splash       → SplashScreen (auth resolving)
+///   /login        → LoginScreen
+///   /register     → RegisterScreen
 ///
 /// VoiceFlow is shown as a full-screen modal route (`/voice`) — Flutter
 /// equivalent of the React overlay pattern in App.jsx.
-class FortunasApp extends StatelessWidget {
+class FortunasApp extends ConsumerStatefulWidget {
   const FortunasApp({super.key});
 
   @override
+  ConsumerState<FortunasApp> createState() => _FortunasAppState();
+}
+
+class _FortunasAppState extends ConsumerState<FortunasApp> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(authControllerProvider.notifier).bootstrap());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'Fortunas AI',
       debugShowCheckedModeBanner: false,
       theme: buildFortunasTheme(),
-      routerConfig: _router,
+      routerConfig: router,
     );
   }
 }
-
-final GoRouter _router = GoRouter(
-  initialLocation: '/',
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) {
-        // Wrap every primary tab in a Scaffold that owns the bottom nav.
-        // VoiceFlow does NOT use this shell — it's a top-level route below.
-        final location = state.uri.path;
-        return PhoneFrame(
-          child: Scaffold(
-            backgroundColor: FortunasColors.bg,
-            extendBody: true,
-            body: SafeArea(bottom: false, child: child),
-            bottomNavigationBar: FortunasBottomNav(currentLocation: location),
-          ),
-        );
-      },
-      routes: [
-        GoRoute(path: '/',         builder: (_, __) => const HomeScreen()),
-        GoRoute(path: '/briefing', builder: (_, __) => const BriefingScreen()),
-        GoRoute(path: '/result',   builder: (ctx, st) {
-          final q = st.uri.queryParameters['q'] ?? '';
-          return ResultScreen(question: q);
-        }),
-        GoRoute(path: '/history',  builder: (_, __) => const HistoryScreen()),
-        GoRoute(path: '/me',       builder: (_, __) => const ProfileScreen()),
-      ],
-    ),
-    GoRoute(
-      path: '/voice',
-      pageBuilder: (ctx, st) => MaterialPage(
-        fullscreenDialog: true,
-        child: const PhoneFrame(child: VoiceFlow()),
-      ),
-    ),
-  ],
-);
