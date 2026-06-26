@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:fortunas_ai/api/client.dart';
 import 'package:fortunas_ai/api/models.dart';
 import 'package:fortunas_ai/auth/token_store.dart';
@@ -69,5 +70,14 @@ class FakeApi extends FortunasApi {
     lastUpdate = req;
     if (updateError != null) throw updateError!;
     return updateResult!;
+  }
+
+  DailyReportResponse? reportResult;
+  Object? reportError;
+
+  @override
+  Future<DailyReportResponse> reportDaily({CancelToken? cancelToken}) async {
+    if (reportError != null) throw reportError!;
+    return reportResult!;
   }
 }

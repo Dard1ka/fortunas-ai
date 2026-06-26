@@ -8,6 +8,11 @@ import '../theme/tokens.dart';
 import '../ui/icon_set.dart';
 import '../ui/pill.dart';
 import '../ui/screen_header.dart';
+import 'briefing_kpi.dart';
+
+/// Fixed height per KPI row so a full-width singleton card keeps the same
+/// vertical rhythm as the 2-column rows. Bump if `_KpiCard` overflows in tests.
+const double _kpiRowHeight = 116.0;
 
 /// BriefingScreen — daily executive summary + KPI grid + findings.
 /// React equivalent: frontend/src/screens/BriefingScreen.jsx
@@ -52,12 +57,14 @@ class _BriefingScreenState extends ConsumerState<BriefingScreen> {
     'high_value_customer': 'coin',
     'peak_hour': 'clock',
     'bundle_opportunity': 'bag',
+    'top_product': 'flame',
   };
   static const _colorFor = {
     'repeat_customer': FortunasColors.violet,
     'high_value_customer': FortunasColors.sky,
     'peak_hour': FortunasColors.lime,
     'bundle_opportunity': FortunasColors.peach,
+    'top_product': FortunasColors.warning,
   };
 
   @override
@@ -97,6 +104,12 @@ class _BriefingScreenState extends ConsumerState<BriefingScreen> {
       ],
     );
   }
+
+  Widget _kpiCardFor(BriefingSection s) => _KpiCard(
+        section: s,
+        iconName: _iconFor[s.analysisType] ?? 'chart',
+        accent: _colorFor[s.analysisType] ?? FortunasColors.violet,
+      );
 
   List<Widget> _buildContent(DailyReportEntry latest) {
     final findings = <String>[];
@@ -154,23 +167,26 @@ class _BriefingScreenState extends ConsumerState<BriefingScreen> {
         ),
       ),
 
-      // KPI grid 2x2
+      // KPI rows — 2 columns; an odd trailing card spans full width.
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.5,
+        child: Column(
           children: [
-            for (final s in latest.sections.take(4))
-              _KpiCard(
-                section: s,
-                iconName: _iconFor[s.analysisType] ?? 'chart',
-                accent: _colorFor[s.analysisType] ?? FortunasColors.violet,
+            for (final row in pairRows(latest.sections)) ...[
+              SizedBox(
+                height: _kpiRowHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < row.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(child: _kpiCardFor(row[i])),
+                    ],
+                  ],
+                ),
               ),
+              const SizedBox(height: 10),
+            ],
           ],
         ),
       ),
