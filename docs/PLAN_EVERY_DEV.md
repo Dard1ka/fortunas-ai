@@ -440,6 +440,8 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ### 🗓 Hari 13 (Rab 2026-07-15) — Dev A
 **Goal:** Analisis baru `top_product` siap dipakai di briefing.
 
+> ✅ **SELESAI (Day 6, 2026-06-26, ahead-of-schedule).** Implementasi final ≠ sketsa di bawah: SATU analisis rank by **omzet** (`ORDER BY total_omzet DESC`) dengan `total_qty` per baris (bukan 2 list qty+revenue terpisah). Label "Analisis Produk Terlaris". Termasuk fallback parity di `llm_service.py` + 12 unit test baru (queries/registry/intent/prompt/briefing). Detail: spec `Fortunas/brainstorming/specs/2026-06-26-top-product-analysis-design.md`.
+
 **Tools dipakai:** Python · BigQuery · `/ask` endpoint testing
 
 **Steps:**
@@ -696,7 +698,7 @@ Karena 3 dev pakai infra yang sama:
 - [ ] Customer bisa lihat riwayat transaksi cross-UMKM
 - [ ] UMKM bisa fill DPA (text)
 - [ ] DPA jadi constraint AI di `/ask`
-- [ ] Briefing punya 5 analisis (4 lama + `top_product`)
+- [x] Briefing punya 5 analisis (4 lama + `top_product`)
 - [ ] Backend HTTPS aktif dengan domain
 - [ ] APK release build terinstall di device fisik
 - [ ] Dokumentasi lengkap (README, guides, demo script)
