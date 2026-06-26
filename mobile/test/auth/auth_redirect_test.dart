@@ -30,6 +30,11 @@ void main() {
     expect(authRedirect(AuthStatus.unknown, '/dpa'), '/splash');
   });
 
+  test('scan route requires UMKM auth', () {
+    expect(authRedirect(AuthStatus.unauthenticated, '/scan'), '/login');
+    expect(authRedirect(AuthStatus.authenticated, '/scan'), isNull);
+  });
+
   test('customer flow allowed while UMKM unauthenticated', () {
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/login'), isNull);
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/otp'), isNull);
