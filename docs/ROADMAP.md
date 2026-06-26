@@ -25,6 +25,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | Day 3 | **DPA "pagar AI" backend** — guardrail deterministik Pre+Post + `GET/PUT /umkm/dpa` + inject prompt | #4 (`5d28ecd`) |
 | — | Rapikan handoff day-03 (doc) | #5 |
 | Day 4 | **Customer JWT + QR identity backend** — bootstrap (Firebase seam) + QR signed 90s single-use + scan→auto-membership | #7 |
+| Day 9 (slice 1) | **Briefing 5-analisis UI** — tampilkan semua 5 analisis incl. `top_product`; layout 2-col + kartu ganjil full-width (`pairRows`); identitas flame/warning | PR #13 |
 
 **8 Fitur MVP — peta done/belum:**
 
@@ -41,7 +42,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)**. Semua backend credential-free selesai. UI mobile (customer/QR) = track Flutter terpisah.
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)**. Semua backend credential-free selesai. UI mobile (customer/QR) = track Flutter terpisah.
 
 ---
 
