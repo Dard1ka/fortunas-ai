@@ -161,7 +161,7 @@ Alur login customer berbasis nomor HP + OTP: 3 layar (`PhoneScreen → OTPScreen
 - `customerBootstrap({phone, username, birthDate})` + `logout()` — API publik controller; state expose: `firebaseIdToken`, `customerProfile`, `error`, `submitting`, `isLoggedIn`.
 - `ProfileScreen` dual-mode: setup form saat `!isLoggedIn`, profil + Keluar saat `isLoggedIn`.
 - Test profil memverifikasi `firebaseIdToken == 'dev:08123456789:08123456789'` — sesuai `devFirebaseToken` dengan phone `'08123456789'` (normalize = identity).
-- `PR #<TBD>`
+- `PR #15`
 
 ## ⚙️ Catatan teknis Slice 3
 

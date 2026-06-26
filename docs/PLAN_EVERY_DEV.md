@@ -275,7 +275,7 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ---
 
 ### 🗓 Hari 6 (Sen 2026-07-06) — Dev C
-> ✅ **Aktual (ahead-of-schedule, 2026-06-26, Day 9 slice 3):** Customer OTP Login Flutter SELESAI via `feat/customer-otp-login` (`PR #<TBD>`). Modul terisolasi `mobile/lib/customer/` (rules + state + controller) + 3 layar (phone → OTP → profile dual-mode) + `client.customerBootstrap()` + gate allowance additive. **Dev-token path** (no `firebase_auth` package — zero new deps). In-memory session. 104 test hijau. Firebase real phone-auth seam dicatat di `PENDING_EXTERNAL_SETUP.md`.
+> ✅ **Aktual (ahead-of-schedule, 2026-06-26, Day 9 slice 3):** Customer OTP Login Flutter SELESAI via `feat/customer-otp-login` (`PR #15`). Modul terisolasi `mobile/lib/customer/` (rules + state + controller) + 3 layar (phone → OTP → profile dual-mode) + `client.customerBootstrap()` + gate allowance additive. **Dev-token path** (no `firebase_auth` package — zero new deps). In-memory session. 104 test hijau. Firebase real phone-auth seam dicatat di `PENDING_EXTERNAL_SETUP.md`.
 
 **Goal:** Firebase project siap, mobile customer phone OTP flow jalan.
 
@@ -297,7 +297,7 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 13. Wire ke `/customer/auth/bootstrap` (endpoint Dev B Hari 5)
 14. Tulis `docs/handoff/day-06.md`
 
-**Deliverable:** Branch `feat/mob-customer-otp` merged (`PR #<TBD>`)
+**Deliverable:** Branch `feat/customer-otp-login` merged (`PR #15`)
 
 ---
 
@@ -700,7 +700,7 @@ Karena 3 dev pakai infra yang sama:
 **MVP harus mencapai ini untuk lulus submission:**
 
 - [ ] UMKM bisa register & login via Flutter mobile
-- [x] Customer bisa register phone OTP via Flutter mobile — **SELESAI Day 9 slice 3 (`PR #<TBD>`, dev-token path; Firebase real OTP deferred)**
+- [x] Customer bisa register phone OTP via Flutter mobile — **SELESAI Day 9 slice 3 (`PR #15`, dev-token path; Firebase real OTP deferred)**
 - [ ] Customer bisa show QR identity (auto-refresh 90s)
 - [ ] UMKM bisa scan QR customer untuk auto-register membership
 - [ ] Checkout via voice tetap jalan + bisa attach customer

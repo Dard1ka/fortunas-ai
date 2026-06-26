@@ -34,7 +34,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 |---|---|---|
 | 1. Login UMKM + HTTPS | 🟡 sebagian | Auth backend ✅ + **layar Login/Register Flutter ✅ (auth gate + token secure-storage + Profile akun) — PR #10**. Belum: HTTPS/domain VPS |
 | 2. PostgreSQL | ✅ selesai | PR #3. Cutover Postgres prod (smoke asli) masih nunggu kredensial |
-| 3. Customer login HP + OTP | ✅ selesai | Backend bootstrap + Firebase seam ✅ (Day 4). **Flutter mobile 3 layar SELESAI (Day 9 slice 3, `PR #<TBD>`)**: modul `customer/` terisolasi, dev-token OTP (any 6 digit, token `dev:<uid>:<phone>`), in-memory session, gate allowance additive. Firebase real phone-auth deferred (lihat `PENDING_EXTERNAL_SETUP.md`). |
+| 3. Customer login HP + OTP | ✅ selesai | Backend bootstrap + Firebase seam ✅ (Day 4). **Flutter mobile 3 layar SELESAI (Day 9 slice 3, `PR #15`)**: modul `customer/` terisolasi, dev-token OTP (any 6 digit, token `dev:<uid>:<phone>`), in-memory session, gate allowance additive. Firebase real phone-auth deferred (lihat `PENDING_EXTERNAL_SETUP.md`). |
 | 4. QR identitas customer | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. Sisa: render QR di mobile |
 | 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
 | 6. Checkout nyambung customer | 🟡 sebagian | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link. **UI mobile (Kasir) SELESAI (Day 9 slice 2, PR #14)**: form multi-item + inline success. Sisa: kolom BQ enriched `CustomerUserID`/`TenantID` + scanner QR customer |
