@@ -317,6 +317,57 @@ class VoiceTransactionResponse {
   );
 }
 
+// ── UMKM Auth (mirror app/api/routes/auth.py) ──
+class AuthResponse {
+  final String accessToken;
+  final String tokenType;
+  final int tenantId;
+  final String tenantName;
+  final String tablePrefix;
+
+  const AuthResponse({
+    required this.accessToken,
+    this.tokenType = 'bearer',
+    required this.tenantId,
+    required this.tenantName,
+    required this.tablePrefix,
+  });
+
+  factory AuthResponse.fromJson(Map<String, dynamic> j) => AuthResponse(
+        accessToken: j['access_token']?.toString() ?? '',
+        tokenType: j['token_type']?.toString() ?? 'bearer',
+        tenantId: (j['tenant_id'] as num?)?.toInt() ?? 0,
+        tenantName: j['tenant_name']?.toString() ?? '',
+        tablePrefix: j['table_prefix']?.toString() ?? '',
+      );
+}
+
+class UmkmAccount {
+  final String email;
+  final int tenantId;
+  final String tenantName;
+  final String tablePrefix;
+  final Map<String, dynamic> businessProfile;
+
+  const UmkmAccount({
+    this.email = '',
+    this.tenantId = 0,
+    this.tenantName = '',
+    this.tablePrefix = '',
+    this.businessProfile = const {},
+  });
+
+  factory UmkmAccount.fromJson(Map<String, dynamic> j) => UmkmAccount(
+        email: j['email']?.toString() ?? '',
+        tenantId: (j['tenant_id'] as num?)?.toInt() ?? 0,
+        tenantName: j['tenant_name']?.toString() ?? '',
+        tablePrefix: j['table_prefix']?.toString() ?? '',
+        businessProfile: j['business_profile'] is Map
+            ? (j['business_profile'] as Map).cast<String, dynamic>()
+            : const {},
+      );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // v5.0 MVP contracts — mirror app/schemas.py
 // ═══════════════════════════════════════════════════════════════
