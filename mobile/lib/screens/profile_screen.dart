@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
+import '../auth/auth_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/icon_set.dart';
 import '../ui/pill.dart';
@@ -68,6 +69,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 style: body(fontSize: 12.5, color: FortunasColors.ink3),
               ),
             ],
+          ),
+        ),
+
+        Builder(builder: (context) {
+          final account = ref.watch(authControllerProvider).account;
+          return _Card(kicker: 'AKUN', children: [
+            _Row(label: 'BISNIS', value: account?.tenantName ?? '—'),
+            _Row(label: 'EMAIL', value: account?.email ?? '—'),
+            _Row(label: 'PREFIX', value: account?.tablePrefix ?? '—', useMonoFont: true),
+          ]);
+        }),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+          child: OutlinedButton(
+            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.logout, size: 18),
+                SizedBox(width: 8),
+                Text('Keluar'),
+              ],
+            ),
           ),
         ),
 
