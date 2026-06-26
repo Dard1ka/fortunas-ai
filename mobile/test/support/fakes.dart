@@ -49,4 +49,25 @@ class FakeApi extends FortunasApi {
     if (meError != null) throw meError!;
     return meResult!;
   }
+
+  DpaPayload? dpaResult;
+  Object? dpaError;
+  DpaPayload? updateResult;
+  Object? updateError;
+  int updateCalls = 0;
+  DpaUpdateRequest? lastUpdate;
+
+  @override
+  Future<DpaPayload> getDpa() async {
+    if (dpaError != null) throw dpaError!;
+    return dpaResult ?? const DpaPayload();
+  }
+
+  @override
+  Future<DpaPayload> updateDpa(DpaUpdateRequest req) async {
+    updateCalls++;
+    lastUpdate = req;
+    if (updateError != null) throw updateError!;
+    return updateResult!;
+  }
 }

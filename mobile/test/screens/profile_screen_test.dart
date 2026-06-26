@@ -58,4 +58,19 @@ void main() {
     await tester.pump();
     expect(spy.logoutCalls, 1);
   });
+
+  testWidgets('shows Atur Pagar AI entry', (tester) async {
+    final spy = AuthedSpyController();
+    final api = FakeApi()..meResult = const UmkmAccount();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        authControllerProvider.overrideWith(() => spy),
+        apiProvider.overrideWithValue(api),
+      ],
+      child: const MaterialApp(home: ProfileScreen()),
+    ));
+    await tester.pump();
+    expect(find.byKey(const Key('profile_dpa_button')), findsOneWidget);
+    expect(find.text('Atur Pagar AI'), findsOneWidget);
+  });
 }

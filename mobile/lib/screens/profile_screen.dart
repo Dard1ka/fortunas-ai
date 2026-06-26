@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../api/client.dart';
 import '../auth/auth_controller.dart';
@@ -90,6 +91,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Icon(Icons.logout, size: 18),
                 SizedBox(width: 8),
                 Text('Keluar'),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+          child: ElevatedButton(
+            key: const Key('profile_dpa_button'),
+            onPressed: () => context.push('/dpa'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.shield_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Atur Pagar AI'),
               ],
             ),
           ),

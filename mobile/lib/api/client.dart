@@ -106,6 +106,16 @@ class FortunasApi {
     final r = await _dio.post('/voice/transaction', data: payload);
     return VoiceTransactionResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
+
+  Future<DpaPayload> getDpa() async {
+    final r = await _dio.get('/umkm/dpa');
+    return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<DpaPayload> updateDpa(DpaUpdateRequest req) async {
+    final r = await _dio.put('/umkm/dpa', data: req.toJson());
+    return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());
+  }
 }
 
 /// Singleton Riverpod provider for the API client.
