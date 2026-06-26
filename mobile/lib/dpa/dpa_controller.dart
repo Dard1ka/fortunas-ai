@@ -13,7 +13,14 @@ class DpaController extends Notifier<DpaState> {
   FortunasApi get _api => ref.read(apiProvider);
 
   Future<void> load() async {
-    state = state.copyWith(loading: true, clearLoadError: true);
+    state = state.copyWith(
+      loading: true,
+      clearLoadError: true,
+      clearError: true,
+      draftRawText: '',
+      draftAllowed: const [],
+      draftForbidden: const [],
+    );
     try {
       final payload = await _api.getDpa();
       state = state.copyWith(loading: false, payload: payload, editing: false);

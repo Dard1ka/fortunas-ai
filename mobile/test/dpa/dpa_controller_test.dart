@@ -115,4 +115,28 @@ void main() {
     expect(s.editing, isTrue);
     expect(s.submitting, isFalse);
   });
+
+  test('load() wipes stale drafts + errorMessage from a prior aborted edit', () async {
+    final api = FakeApi()..updateError = _http403();
+    final c = _container(api);
+    final n = c.read(dpaControllerProvider.notifier);
+    // Dirty the state: start edit, fill drafts, fail save to get errorMessage.
+    n.startEdit();
+    n.setRawText('draft note');
+    n.addForbidden('rokok');
+    await n.save('wrong'); // 403 -> errorMessage populated, drafts still dirty
+    final dirty = c.read(dpaControllerProvider);
+    expect(dirty.draftRawText, 'draft note');
+    expect(dirty.draftForbidden, ['rokok']);
+    expect(dirty.errorMessage, isNotNull);
+    // Now reload succeeds.
+    api.updateError = null;
+    api.dpaResult = const DpaPayload(version: 1);
+    await n.load();
+    final s = c.read(dpaControllerProvider);
+    expect(s.draftRawText, '');
+    expect(s.draftAllowed, isEmpty);
+    expect(s.draftForbidden, isEmpty);
+    expect(s.errorMessage, isNull);
+  });
 }
