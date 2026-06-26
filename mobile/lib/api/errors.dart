@@ -4,6 +4,13 @@ import 'package:dio/dio.dart';
 /// React equivalent: frontend/src/api/errors.js
 String humanizeError(Object error) {
   if (error is DioException) {
+    // Prefer the backend's specific message (FastAPI {"detail": "..."}).
+    final data = error.response?.data;
+    if (data is Map &&
+        data['detail'] is String &&
+        (data['detail'] as String).trim().isNotEmpty) {
+      return (data['detail'] as String).trim();
+    }
     final code = error.response?.statusCode;
     if (error.type == DioExceptionType.cancel) return '';
     if (error.type == DioExceptionType.connectionTimeout ||
