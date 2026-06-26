@@ -163,12 +163,27 @@ LIMIT 10
 """
 
 
+def _top_product_sql(tx: str) -> str:
+    return f"""
+SELECT
+  Description AS description,
+  SUM(Quantity) AS total_qty,
+  ROUND(SUM(Quantity * Price), 2) AS total_omzet
+FROM `{tx}`
+WHERE Description IS NOT NULL AND Quantity > 0 AND Price > 0
+GROUP BY Description
+ORDER BY total_omzet DESC, total_qty DESC, description
+LIMIT 10
+"""
+
+
 # Builder per analisis (terima ref tabel transaksi tenant).
 QUERY_BUILDERS = {
     "high_value_customer": _high_value_customer_sql,
     "repeat_customer": _repeat_customer_sql,
     "peak_hour": _peak_hour_sql,
     "bundle_opportunity": _bundle_opportunity_sql,
+    "top_product": _top_product_sql,
 }
 
 _COST_TIER = {
@@ -176,6 +191,7 @@ _COST_TIER = {
     "repeat_customer": "cheap",
     "peak_hour": "cheap",
     "bundle_opportunity": "expensive",
+    "top_product": "cheap",
 }
 
 

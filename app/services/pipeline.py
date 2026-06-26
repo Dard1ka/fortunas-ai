@@ -23,7 +23,8 @@ def resolve_analysis(question: str) -> tuple[dict | None, dict | None]:
             "status": "failed",
             "message": (
                 "Pertanyaan belum dikenali. Coba tanyakan tentang pelanggan loyal, "
-                "jam transaksi paling ramai, pelanggan paling bernilai, atau produk yang sering dibeli bersama."
+                "jam transaksi paling ramai, pelanggan paling bernilai, "
+                "produk yang sering dibeli bersama, atau produk terlaris."
             ),
             "trace_tail": ["Intent mapping failed"],
         }
@@ -394,6 +395,7 @@ def build_deterministic_executive_summary(sections: list[dict]) -> str:
         "high_value_customer",
         "peak_hour",
         "bundle_opportunity",
+        "top_product",
     ):
         section = by_type.get(key)
         if not section:

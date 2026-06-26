@@ -99,6 +99,13 @@ def _build_summary_from_rows(mapped_analysis: str, rows: list) -> str:
             f"Pasangan produk {pairs} merupakan {tail} berdasarkan bundle_frequency {freqs}."
         )
 
+    if mapped_analysis == "top_product":
+        names = _join_id([str(r.get("description")) for r in top])
+        omzets = _join_id([r.get("total_omzet") for r in top])
+        return (
+            f"{names} merupakan produk dengan omzet tertinggi berdasarkan total_omzet {omzets}."
+        )
+
     return "Data berhasil dianalisis berdasarkan hasil yang tersedia."
 
 
@@ -133,6 +140,13 @@ def _build_top_findings_from_rows(mapped_analysis: str, rows: list) -> list[str]
             findings.append(
                 f"Peringkat {idx} adalah pasangan produk {row['product_A']} dan {row['product_B']} "
                 f"dengan bundle_frequency {row['bundle_frequency']}."
+            )
+
+    elif mapped_analysis == "top_product":
+        for idx, row in enumerate(top3, start=1):
+            findings.append(
+                f"Peringkat {idx} adalah {row['description']} dengan total_omzet {row['total_omzet']} "
+                f"dan total_qty {row['total_qty']}."
             )
 
     while len(findings) < 3:
@@ -184,6 +198,15 @@ def _build_recommendations_from_rows(mapped_analysis: str, rows: list) -> list[s
             "Coba buat paket hemat untuk pasangan produk yang paling sering dibeli bareng.",
             "Taruh produk yang cocok dijual paket secara berdampingan di etalase atau katalog.",
             "Gunakan bundling ringan selama stok aman supaya nilai belanja bisa naik."
+        ]
+
+    if mapped_analysis == "top_product":
+        names = [str(r.get("description")) for r in top3 if r.get("description")]
+        joined = ", ".join(names[:3]) if names else "produk terlaris"
+        return [
+            f"Pastikan stok {joined} selalu aman karena produk ini penyumbang omzet terbesar.",
+            "Jadikan produk omzet tertinggi sebagai andalan promo atau display utama.",
+            "Pantau tren penjualannya supaya bisa antisipasi lonjakan permintaan tanpa kehabisan stok."
         ]
 
     return [

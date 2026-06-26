@@ -140,6 +140,31 @@ INTENT_CONFIG = {
             "laku bareng",
         ],
     },
+    "top_product": {
+        "strong_phrases": [
+            "produk terlaris",
+            "produk paling laku",
+            "barang paling laku",
+            "barang terlaris",
+            "best seller",
+            "produk yang paling laku",
+            "produk paling banyak terjual",
+            "omzet per produk",
+            "produk dengan omzet tertinggi",
+            "produk penyumbang omzet terbesar",
+            "produk apa yang paling laku",
+        ],
+        "keywords": [
+            "terlaris",
+            "paling laku",
+            "paling laris",
+            "best seller",
+            "bestseller",
+            "omzet per produk",
+            "paling banyak terjual",
+            "produk laris",
+        ],
+    },
 }
 
 
@@ -201,6 +226,18 @@ def _score_intent(normalized_question: str, intent_key: str) -> int:
             score += 2
         if "paket" in tokens or "bareng" in tokens:
             score += 2
+
+    elif intent_key == "top_product":
+        if "terlaris" in tokens or "bestseller" in tokens:
+            score += 4
+        if "produk" in tokens and ("terlaris" in tokens or "laris" in tokens):
+            score += 4
+        if ("laku" in tokens or "laris" in tokens) and "paling" in tokens:
+            score += 3
+        if "omzet" in tokens and ("produk" in tokens or "per" in tokens):
+            score += 4
+        if "terjual" in tokens and ("banyak" in tokens or "paling" in tokens):
+            score += 3
 
     return score
 
