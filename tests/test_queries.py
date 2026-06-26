@@ -13,6 +13,7 @@ def test_build_query_top_product_structure():
     assert "AS total_omzet" in sql
     assert "ORDER BY total_omzet DESC" in sql
     assert "LIMIT 10" in sql
+    assert "Description AS description" in sql
 
 
 def test_build_query_unknown_returns_none():
