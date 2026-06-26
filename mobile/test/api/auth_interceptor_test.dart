@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fortunas_ai/api/auth_interceptor.dart';
@@ -30,7 +32,15 @@ void main() {
       requestOptions: ro,
       response: Response(requestOptions: ro, statusCode: 401),
     );
-    i.onError(err, ErrorInterceptorHandler());
+    // runZonedGuarded absorbs the standalone-handler completer artifact:
+    // ErrorInterceptorHandler.next() completes an internal Completer with an
+    // error; outside a real Dio chain there is no listener, which would
+    // produce an unhandled async error. onUnauthorized fires synchronously
+    // before propagation, so `called` is set before the expect.
+    runZonedGuarded(
+      () => i.onError(err, ErrorInterceptorHandler()),
+      (_, __) {}, // absorb completer artifact
+    );
     expect(called, isTrue);
   });
 
@@ -42,7 +52,10 @@ void main() {
       requestOptions: ro,
       response: Response(requestOptions: ro, statusCode: 500),
     );
-    i.onError(err, ErrorInterceptorHandler());
+    runZonedGuarded(
+      () => i.onError(err, ErrorInterceptorHandler()),
+      (_, __) {}, // absorb completer artifact
+    );
     expect(called, isFalse);
   });
 }

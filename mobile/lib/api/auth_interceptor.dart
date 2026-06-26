@@ -22,14 +22,6 @@ class AuthInterceptor extends Interceptor {
     if (err.response?.statusCode == 401) {
       onUnauthorized?.call();
     }
-    // ErrorInterceptorHandler.next() calls completeError() on an internal
-    // Completer. In a live Dio chain the pipeline awaits handler.future so
-    // the error is handled. When called in isolation (unit tests) there is no
-    // listener, which would cause an unhandled-async-error. Calling
-    // .ignore() on the protected future first registers a no-op listener so
-    // the zone never sees the error as unhandled.
-    // ignore: invalid_use_of_protected_member
-    handler.future.ignore();
     handler.next(err);
   }
 }
