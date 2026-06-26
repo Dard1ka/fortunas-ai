@@ -1,8 +1,8 @@
-/// Pure helpers for the customer login (dev) flow. No Flutter/Riverpod deps.
+// Pure helpers for the customer login (dev) flow. No Flutter/Riverpod deps.
 
 String normalizePhone(String raw) => raw.replaceAll(RegExp(r'[^0-9]'), '');
 
-/// Backend dev token (FORTUNAS_DEV_AUTH=1): "dev:<uid>:<phone>".
+/// Backend dev token (FORTUNAS_DEV_AUTH=1): `"dev:<uid>:<phone>"`.
 /// uid and phone both use the normalized digits.
 String devFirebaseToken(String phone) {
   final n = normalizePhone(phone);

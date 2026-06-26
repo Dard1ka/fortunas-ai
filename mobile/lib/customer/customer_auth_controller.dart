@@ -29,7 +29,7 @@ class CustomerAuthController extends Notifier<CustomerAuthState> {
       state = state.copyWith(submitting: false, profile: resp.profile);
       return true;
     } catch (e) {
-      state = state.copyWith(submitting: false, errorMessage: humanizeError(e));
+      state = state.copyWith(submitting: false, errorMessage: humanizeError(e), clearProfile: true);
       return false;
     }
   }
