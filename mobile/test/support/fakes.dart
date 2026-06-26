@@ -115,4 +115,16 @@ class FakeApi extends FortunasApi {
     if (customerQrSessionError != null) throw customerQrSessionError!;
     return customerQrSessionResult!;
   }
+
+  QrValidateResponse? scanValidateResult;
+  Object? scanValidateError;
+  QrValidateRequest? lastScanValidate;
+
+  @override
+  Future<QrValidateResponse> scanValidate(QrValidateRequest req,
+      {CancelToken? cancelToken}) async {
+    lastScanValidate = req;
+    if (scanValidateError != null) throw scanValidateError!;
+    return scanValidateResult!;
+  }
 }
