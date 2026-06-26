@@ -2,7 +2,7 @@
 
 **Dev hari ini:** Go Steven Sanjaya
 **Tanggal:** 2026-06-26
-**Branch:** `feat/briefing-5analisis-ui` (dari `main` @ `0effa1b`) → PR #<TBD>
+**Branch:** `feat/briefing-5analisis-ui` (dari `main` @ `0effa1b`) → PR #13
 
 > **Day 9 adalah sprint 4-slice.** File ini akan dilengkapi oleh slice 2–4 (Checkout UI, Customer OTP, Render QR) sebelum merge ke `main`.
 
@@ -38,8 +38,9 @@ Layar briefing kini menampilkan **semua 5 analisis** termasuk `top_product` (seb
 
 - `pairRows` adalah fungsi murni generic — ditest di unit test terpisah tanpa widget pump.
 - `briefing_screen_test` pakai `FakeApi.reportDaily` override (pola yang sama dengan `FakeApi` di slice sebelumnya) sehingga bebas jaringan dan server.
-- Commit terpisah antara feat (`7ef8432`, `768e9a0`) dan test assertion (`79ae67c`) untuk menjaga riwayat review jelas.
-- Suite Flutter: **62 hijau** (naik dari 52 Day 8). `flutter analyze --no-fatal-infos`: 7 info pre-existing (deprecated `localeId` + `print` di `tool/parser_check.dart`), exit 0, **tidak ada issue baru**.
+- Dikerjakan dalam beberapa commit terpisah (feat → test assertion → hardening) untuk menjaga riwayat review jelas; di-squash saat merge (lihat PR #13).
+- Final review (opus) menambah guard overflow: widget test pada `textScaler` 1.5× memastikan kartu KPI tidak overflow di text-scale besar (tinggi baris `_kpiRowHeight = 116.0` tetap; 1.5× tidak overflow → tanpa perubahan layout, risiko dikunci test).
+- Suite Flutter: **64 hijau** (naik dari 52 Day 8). `flutter analyze --no-fatal-infos`: 7 info pre-existing (deprecated `localeId` + `print` di `tool/parser_check.dart`), exit 0, **tidak ada issue baru**.
 
 ## 🔴 Blocker
 
@@ -51,7 +52,7 @@ Layar briefing kini menampilkan **semua 5 analisis** termasuk `top_product` (seb
 - **Slice 3:** Customer phone OTP (3 layar: HP → OTP → profil)
 - **Slice 4:** Render QR identity customer (`qr_flutter`, auto-refresh 90s)
 
-Semua slice akan ditambahkan ke file `day-09.md` ini sebelum PR #<TBD> di-merge.
+Semua slice akan ditambahkan ke file `day-09.md` ini sebelum PR #13 di-merge.
 
 ## 📌 Out-of-scope / deferred
 
