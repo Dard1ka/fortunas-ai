@@ -92,4 +92,16 @@ class FakeApi extends FortunasApi {
     if (checkoutError != null) throw checkoutError!;
     return checkoutResult!;
   }
+
+  CustomerBootstrapResponse? customerBootstrapResult;
+  Object? customerBootstrapError;
+  CustomerBootstrapRequest? lastCustomerBootstrap;
+
+  @override
+  Future<CustomerBootstrapResponse> customerBootstrap(CustomerBootstrapRequest req,
+      {CancelToken? cancelToken}) async {
+    lastCustomerBootstrap = req;
+    if (customerBootstrapError != null) throw customerBootstrapError!;
+    return customerBootstrapResult!;
+  }
 }
