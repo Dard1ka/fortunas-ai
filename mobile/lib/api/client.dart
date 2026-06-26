@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_controller.dart';
 import '../auth/token_store.dart';
 import 'auth_interceptor.dart';
 import 'models.dart';
@@ -109,7 +110,11 @@ class FortunasApi {
 
 /// Singleton Riverpod provider for the API client.
 /// Passes the in-memory token so AuthInterceptor can attach Bearer headers.
-/// onUnauthorized is wired in Task 5 (requires authControllerProvider).
+/// onUnauthorized triggers logout via authControllerProvider (lazy read —
+/// Dart allows this circular import because both refs are inside closures).
 final apiProvider = Provider<FortunasApi>(
-  (ref) => FortunasApi(getToken: () => ref.read(tokenProvider)),
+  (ref) => FortunasApi(
+    getToken: () => ref.read(tokenProvider),
+    onUnauthorized: () => ref.read(authControllerProvider.notifier).logout(),
+  ),
 );
