@@ -1,7 +1,7 @@
 # Fortunas AI — Roadmap Produk & Eksekusi
 
 > **Tujuan dokumen:** supaya **semua anggota tim paham** dalam 5 menit — kita di mana sekarang, mau ke mana, dan urutan kerjanya.
-> **Update:** 26 Juni 2026 · **Sumber kebenaran kode:** `github.com/Dard1ka/fortunas-ai` @ `main`
+> **Update:** 27 Juni 2026 · **Sumber kebenaran kode:** `github.com/Dard1ka/fortunas-ai` @ `main`
 > **Detail harian:** lihat [`PLAN_EVERY_DEV.md`](./PLAN_EVERY_DEV.md)
 
 ---
@@ -12,7 +12,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 
 ---
 
-## 📊 Status Aktual (per 26 Juni 2026)
+## 📊 Status Aktual (per 27 Juni 2026)
 
 > Dikerjakan lebih awal dari window 29 Jun (estafet ahead-of-schedule). **4 PR sudah merged ke `main`.** Status: ✅ selesai · 🟡 sebagian · ❌ belum.
 
@@ -36,14 +36,14 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 2. PostgreSQL | ✅ selesai | PR #3. Cutover Postgres prod (smoke asli) masih nunggu kredensial |
 | 3. Customer login HP + OTP | ✅ selesai | Backend bootstrap + Firebase seam ✅ (Day 4). **Flutter mobile 3 layar SELESAI (Day 9 slice 3, `PR #15`)**: modul `customer/` terisolasi, dev-token OTP (any 6 digit, token `dev:<uid>:<phone>`), in-memory session, gate allowance additive. Firebase real phone-auth deferred (lihat `PENDING_EXTERNAL_SETUP.md`). |
 | 4. QR identitas customer | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. **Mobile render SELESAI (Day 9 slice 4, `PR #16`)**: `qr_flutter`, auto-refresh 90s (lead-5s), dari layar profil customer. **Scanner UMKM (#5) tetap defer** (butuh device fisik + native plugin `mobile_scanner`). |
-| 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
+| 5. Scan QR → auto-member | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. **UI mobile house SELESAI (Day 10, `PR #<TBD>`)**: layar scan + validate + auto-membership, input token manual. **Kamera `mobile_scanner` deferred** (device fisik + native config) — satu-satunya sisa mobile. |
 | 6. Checkout nyambung customer | 🟡 sebagian | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link. **UI mobile (Kasir) SELESAI (Day 9 slice 2, PR #14)**: form multi-item + inline success. Sisa: kolom BQ enriched `CustomerUserID`/`TenantID` + scanner QR customer |
 | 7. DPA jadi "pagar" AI | ✅ selesai | **Backend SELESAI (PR #4)** + **UI mobile DPA (view+edit, chip editor, password confirm) — PR #12** |
 | 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6, PR #9)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #15, Day 9 slice 3)** → ~~QR render customer~~ ✅ **(PR #16, Day 9 slice 4)**. **Sprint 4-slice Day-9 SELESAI.** Semua UI mobile credential-free selesai. Sisa: scanner UMKM (#5, deferred — butuh device fisik + `mobile_scanner`).
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #15, Day 9 slice 3)** → ~~QR render customer~~ ✅ **(PR #16, Day 9 slice 4)** → ~~Scan QR UMKM (#5 house)~~ ✅ **(PR #<TBD>, Day 10)**. **Sprint Day-9 + Day-10 SELESAI.** Semua UI mobile credential-free selesai. Sisa: kamera scan (`mobile_scanner`) = satu-satunya sisa mobile — butuh device fisik + native plugin config.
 
 ---
 
