@@ -172,20 +172,20 @@ class _BriefingScreenState extends ConsumerState<BriefingScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Column(
           children: [
-            for (final row in pairRows(latest.sections)) ...[
+            for (final (i, row) in pairRows(latest.sections).indexed) ...[
+              if (i > 0) const SizedBox(height: 10),
               SizedBox(
                 height: _kpiRowHeight,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (var i = 0; i < row.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 10),
-                      Expanded(child: _kpiCardFor(row[i])),
+                    for (var j = 0; j < row.length; j++) ...[
+                      if (j > 0) const SizedBox(width: 10),
+                      Expanded(child: _kpiCardFor(row[j])),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
             ],
           ],
         ),

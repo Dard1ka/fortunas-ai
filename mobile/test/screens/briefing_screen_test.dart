@@ -61,6 +61,22 @@ void main() {
     expect(find.byIcon(Icons.local_fire_department_outlined), findsOneWidget);
   });
 
+  testWidgets('odd trailing card spans full width (wider than a paired card)',
+      (tester) async {
+    await _pump(tester, _fiveSections());
+    // _KpiCard root is the nearest Container ancestor of its uppercased label.
+    final terlarisCard = find
+        .ancestor(of: find.text('TERLARIS'), matching: find.byType(Container))
+        .first;
+    final loyalCard = find
+        .ancestor(of: find.text('LOYAL'), matching: find.byType(Container))
+        .first;
+    final terlarisWidth = tester.getSize(terlarisCard).width;
+    final loyalWidth = tester.getSize(loyalCard).width;
+    // Paired cards take ~half the row; the singleton spans the full row.
+    expect(terlarisWidth, greaterThan(loyalWidth * 1.5));
+  });
+
   testWidgets('empty state shows placeholder copy', (tester) async {
     await _pump(
       tester,
