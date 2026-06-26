@@ -30,7 +30,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 
 | Fitur MVP | Status | Catatan |
 |---|---|---|
-| 1. Login UMKM + HTTPS | 🟡 sebagian | Auth backend UMKM ✅ (v4.0). **Belum:** layar login Flutter, HTTPS/domain VPS |
+| 1. Login UMKM + HTTPS | 🟡 sebagian | Auth backend ✅ + **layar Login/Register Flutter ✅ (auth gate + token secure-storage + Profile akun) — PR #10**. Belum: HTTPS/domain VPS |
 | 2. PostgreSQL | ✅ selesai | PR #3. Cutover Postgres prod (smoke asli) masih nunggu kredensial |
 | 3. Customer login HP + OTP | 🟡 sebagian | Backend bootstrap + Firebase seam ✅ (Day 4, dev stub `FORTUNAS_DEV_AUTH=1`). **Belum:** Firebase real wiring + 3 layar mobile |
 | 4. QR identitas customer | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. Sisa: render QR di mobile |
@@ -41,7 +41,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)**. Semua backend credential-free selesai. UI mobile (DPA #7-sisanya + customer/QR) = track Flutter terpisah.
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → UI mobile Login UMKM (#1) ✅ **(PR #10)**. Semua backend credential-free selesai. UI mobile (DPA #7-sisanya + customer/QR) = track Flutter terpisah.
 
 ---
 

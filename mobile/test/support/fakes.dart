@@ -1,0 +1,52 @@
+import 'package:fortunas_ai/api/client.dart';
+import 'package:fortunas_ai/api/models.dart';
+import 'package:fortunas_ai/auth/token_store.dart';
+
+class FakeTokenStore implements TokenStore {
+  String? value;
+  FakeTokenStore([this.value]);
+  @override
+  Future<String?> read() async => value;
+  @override
+  Future<void> write(String token) async => value = token;
+  @override
+  Future<void> delete() async => value = null;
+}
+
+class FakeApi extends FortunasApi {
+  FakeApi() : super();
+  AuthResponse? loginResult;
+  AuthResponse? registerResult;
+  UmkmAccount? meResult;
+  Object? loginError;
+  Object? registerError;
+  Object? meError;
+  int loginCalls = 0;
+
+  // Override so widget tests never hit a real socket (ProfileScreen._checkHealth).
+  @override
+  Future<Map<String, dynamic>> health() async => {'status': 'ok'};
+
+  @override
+  Future<AuthResponse> login(String email, String password) async {
+    loginCalls++;
+    if (loginError != null) throw loginError!;
+    return loginResult!;
+  }
+
+  @override
+  Future<AuthResponse> register({
+    required String email,
+    required String password,
+    required String businessName,
+  }) async {
+    if (registerError != null) throw registerError!;
+    return registerResult!;
+  }
+
+  @override
+  Future<UmkmAccount> me() async {
+    if (meError != null) throw meError!;
+    return meResult!;
+  }
+}

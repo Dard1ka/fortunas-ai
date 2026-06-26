@@ -42,3 +42,6 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
         working-directory: mobile
+      - name: Test
+        run: flutter test
+        working-directory: mobile
