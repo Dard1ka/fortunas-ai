@@ -48,7 +48,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen> {
             Text('Masukkan kode OTP',
                 style: display(fontSize: 22, letterSpacing: -0.4)),
             const SizedBox(height: 4),
-            Text('Mode demo: masukkan kode numerik apa saja.',
+            Text('Mode demo: masukkan 6 angka apa saja.',
                 style: body(fontSize: 12.5, color: FortunasColors.ink3)),
             const SizedBox(height: 18),
             TextField(
@@ -56,7 +56,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen> {
               controller: _otp,
               keyboardType: TextInputType.number,
               decoration:
-                  const InputDecoration(labelText: 'Kode OTP'),
+                  const InputDecoration(labelText: 'Kode OTP (6 angka)'),
             ),
             if (_error != null)
               Padding(

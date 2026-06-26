@@ -22,7 +22,7 @@ void main() {
     await tester.tap(find.byKey(const Key('cust_otp_verify')));
     await tester.pumpAndSettle();
     expect(find.text('PROFILE_REACHED'), findsNothing);
-    expect(find.textContaining('6 angka'), findsOneWidget);
+    expect(find.text('Kode OTP harus 6 angka.'), findsOneWidget);
   });
 
   testWidgets('6-digit navigates to profile', (tester) async {
