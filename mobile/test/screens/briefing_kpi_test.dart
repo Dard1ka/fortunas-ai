@@ -16,6 +16,12 @@ void main() {
         [1, 2]
       ]);
     });
+    test('three -> pair + singleton', () {
+      expect(pairRows(const [1, 2, 3]), [
+        [1, 2],
+        [3]
+      ]);
+    });
     test('four -> two pairs', () {
       expect(pairRows(const [1, 2, 3, 4]), [
         [1, 2],

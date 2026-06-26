@@ -89,4 +89,19 @@ void main() {
     );
     expect(find.text('Belum ada briefing tersimpan'), findsOneWidget);
   });
+
+  testWidgets('KPI cards do not overflow at large text scale', (tester) async {
+    final api = FakeApi()..reportResult = _fiveSections();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [apiProvider.overrideWithValue(api)],
+      child: const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: Scaffold(body: BriefingScreen()),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull); // RenderFlex overflow would be recorded here
+  });
 }
