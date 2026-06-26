@@ -86,9 +86,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       children: [
         // Scrollable content
         Expanded(
-          child: ListView(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 8),
-            children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               const ScreenHeader(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
@@ -199,19 +201,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                 ),
               ],
-              if (state.errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
-                  child: _Banner(message: state.errorMessage!),
-                ),
             ],
+          ),
           ),
         ),
         // Pinned total + confirm bar
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              if (state.errorMessage != null) ...[
+                _Banner(
+                  key: const Key('checkout_error'),
+                  message: state.errorMessage!,
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -335,7 +341,7 @@ class _ItemRow extends StatelessWidget {
 
 class _Banner extends StatelessWidget {
   final String message;
-  const _Banner({required this.message});
+  const _Banner({super.key, required this.message});
   @override
   Widget build(BuildContext context) {
     return Container(

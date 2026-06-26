@@ -34,6 +34,7 @@ void main() {
     await _pump(tester, FakeApi()..checkoutResult = _okResp());
     final btn = tester.widget<ElevatedButton>(find.byKey(const Key('checkout_confirm')));
     expect(btn.onPressed, isNull);
+    expect(find.byKey(const Key('checkout_error')), findsNothing); // no banner before any failure
   });
 
   testWidgets('Tambah adds item, updates total, enables Konfirmasi', (tester) async {
@@ -78,5 +79,6 @@ void main() {
     expect(find.text('Kopi'), findsOneWidget); // item kept
     expect(find.byKey(const Key('checkout_confirm')), findsOneWidget); // still form mode
     expect(find.text('INV-00123'), findsNothing);
+    expect(find.byKey(const Key('checkout_error')), findsOneWidget); // banner visible in pinned bar
   });
 }
