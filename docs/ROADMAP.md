@@ -37,11 +37,11 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 5. Scan QR → auto-member | 🟡 backend ✅ | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. Sisa: scanner UI mobile |
 | 6. Checkout nyambung customer | 🟡 backend ✅ | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link (best-effort SETELAH sale). Sisa: UI mobile + kolom BQ enriched |
 | 7. DPA jadi "pagar" AI | 🟡 backend ✅ | **Backend SELESAI (PR #4).** Sisa: UI mobile DPA (onboarding + edit), roadmap Hari 12 |
-| 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
+| 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6, PR #9)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
 
 **Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
 
-**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6**. Semua backend credential-free selesai. UI mobile (DPA #7-sisanya + customer/QR) = track Flutter terpisah.
+**Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)**. Semua backend credential-free selesai. UI mobile (DPA #7-sisanya + customer/QR) = track Flutter terpisah.
 
 ---
 
@@ -116,7 +116,7 @@ Model kerja: **3 dev rotasi/estafet per hari** (A→B→C). Tiap akhir hari waji
 | Fitur MVP | Isi |
 |---|---|
 | 🟡 **7. DPA jadi "pagar" AI** | Backend ✅ **selesai (PR #4)**: simpan DPA, cek deterministik Pre+Post, inject prompt. Sisa: **UI mobile DPA** (onboarding + edit) |
-| ✅ **8. Analisis `top_product`** | **SELESAI (Day 6)** — produk terlaris rank by **omzet** (+ `total_qty`/baris), briefing jadi 5 analisis |
+| ✅ **8. Analisis `top_product`** | **SELESAI (Day 6, PR #9)** — produk terlaris rank by **omzet** (+ `total_qty`/baris), briefing jadi 5 analisis |
 | 🔨 Polish + E2E test | Uji alur penuh UMKM & Customer |
 
 ### Minggu 4 — Polish + Submission (Hari 16–20) → `v5.0.0-mvp-submission`
