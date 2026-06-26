@@ -45,4 +45,21 @@ void main() {
     expect(st.hasQr, false);
     expect(st.loading, false);
   });
+
+  test('refresh error keeps prior session (seamless)', () async {
+    final api = FakeApi()..customerQrSessionResult = _resp();
+    final c = _container(api);
+    final ctrl = c.read(customerQrControllerProvider.notifier);
+    await ctrl.refresh(); // success → session set
+    expect(c.read(customerQrControllerProvider).hasQr, true);
+
+    api.customerQrSessionResult = null;
+    api.customerQrSessionError = Exception('503'); // next refresh fails
+    await ctrl.refresh();
+
+    final st = c.read(customerQrControllerProvider);
+    expect(st.errorMessage, isNotNull);
+    expect(st.hasQr, true); // prior session preserved (seamless UX)
+    expect(st.session?.qrToken, 'qr-jwt-token-abc');
+  });
 }
