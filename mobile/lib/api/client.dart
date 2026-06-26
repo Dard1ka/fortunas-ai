@@ -111,6 +111,13 @@ class FortunasApi {
     return QrSessionResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  Future<QrValidateResponse> scanValidate(QrValidateRequest req,
+      {CancelToken? cancelToken}) async {
+    final r = await _dio.post('/umkm/customer/scan/validate',
+        data: req.toJson(), cancelToken: cancelToken);
+    return QrValidateResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
   Future<DailyReportResponse> reportDailyRun({CancelToken? cancelToken}) async {
     final r = await _dio.post('/report/daily/run', cancelToken: cancelToken);
     return DailyReportResponse.fromJson((r.data as Map).cast<String, dynamic>());

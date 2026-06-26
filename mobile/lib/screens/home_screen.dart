@@ -37,6 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openCheckout() => context.push('/checkout');
 
+  void _openScan() => context.push('/scan');
+
   static const _exampleQuestions = [
     'Siapa pelanggan paling setia bulan ini?',
     'Jam berapa toko paling rame?',
@@ -208,6 +210,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 iconBg: FortunasColors.sky,
                 onTap: _openCheckout,
               ),
+              const SizedBox(height: 10),
+              _QuickActionCard(
+                key: const Key('home_scan'),
+                title: 'Scan QR Pelanggan',
+                subtitle: 'Daftarkan pelanggan jadi member',
+                icon: Icons.qr_code_scanner,
+                iconBg: FortunasColors.lime,
+                onTap: _openScan,
+              ),
             ],
           ),
         ),
@@ -275,6 +286,7 @@ class _QuickActionCard extends StatelessWidget {
   final Color iconBg;
   final VoidCallback onTap;
   const _QuickActionCard({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.icon,
