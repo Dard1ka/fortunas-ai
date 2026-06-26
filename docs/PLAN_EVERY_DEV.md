@@ -421,7 +421,7 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ---
 
 ### 🗓 Hari 12 (Sel 2026-07-14) — Dev C
-> ✅ **Aktual (ahead-of-schedule, 2026-06-26):** 1 layar `/dpa` view+edit di atas `GET/PUT /umkm/dpa`, chip editor (logika murni `dpa_rules`), password confirm inline (403 inline), Riverpod Notifier (pola Day 7), nol dep baru. Test: rules/state/controller/screen + karakterisasi gate. PR #<TBD>.
+> ✅ **Aktual (ahead-of-schedule, 2026-06-26):** 1 layar `/dpa` view+edit di atas `GET/PUT /umkm/dpa`, chip editor (logika murni `dpa_rules`), password confirm inline (403 inline), Riverpod Notifier (pola Day 7), nol dep baru. Test: rules/state/controller/screen + karakterisasi gate. PR #12.
 
 **Goal:** DPA UI di mobile UMKM (onboarding + edit).
 

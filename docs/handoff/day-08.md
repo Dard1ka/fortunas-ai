@@ -2,7 +2,7 @@
 
 **Dev hari ini:** Go Steven Sanjaya
 **Tanggal:** 2026-06-26
-**Branch:** `feat/dpa-ui-mobile` (dari `main` @ `1b45acd` = backfill-handoff merge) → PR #<TBD>
+**Branch:** `feat/dpa-ui-mobile` (dari `main` @ `1b45acd` = backfill-handoff merge) → PR #12
 
 ## ✅ Selesai — MVP fitur #7 (UI mobile DPA: view + edit)
 Layar `/dpa` (di-push dari Profile "Atur Pagar AI"): read mode (catatan + chips Boleh/Dilarang + versi), empty/onboarding (version 0 → CTA), edit (chip editor + konfirmasi password inline). Di atas `GET/PUT /umkm/dpa` (PR #4).
