@@ -31,6 +31,7 @@ dependencies:
 
   # ── Local storage ────────────────────────────────────────
   shared_preferences: ^2.3.0   # voice transaction history (preferences-level)
+  flutter_secure_storage: ^9.2.2   # encrypted JWT storage (Keystore/Keychain)
   # drift: ^2.16.0             # ← add later for offline sync queue (mockup roadmap Phase 4)
 
   # ── Typography — auto-fetch + cache Google Fonts ─────────
