@@ -270,7 +270,7 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 
 ## MINGGU 2 — Customer Auth + QR (Hari 6–10)
 
-> **✅ Aktual (ahead-of-schedule, 2026-06-26):** Mobile Login UMKM (fitur #1 — layar Flutter) selesai sebagai dedicated session sebelum window Minggu 2. Auth backend sudah merged (v4.0); sesi ini menambahkan layar Login/Register Flutter, auth gate (go_router redirect), token secure-storage, Dio interceptor auto-Bearer + auto-401-logout, dan Profile akun (tampil `tenant_name` + email + Keluar). 26 test hijau, analyze bersih. PR # (buka saat push). QR-mobile (fitur #3–#5 sisi layar) tetap di jadwal Minggu 2.
+> **✅ Aktual (ahead-of-schedule, 2026-06-26):** Mobile Login UMKM (fitur #1 — layar Flutter) selesai sebagai dedicated session sebelum window Minggu 2. Auth backend sudah merged (v4.0); sesi ini menambahkan layar Login/Register Flutter, auth gate (go_router redirect), token secure-storage, Dio interceptor auto-Bearer + auto-401-logout, dan Profile akun (tampil `tenant_name` + email + Keluar). 26 test hijau, analyze bersih. PR #10. QR-mobile (fitur #3–#5 sisi layar) tetap di jadwal Minggu 2.
 
 ---
 
