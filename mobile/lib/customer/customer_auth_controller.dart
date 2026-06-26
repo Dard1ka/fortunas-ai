@@ -25,6 +25,10 @@ class CustomerAuthController extends Notifier<CustomerAuthState> {
         username: username.trim(),
         birthDate: birthDate.trim(),
       ));
+      // tokenProvider is the shared in-memory token used by both customer and
+      // UMKM auth (last-writer-wins). This is safe because authRedirect keeps
+      // the two flows mutually exclusive: customer routes are only reachable
+      // while UMKM is unauthenticated, so the two tokens never coexist.
       ref.read(tokenProvider.notifier).state = resp.accessToken;
       state = state.copyWith(submitting: false, profile: resp.profile);
       return true;

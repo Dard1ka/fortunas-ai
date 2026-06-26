@@ -4,7 +4,7 @@ import 'auth_state.dart';
 /// or null to allow the requested [path].
 String? authRedirect(AuthStatus status, String path) {
   final onAuthPage = path == '/login' || path == '/register';
-  final isCustomerFlow = path.startsWith('/customer');
+  final isCustomerFlow = path.startsWith('/customer/');
   switch (status) {
     case AuthStatus.unknown:
       return path == '/splash' ? null : '/splash';

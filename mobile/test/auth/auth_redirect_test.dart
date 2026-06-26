@@ -38,5 +38,8 @@ void main() {
     expect(authRedirect(AuthStatus.unauthenticated, '/random'), '/login');
     // unknown still goes to splash even for customer paths:
     expect(authRedirect(AuthStatus.unknown, '/customer/login'), '/splash');
+    // authenticated UMKM hitting a customer path is allowed through (null),
+    // because authRedirect only bounces onAuthPage or /splash to '/':
+    expect(authRedirect(AuthStatus.authenticated, '/customer/login'), isNull);
   });
 }
