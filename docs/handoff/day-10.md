@@ -2,7 +2,7 @@
 
 **Dev hari ini:** Go Steven Sanjaya
 **Tanggal:** 2026-06-27
-**Branch:** `feat/scan-qr-membership` (dari `main` @ `0effa1b`) → PR #<TBD>
+**Branch:** `feat/scan-qr-membership` (dari `main` @ `0e1e620`) → PR #17
 
 ---
 
@@ -48,7 +48,7 @@ Fitur kamera (`mobile_scanner`) sengaja di-defer sebagai seam — UI house pakai
 - `valid:false` (expired/replayed/tampered QR) ditampilkan sebagai informasi membership (kartu merah + `scanReasonMessage(reason)`), bukan banner error. `scan_error` widget `findsNothing` di skenario ini.
 - Kunci widget: `scan_token`, `scan_submit`, `scan_result`, `scan_error`, `scan_again`, `home_scan` — konsisten lintas task.
 - `_QuickActionCard` di `home_screen.dart` sudah dipersiapkan dengan `super.key` (Day 9 slice 2) sehingga kunci bisa dipasang.
-- Suite Flutter: **123 hijau** (naik dari 111 Day 9 slice 4). `flutter analyze --no-fatal-infos`: 7 info pre-existing (deprecated `localeId` + `print` di `tool/parser_check.dart`), exit 0, **tidak ada issue baru**.
+- Suite Flutter: **123 hijau** (naik dari 112 Day 9 slice 4). `flutter analyze --no-fatal-infos`: 7 info pre-existing (deprecated `localeId` + `print` di `tool/parser_check.dart`), exit 0, **tidak ada issue baru**.
 - PR: **#<TBD>** (branch `feat/scan-qr-membership`)
 
 ## 🔴 Blocker
