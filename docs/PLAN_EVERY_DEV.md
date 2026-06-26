@@ -701,7 +701,7 @@ Karena 3 dev pakai infra yang sama:
 
 - [ ] UMKM bisa register & login via Flutter mobile
 - [x] Customer bisa register phone OTP via Flutter mobile — **SELESAI Day 9 slice 3 (`PR #15`, dev-token path; Firebase real OTP deferred)**
-- [x] Customer bisa show QR identity (auto-refresh 90s) — **SELESAI Day 9 slice 4 (`PR #<TBD>`)**
+- [x] Customer bisa show QR identity (auto-refresh 90s) — **SELESAI Day 9 slice 4 (`PR #16`)**
 - [ ] UMKM bisa scan QR customer untuk auto-register membership
 - [ ] Checkout via voice tetap jalan + bisa attach customer
 - [ ] BigQuery transaksi punya kolom `CustomerUserID` & `TenantID`

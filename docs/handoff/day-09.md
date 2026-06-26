@@ -231,7 +231,7 @@ Layar QR identity customer: fetch session token dari `POST /customer/qr/session`
 Semua 4 slice Day-9 telah dikerjakan dan didokumentasikan:
 - **Slice 1** — Briefing 5-analisis UI ✅ (PR #13)
 - **Slice 2** — Layar Checkout (Kasir) ✅ (PR #14)
-- **Slice 3** — Customer OTP Login Flutter ✅ (PR #<TBD>)
-- **Slice 4** — Customer QR Render ✅ (PR #<TBD>)
+- **Slice 3** — Customer OTP Login Flutter ✅ (PR #15)
+- **Slice 4** — Customer QR Render ✅ (PR #16)
 
 Sprint Day-9 menutup seluruh UI mobile foundation untuk alur customer (login → profil → QR identity). **Scanner QR sisi UMKM (#5) tetap deferred** (butuh device fisik + `mobile_scanner` native plugin).
