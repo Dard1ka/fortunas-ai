@@ -92,6 +92,13 @@ class FortunasApi {
     return DailyReportResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  Future<CheckoutConfirmResponse> checkoutConfirm(CheckoutConfirmRequest req,
+      {CancelToken? cancelToken}) async {
+    final r = await _dio.post('/checkout/confirm',
+        data: req.toJson(), cancelToken: cancelToken);
+    return CheckoutConfirmResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
   Future<DailyReportResponse> reportDailyRun({CancelToken? cancelToken}) async {
     final r = await _dio.post('/report/daily/run', cancelToken: cancelToken);
     return DailyReportResponse.fromJson((r.data as Map).cast<String, dynamic>());

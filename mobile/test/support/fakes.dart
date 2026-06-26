@@ -80,4 +80,16 @@ class FakeApi extends FortunasApi {
     if (reportError != null) throw reportError!;
     return reportResult!;
   }
+
+  CheckoutConfirmResponse? checkoutResult;
+  Object? checkoutError;
+  CheckoutConfirmRequest? lastCheckout;
+
+  @override
+  Future<CheckoutConfirmResponse> checkoutConfirm(CheckoutConfirmRequest req,
+      {CancelToken? cancelToken}) async {
+    lastCheckout = req;
+    if (checkoutError != null) throw checkoutError!;
+    return checkoutResult!;
+  }
 }
