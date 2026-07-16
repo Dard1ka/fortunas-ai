@@ -32,6 +32,12 @@ def _analysis_explanation(mapped_analysis: str) -> str:
         "peak_hour": "Analisis ini mencari jam transaksi paling ramai beserta produk yang paling sering dibeli pada jam tersebut.",
         "bundle_opportunity": "Analisis ini mencari pasangan produk yang paling sering dibeli bersama.",
         "top_product": "Analisis ini mencari produk dengan kontribusi omzet tertinggi beserta jumlah unit yang terjual.",
+        "revenue_trend": "Analisis ini melihat tren omzet harian 30 hari terakhir beserta jumlah transaksi per hari.",
+        "customer_segmentation": "Analisis ini mengelompokkan pelanggan menjadi segmen champions, loyal, at_risk, churned, dan regular berdasarkan RFM (recency, frequency, monetary).",
+        "churn_risk": "Analisis ini mencari pelanggan yang dulu aktif (minimal 3 invoice) tetapi sudah lebih dari 60 hari tidak belanja.",
+        "slow_moving_product": "Analisis ini mencari produk yang sudah 30 hari atau lebih tidak terjual, kandidat diskon atau bundling.",
+        "average_basket_size": "Analisis ini menghitung rata-rata jumlah item dan nilai belanja per transaksi.",
+        "demand_forecast": "Analisis ini memperkirakan permintaan produk minggu depan memakai rata-rata penjualan mingguan (moving average).",
     }.get(mapped_analysis, "Analisis bisnis umum.")
 
 
@@ -91,6 +97,42 @@ def _analysis_rules(mapped_analysis: str) -> str:
 - Pertahankan nama produk dan angka persis seperti di input. Jangan menerjemahkan, memperbaiki, atau merapikan nama produk.
 - Recommendation harus pakai bahasa Indonesia yang umum dan gampang dipahami pemilik UMKM.
 - Gunakan kata-kata seperti "fokus stok produk terlaris", "jadikan produk unggulan untuk promo", atau "pastikan stok produk omzet tertinggi tidak habis".
+""",
+        "revenue_trend": """
+- rows berisi omzet harian (day, revenue, invoices), urut dari hari TERBARU.
+- Sebutkan arah tren (naik/turun/stabil) berdasarkan perbandingan hari-hari terbaru dengan hari-hari sebelumnya.
+- Sebut angka revenue dalam Rupiah persis seperti di input; jangan mengarang tanggal.
+- Recommendation fokus ke tindakan sederhana: dorong promosi saat hari sepi, siapkan stok saat hari ramai.
+""",
+        "customer_segmentation": """
+- rows berisi segmen pelanggan (segment, customers, avg_recency_days, avg_frequency, total_monetary).
+- Bahas setiap segmen yang ada di rows, mulai dari total_monetary terbesar.
+- Jelaskan arti tiap segmen sederhana: champions = terbaik, loyal = setia, at_risk = mulai jarang, churned = sudah hilang.
+- Recommendation harus per-segmen: pertahankan champions, sapa at_risk, reaktivasi churned.
+""",
+        "churn_risk": """
+- rows berisi pelanggan berisiko churn (customer_id, total_invoices, last_purchase, days_inactive, total_spent).
+- Peringkat ditentukan oleh total_spent; peringkat 1 HARUS rows[0], dst.
+- Sebut berapa lama tidak belanja (days_inactive) dan nilai belanja historis (total_spent).
+- Recommendation fokus reaktivasi: hubungi kembali, kasih voucher comeback, tanya kabar via WhatsApp.
+""",
+        "slow_moving_product": """
+- rows berisi produk lama tidak laku (description, last_sold, days_since_sold, total_qty).
+- Peringkat 1 HARUS rows[0] (paling lama tidak terjual), dst.
+- Pertahankan nama produk persis seperti input; jangan menerjemahkan atau merapikan.
+- Recommendation fokus: diskon, bundling dengan produk laris, atau evaluasi stok.
+""",
+        "average_basket_size": """
+- rows biasanya 1 baris ringkasan (total_invoices, avg_items_per_invoice, avg_basket_value, max_basket_value, min_basket_value).
+- Sebut rata-rata item per transaksi dan nilai keranjang rata-rata dalam Rupiah persis seperti input.
+- Bandingkan max dan min untuk mendeteksi anomali bila datanya ada.
+- Recommendation fokus menaikkan basket: tawarkan add-on murah, paket hemat, gratis ongkir dengan minimum belanja.
+""",
+        "demand_forecast": """
+- rows berisi perkiraan permintaan per produk (description, avg_weekly_qty, peak_weekly_qty, weeks_active, forecast_next_week_qty).
+- Peringkat 1 HARUS rows[0] (permintaan mingguan tertinggi), dst.
+- forecast_next_week_qty adalah perkiraan sederhana (moving average) — sampaikan sebagai perkiraan, bukan kepastian.
+- Recommendation fokus persiapan stok minggu depan sesuai angka forecast, dengan buffer untuk produk peak tinggi.
 """,
     }.get(mapped_analysis, "")
 

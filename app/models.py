@@ -95,3 +95,67 @@ class QRNonce(Base):
     nonce = Column(Text, primary_key=True)
     expires_at = Column(Text, nullable=False)
     created_at = Column(Text, nullable=True)
+
+
+class PointsLedger(Base):
+    __tablename__ = "points_ledger"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_user_id = Column(
+        Text, ForeignKey("customer_users.customer_user_id"), nullable=False, index=True
+    )
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
+    event_type = Column(Text, nullable=False)  # earn | redeem | expire | adjust
+    points_delta = Column(Integer, nullable=False)
+    invoice = Column(Text, nullable=True)
+    promo_id = Column(Text, nullable=True)
+    created_at = Column(Text, nullable=True)
+
+
+class PointsBalance(Base):
+    __tablename__ = "points_balances"
+    customer_user_id = Column(
+        Text, ForeignKey("customer_users.customer_user_id"), primary_key=True
+    )
+    balance = Column(Integer, nullable=False, default=0)
+    updated_at = Column(Text, nullable=True)
+
+
+class PromoInstanceRow(Base):
+    __tablename__ = "promo_instances"
+    promo_id = Column(Text, primary_key=True)
+    customer_user_id = Column(
+        Text, ForeignKey("customer_users.customer_user_id"), nullable=False, index=True
+    )
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    promo_code = Column(Text, nullable=False, unique=True)
+    name = Column(Text, nullable=False, default="")
+    description = Column(Text, nullable=False, default="")
+    target_product = Column(Text, nullable=True)
+    discount_amount = Column(Integer, nullable=False, default=0)
+    points_cost = Column(Integer, nullable=False, default=0)
+    status = Column(Text, nullable=False, default="generated")  # generated | redeemed | expired
+    generated_at = Column(Text, nullable=True)
+    expires_at = Column(Text, nullable=True)
+    redeemed_at = Column(Text, nullable=True)
+    redeemed_invoice = Column(Text, nullable=True)
+
+
+class PromoEvent(Base):
+    __tablename__ = "promo_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    promo_id = Column(Text, ForeignKey("promo_instances.promo_id"), nullable=False, index=True)
+    event_type = Column(Text, nullable=False)  # generated | redeemed | expired | reminder_sent
+    metadata_json = Column(JSON, nullable=False, default=dict)
+    created_at = Column(Text, nullable=True)
+
+
+class NotificationLog(Base):
+    __tablename__ = "notification_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    recipient_type = Column(Text, nullable=False)  # customer | umkm
+    recipient_id = Column(Text, nullable=False)
+    template = Column(Text, nullable=False)  # daily_briefing | dpa_reminder | promo_unused
+    channel = Column(Text, nullable=False, default="push")
+    status = Column(Text, nullable=False, default="queued")  # queued | sent | skipped | failed
+    sent_at = Column(Text, nullable=True)
+    metadata_json = Column(JSON, nullable=False, default=dict)

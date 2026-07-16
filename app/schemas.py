@@ -369,3 +369,53 @@ class PromoGenerateResponse(BaseModel):
 
 class PromoListResponse(BaseModel):
     promos: list[PromoInstance] = Field(default_factory=list)
+
+
+# ── Promo scan validate (kasir) — REQUIREMENTS §7.6 ──────────────
+
+class PromoScanValidateRequest(BaseModel):
+    promo_qr_token: str | None = None  # JWT dari QR promo customer
+    promo_code: str | None = None  # fallback ketik manual "FTN-XXXXXX"
+
+    @model_validator(mode="after")
+    def _one_of(self) -> "PromoScanValidateRequest":
+        if not self.promo_qr_token and not self.promo_code:
+            raise ValueError("Kirim promo_qr_token atau promo_code.")
+        return self
+
+
+class PromoScanValidateResponse(BaseModel):
+    valid: bool
+    promo: PromoInstance | None = None
+    reason: str | None = None  # "expired" | "tampered" | "redeemed" | "wrong_tenant" | "not_found"
+
+
+# ── Customer Home + Transactions — REQUIREMENTS §6.2/§6.7 ────────
+
+class MembershipSummary(BaseModel):
+    tenant_id: int
+    tenant_name: str = ""
+    member_since: str | None = None
+
+
+class CustomerHomeResponse(BaseModel):
+    username: str
+    total_points: int = 0
+    memberships: list[MembershipSummary] = Field(default_factory=list)
+    last_transaction: dict | None = None
+    last_promo: PromoInstance | None = None
+
+
+class CustomerTransactionsResponse(BaseModel):
+    status: str = "ok"
+    message: str = ""
+    transactions: list[dict] = Field(default_factory=list)
+
+
+# ── Internal jobs (scheduler) — REQUIREMENTS §11 ─────────────────
+
+class InternalJobResponse(BaseModel):
+    status: str
+    job: str
+    processed: int = 0
+    details: list[str] = Field(default_factory=list)

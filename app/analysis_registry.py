@@ -24,4 +24,34 @@ ANALYSIS_REGISTRY = {
         "description": "Mencari produk dengan kontribusi omzet tertinggi beserta jumlah unit terjual, untuk fokus stok dan promosi.",
         "enabled": True,
     },
+    "revenue_trend": {
+        "label": "Analisis Tren Omzet",
+        "description": "Melihat tren omzet harian 30 hari terakhir beserta jumlah transaksi, untuk memantau naik-turunnya penjualan.",
+        "enabled": True,
+    },
+    "customer_segmentation": {
+        "label": "Analisis Segmentasi Pelanggan (RFM)",
+        "description": "Mengelompokkan pelanggan menjadi champions, loyal, at-risk, dan churned berdasarkan recency-frequency-monetary.",
+        "enabled": True,
+    },
+    "churn_risk": {
+        "label": "Analisis Risiko Churn",
+        "description": "Mencari pelanggan yang dulu aktif tetapi sudah lama tidak belanja, untuk ditarget kampanye reaktivasi.",
+        "enabled": True,
+    },
+    "slow_moving_product": {
+        "label": "Analisis Produk Slow-Moving",
+        "description": "Mencari produk yang sudah lama tidak laku, kandidat diskon atau bundling.",
+        "enabled": True,
+    },
+    "average_basket_size": {
+        "label": "Analisis Ukuran Keranjang Rata-rata",
+        "description": "Menghitung rata-rata jumlah item dan nilai belanja per transaksi.",
+        "enabled": True,
+    },
+    "demand_forecast": {
+        "label": "Analisis Prediksi Permintaan",
+        "description": "Memperkirakan permintaan produk minggu depan memakai rata-rata penjualan mingguan (moving average).",
+        "enabled": True,
+    },
 }

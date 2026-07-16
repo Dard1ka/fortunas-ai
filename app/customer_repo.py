@@ -103,6 +103,16 @@ def get_membership(customer_user_id: str, tenant_id: int) -> dict[str, Any] | No
         return _membership_to_dict(m) if m else None
 
 
+def list_memberships(customer_user_id: str) -> list[dict[str, Any]]:
+    with SessionLocal() as s:
+        rows = s.scalars(
+            select(CustomerTenantMembership)
+            .where(CustomerTenantMembership.customer_user_id == customer_user_id)
+            .order_by(CustomerTenantMembership.id.desc())
+        ).all()
+        return [_membership_to_dict(m) for m in rows]
+
+
 def ensure_membership(customer_user_id: str, tenant_id: int) -> tuple[dict[str, Any], bool]:
     """Ada -> (existing, False); baru -> member_since=today -> (row, True)."""
     with SessionLocal() as s:

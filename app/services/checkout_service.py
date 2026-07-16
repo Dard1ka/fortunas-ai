@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from app import customer_repo
+from app import customer_repo, loyalty_repo, points_repo, promo_repo
 from app.core.tenancy import TenantContext
 from app.qr_nonce_repo import consume_nonce
 from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse
+from app.services.promo_service import verify_promo_qr
 from app.services.qr_service import verify_qr
 
 
@@ -111,6 +112,37 @@ def _dry_run_enabled() -> bool:
     return os.getenv("CHECKOUT_DRY_RUN", "false").lower() == "true"
 
 
+def _earned_points(settings: dict, grand_total: int) -> int:
+    """Hitung poin sesuai points_earning_rule tenant (REQUIREMENTS §6.4)."""
+    rule = settings.get("points_earning_rule") or {}
+    if rule.get("type") == "per_invoice":
+        return int(rule.get("points_per_invoice", 1))
+    per_amount = int(rule.get("points_per_amount", 10_000)) or 10_000
+    return grand_total // per_amount
+
+
+def _resolve_promo(req_promo_code: str | None, tenant_id: int) -> tuple[dict | None, str]:
+    """Terima kode 'FTN-…' ATAU JWT QR promo. Return (promo, note_gagal)."""
+    if not req_promo_code:
+        return None, ""
+    raw = req_promo_code.strip()
+    promo = None
+    if raw.count(".") == 2:  # bentuk JWT dari scan QR promo
+        verified = verify_promo_qr(raw)
+        if not verified["valid"]:
+            return None, " (QR promo tidak valid/kedaluwarsa.)"
+        promo = promo_repo.get_promo(verified["promo_id"])
+    else:
+        promo = promo_repo.get_promo_by_code(raw.upper())
+    if promo is None:
+        return None, " (Kode promo tidak ditemukan.)"
+    if promo["tenant_id"] != tenant_id:
+        return None, " (Promo bukan milik toko ini.)"
+    if promo["status"] != "generated":
+        return None, f" (Promo sudah {promo['status']}.)"
+    return promo, ""
+
+
 def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> CheckoutConfirmResponse:
     item_count = len(req.items)
     grand_total = req.grand_total
@@ -162,6 +194,8 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
     customer_user_id = None
     is_new_member = False
     member_since = None
+    points_earned = None
+    promo_redeemed = None
     if qr is not None:  # QR valid + customer ada
         if consume_nonce(qr["nonce"], qr["expires_at"]):
             membership, is_new = customer_repo.ensure_membership(
@@ -171,12 +205,40 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
             is_new_member = is_new
             member_since = membership["member_since"]
             link_note = f" Pelanggan {qr_username} terhubung."
+
+            # Earn points sesuai rule tenant (§6.4) — best-effort.
+            try:
+                settings = loyalty_repo.get_loyalty(tenant.tenant_id)
+                pts = _earned_points(settings, grand_total)
+                if pts > 0:
+                    points_repo.add_entry(
+                        customer_user_id, event_type="earn", points_delta=pts,
+                        tenant_id=tenant.tenant_id, invoice=str(res["invoice"]),
+                    )
+                    points_earned = pts
+                    link_note += f" +{pts} poin."
+            except Exception:
+                link_note += " (Poin gagal dicatat.)"
         else:
             link_note = " (QR sudah dipakai — poin tidak terhubung.)"
+
+    # ── Promo redemption (§7.6) — hanya bila kode/QR promo dikirim kasir ──
+    if req.promo_code:
+        promo, promo_note = _resolve_promo(req.promo_code, tenant.tenant_id)
+        if promo is not None:
+            redeemed = promo_repo.redeem_promo(promo["promo_id"], invoice=str(res["invoice"]))
+            if redeemed is not None:
+                promo_redeemed = redeemed["promo_id"]
+                disc = _rupiah(redeemed["discount_amount"])
+                link_note += f" Promo {redeemed['code']} ({disc}) dipakai."
+            else:
+                link_note += " (Promo gagal dipakai — sudah terpakai/kedaluwarsa.)"
+        else:
+            link_note += promo_note
 
     return CheckoutConfirmResponse(
         ok=True, status="ok", reply=base_reply + link_note,
         invoice=res["invoice"], item_count=item_count, grand_total=grand_total,
         customer_user_id=customer_user_id, is_new_member=is_new_member, member_since=member_since,
-        points_earned=None, promo_redeemed=None,
+        points_earned=points_earned, promo_redeemed=promo_redeemed,
     )
