@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from app import customer_repo
+from app import customer_repo, loyalty_repo, points_repo, product_repo, promo_repo
 from app.core.tenancy import TenantContext
 from app.qr_nonce_repo import consume_nonce
 from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse
+from app.services.promo_service import verify_promo_qr
 from app.services.qr_service import verify_qr
 
 
@@ -69,6 +70,7 @@ def persist_basket(
     invoice: str | None,
     tx_table: str,
     customers_table: str,
+    tenant_id: int | None = None,
 ) -> dict:
     # Normalisasi invoice ke digit (konsisten dgn voice to_wa_payload yang strip non-digit),
     # supaya dup-check int(inv) tidak pernah crash & invoice di response = yang tersimpan di BQ.
@@ -79,16 +81,32 @@ def persist_basket(
     cid_str = "" if cid is None else str(cid)
 
     rows: list[dict] = []
+    matched: list[str] = []  # nama produk yang terdeteksi ada di Kelola Produk
     try:
         for it in items:
-            rows.append(_bq_validate_row({
+            # Deteksi barang pesanan di katalog tenant: kalau terdaftar, pakai
+            # stock_code katalog (ko-001) supaya histori transaksi UMKM
+            # tertaut ke produknya. Kalau tidak, fallback kode turunan nama.
+            catalog_code = None
+            if tenant_id is not None:
+                try:
+                    prod = product_repo.find_by_name(tenant_id, it.product)
+                    if prod is not None:
+                        catalog_code = prod["stock_code"]
+                        matched.append(prod["name"])
+                except Exception:
+                    catalog_code = None  # lookup gagal → jangan gagalkan penjualan
+            structured = {
                 "invoice": inv,
                 "product": it.product,
                 "qty": it.qty,
                 "unit_price": it.unit_price,
                 "customer": cid_str,
                 "country": country,
-            }))
+            }
+            if catalog_code:
+                structured["stock_code"] = catalog_code
+            rows.append(_bq_validate_row(structured))
     except CheckoutValidationError as exc:
         return {"invoice": inv, "inserted": 0, "errors": [str(exc)], "status": "validation_error"}
 
@@ -98,8 +116,10 @@ def persist_basket(
 
     inserted, errors = _bq_insert(rows, tx_table)
     if errors or inserted < len(rows):
-        return {"invoice": inv, "inserted": inserted, "errors": errors, "status": "bq_error"}
-    return {"invoice": inv, "inserted": inserted, "errors": [], "status": "ok"}
+        return {"invoice": inv, "inserted": inserted, "errors": errors,
+                "status": "bq_error", "matched_products": matched}
+    return {"invoice": inv, "inserted": inserted, "errors": [],
+            "status": "ok", "matched_products": matched}
 
 
 def _rupiah(n: int) -> str:
@@ -109,6 +129,37 @@ def _rupiah(n: int) -> str:
 def _dry_run_enabled() -> bool:
     """CHECKOUT_DRY_RUN=true → validasi alur tanpa tulis BigQuery (cermin VOICE_DRY_RUN)."""
     return os.getenv("CHECKOUT_DRY_RUN", "false").lower() == "true"
+
+
+def _earned_points(settings: dict, grand_total: int) -> int:
+    """Hitung poin sesuai points_earning_rule tenant (REQUIREMENTS §6.4)."""
+    rule = settings.get("points_earning_rule") or {}
+    if rule.get("type") == "per_invoice":
+        return int(rule.get("points_per_invoice", 1))
+    per_amount = int(rule.get("points_per_amount", 10_000)) or 10_000
+    return grand_total // per_amount
+
+
+def _resolve_promo(req_promo_code: str | None, tenant_id: int) -> tuple[dict | None, str]:
+    """Terima kode 'FTN-…' ATAU JWT QR promo. Return (promo, note_gagal)."""
+    if not req_promo_code:
+        return None, ""
+    raw = req_promo_code.strip()
+    promo = None
+    if raw.count(".") == 2:  # bentuk JWT dari scan QR promo
+        verified = verify_promo_qr(raw)
+        if not verified["valid"]:
+            return None, " (QR promo tidak valid/kedaluwarsa.)"
+        promo = promo_repo.get_promo(verified["promo_id"])
+    else:
+        promo = promo_repo.get_promo_by_code(raw.upper())
+    if promo is None:
+        return None, " (Kode promo tidak ditemukan.)"
+    if promo["tenant_id"] != tenant_id:
+        return None, " (Promo bukan milik toko ini.)"
+    if promo["status"] != "generated":
+        return None, f" (Promo sudah {promo['status']}.)"
+    return promo, ""
 
 
 def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> CheckoutConfirmResponse:
@@ -145,6 +196,7 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
     res = persist_basket(
         req.items, name, req.country, req.invoice,
         tenant.table("transactions"), tenant.table("customers"),
+        tenant_id=tenant.tenant_id,
     )
     if res["status"] != "ok":
         msg = {
@@ -162,6 +214,8 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
     customer_user_id = None
     is_new_member = False
     member_since = None
+    points_earned = None
+    promo_redeemed = None
     if qr is not None:  # QR valid + customer ada
         if consume_nonce(qr["nonce"], qr["expires_at"]):
             membership, is_new = customer_repo.ensure_membership(
@@ -171,12 +225,59 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
             is_new_member = is_new
             member_since = membership["member_since"]
             link_note = f" Pelanggan {qr_username} terhubung."
+
+            # Earn points sesuai rule tenant (§6.4) — best-effort.
+            try:
+                settings = loyalty_repo.get_loyalty(tenant.tenant_id)
+                pts = _earned_points(settings, grand_total)
+                if pts > 0:
+                    points_repo.add_entry(
+                        customer_user_id, event_type="earn", points_delta=pts,
+                        tenant_id=tenant.tenant_id, invoice=str(res["invoice"]),
+                    )
+                    points_earned = pts
+                    link_note += f" +{pts} poin."
+            except Exception:
+                link_note += " (Poin gagal dicatat.)"
+
+            # Riwayat belanja per-barang di akun pelanggan (Indomaret Point) —
+            # best-effort; kegagalan tidak membatalkan checkout.
+            try:
+                for it in req.items:
+                    product_repo.record_purchase(
+                        customer_user_id, tenant.tenant_id,
+                        product_name=it.product,
+                        amount=(it.total or it.qty * it.unit_price),
+                        count=1,
+                    )
+            except Exception:
+                pass
         else:
             link_note = " (QR sudah dipakai — poin tidak terhubung.)"
+
+    # ── Promo redemption (§7.6) — hanya bila kode/QR promo dikirim kasir ──
+    if req.promo_code:
+        promo, promo_note = _resolve_promo(req.promo_code, tenant.tenant_id)
+        if promo is not None:
+            redeemed = promo_repo.redeem_promo(promo["promo_id"], invoice=str(res["invoice"]))
+            if redeemed is not None:
+                promo_redeemed = redeemed["promo_id"]
+                disc = _rupiah(redeemed["discount_amount"])
+                link_note += f" Promo {redeemed['code']} ({disc}) dipakai."
+            else:
+                link_note += " (Promo gagal dipakai — sudah terpakai/kedaluwarsa.)"
+        else:
+            link_note += promo_note
+
+    # Beri tahu kasir barang mana yang cocok dengan katalog Kelola Produk.
+    matched = res.get("matched_products") or []
+    if matched:
+        link_note += (f" Produk terdaftar: {', '.join(matched)}."
+                      if len(matched) > 1 else f" Produk terdaftar: {matched[0]}.")
 
     return CheckoutConfirmResponse(
         ok=True, status="ok", reply=base_reply + link_note,
         invoice=res["invoice"], item_count=item_count, grand_total=grand_total,
         customer_user_id=customer_user_id, is_new_member=is_new_member, member_since=member_since,
-        points_earned=None, promo_redeemed=None,
+        points_earned=points_earned, promo_redeemed=promo_redeemed,
     )

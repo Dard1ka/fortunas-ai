@@ -7,6 +7,7 @@ import '../customer/customer_auth_rules.dart';
 import '../customer/customer_auth_state.dart';
 import '../api/models.dart';
 import '../theme/tokens.dart';
+import '../ui/date_field.dart';
 import '../ui/screen_header.dart';
 
 /// Step 3 of customer login. Form mode collects username (+ optional birth
@@ -21,13 +22,12 @@ class CustomerProfileScreen extends ConsumerStatefulWidget {
 
 class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
   final _username = TextEditingController();
-  final _birth = TextEditingController();
+  String _birthDate = ''; // ISO "YYYY-MM-DD" dari DateField (kalender)
   String? _localError;
 
   @override
   void dispose() {
     _username.dispose();
-    _birth.dispose();
     super.dispose();
   }
 
@@ -38,11 +38,12 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
       return;
     }
     setState(() => _localError = null);
-    await ref.read(customerAuthControllerProvider.notifier).bootstrap(
+    final ok = await ref.read(customerAuthControllerProvider.notifier).bootstrap(
           phone: widget.phone,
           username: _username.text,
-          birthDate: _birth.text,
+          birthDate: _birthDate,
         );
+    if (ok && mounted) context.go('/customer/home');
   }
 
   void _logout() {
@@ -80,10 +81,11 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
           decoration: const InputDecoration(labelText: 'Nama'),
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const Key('cust_birth'),
-          controller: _birth,
-          decoration: const InputDecoration(labelText: 'Tanggal lahir (opsional, YYYY-MM-DD)'),
+        DateField(
+          fieldKey: const Key('cust_birth'),
+          label: 'Tanggal lahir (opsional)',
+          value: _birthDate,
+          onChanged: (iso) => setState(() => _birthDate = iso),
         ),
         if (_localError != null)
           Padding(
@@ -119,8 +121,8 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
         const SizedBox(height: 18),
         ElevatedButton(
           key: const Key('cust_show_qr'),
-          onPressed: () => context.push('/customer/qr'),
-          child: const Text('Tampilkan QR'),
+          onPressed: () => context.go('/customer/home'),
+          child: const Text('Masuk ke Beranda'),
         ),
         const SizedBox(height: 8),
         OutlinedButton(

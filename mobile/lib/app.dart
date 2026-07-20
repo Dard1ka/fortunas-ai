@@ -12,10 +12,18 @@ import 'screens/customer_otp_screen.dart';
 import 'screens/customer_phone_screen.dart';
 import 'screens/customer_profile_screen.dart';
 import 'screens/customer_qr_screen.dart';
+import 'screens/customer_home_screen.dart';
+import 'screens/customer_points_screen.dart';
+import 'screens/customer_promo_screen.dart';
+import 'screens/customer_history_screen.dart';
+import 'screens/customer_menu_screen.dart';
+import 'api/models.dart';
+import 'ui/customer_bottom_nav.dart';
 import 'screens/dpa_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/products_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/result_screen.dart';
@@ -128,6 +136,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const PhoneFrame(child: CheckoutScreen()),
       ),
       GoRoute(
+        path: '/products',
+        builder: (_, __) => const PhoneFrame(child: ProductsScreen()),
+      ),
+      GoRoute(
         path: '/scan',
         builder: (_, __) => const PhoneFrame(child: ScanScreen()),
       ),
@@ -145,9 +157,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (ctx, st) =>
             PhoneFrame(child: CustomerProfileScreen(phone: st.extra as String? ?? '')),
       ),
+      // Customer shell: 5-tab bottom nav (Beranda · Riwayat · QR · Poin · Profil).
+      ShellRoute(
+        builder: (context, state, child) {
+          final location = state.uri.path;
+          return PhoneFrame(
+            child: Scaffold(
+              backgroundColor: FortunasColors.bg,
+              extendBody: true,
+              body: SafeArea(bottom: false, child: child),
+              bottomNavigationBar: CustomerBottomNav(currentLocation: location),
+            ),
+          );
+        },
+        routes: [
+          GoRoute(path: '/customer/home',    builder: (_, __) => const CustomerHomeScreen()),
+          GoRoute(path: '/customer/history', builder: (_, __) => const CustomerHistoryScreen()),
+          GoRoute(path: '/customer/qr',      builder: (_, __) => const CustomerQrScreen()),
+          GoRoute(path: '/customer/points',  builder: (_, __) => const CustomerPointsScreen()),
+          GoRoute(path: '/customer/menu',    builder: (_, __) => const CustomerMenuScreen()),
+        ],
+      ),
       GoRoute(
-        path: '/customer/qr',
-        builder: (_, __) => const PhoneFrame(child: CustomerQrScreen()),
+        path: '/customer/promo',
+        builder: (ctx, st) {
+          final m = st.extra;
+          if (m is MembershipSummary) {
+            return PhoneFrame(child: CustomerPromoScreen(membership: m));
+          }
+          // Fallback jika dibuka tanpa argumen membership.
+          return const PhoneFrame(child: CustomerHomeScreen());
+        },
       ),
     ],
   );

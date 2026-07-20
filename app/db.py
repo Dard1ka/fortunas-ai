@@ -83,6 +83,11 @@ def get_tenant_by_prefix(table_prefix: str) -> dict[str, Any] | None:
         return _tenant_to_dict(t)
 
 
+def list_tenants() -> list[dict[str, Any]]:
+    with SessionLocal() as s:
+        return [_tenant_to_dict(t) for t in s.scalars(select(Tenant)).all()]
+
+
 def create_user(email: str, password_hash: str, tenant_id: int, role: str = "admin") -> int:
     with SessionLocal() as s:
         user = TenantUser(

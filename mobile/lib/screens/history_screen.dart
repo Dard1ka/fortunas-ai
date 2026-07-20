@@ -71,7 +71,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 130), // ruang bottom nav mengambang
       children: [
         const ScreenHeader(subtitle: 'Riwayat'),
         Padding(

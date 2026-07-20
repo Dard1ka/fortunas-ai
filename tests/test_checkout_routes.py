@@ -21,8 +21,12 @@ class _FakeBQ:
         self.invoice = invoice
         self.calls = []
 
-    def __call__(self, items, customer_name, country, invoice, tx_table, customers_table):
-        self.calls.append({"customer_name": customer_name, "items": items, "invoice": invoice})
+    def __call__(self, items, customer_name, country, invoice, tx_table, customers_table,
+                 **kwargs):
+        # **kwargs: toleran terhadap param opsional baru (mis. tenant_id) supaya
+        # stub tidak pecah tiap signature produksi bertambah.
+        self.calls.append({"customer_name": customer_name, "items": items,
+                           "invoice": invoice, **kwargs})
         inv = (invoice or "").strip() or self.invoice
         if self.status == "ok":
             return {"invoice": inv, "inserted": len(items), "errors": [], "status": "ok"}

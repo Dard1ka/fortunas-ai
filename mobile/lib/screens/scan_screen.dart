@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../api/models.dart';
 import '../scan/scan_controller.dart';
@@ -37,6 +38,23 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
           children: [
             const ScreenHeader(subtitle: 'Scan Pelanggan'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('scan_back'),
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back, size: 18),
+                style: TextButton.styleFrom(
+                  foregroundColor: FortunasColors.ink,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                ),
+                label: Text('Kembali',
+                    style: body(
+                        fontSize: 13,
+                        weight: FontWeight.w600,
+                        color: FortunasColors.ink)),
+              ),
+            ),
             const SizedBox(height: 8),
             Text('Scan QR Pelanggan', style: display(fontSize: 22, letterSpacing: -0.4)),
             const SizedBox(height: 4),

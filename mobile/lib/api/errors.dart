@@ -11,6 +11,19 @@ String humanizeError(Object error) {
         (data['detail'] as String).trim().isNotEmpty) {
       return (data['detail'] as String).trim();
     }
+    // Validasi FastAPI (422): detail berupa list [{loc, msg, type}, ...].
+    // Tanpa ini pesannya jatuh ke teks generik dan user tak tahu field mana.
+    if (data is Map && data['detail'] is List && (data['detail'] as List).isNotEmpty) {
+      final first = (data['detail'] as List).first;
+      if (first is Map) {
+        final msg = first['msg']?.toString().trim() ?? '';
+        final loc = first['loc'];
+        final field = (loc is List && loc.isNotEmpty) ? loc.last.toString() : '';
+        if (msg.isNotEmpty) {
+          return field.isEmpty ? msg : '$field: $msg';
+        }
+      }
+    }
     final code = error.response?.statusCode;
     if (error.type == DioExceptionType.cancel) return '';
     if (error.type == DioExceptionType.connectionTimeout ||

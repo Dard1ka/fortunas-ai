@@ -52,7 +52,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 130), // ruang bottom nav mengambang
       children: [
         const ScreenHeader(subtitle: 'Pengaturan'),
         Padding(
@@ -91,6 +91,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Icon(Icons.logout, size: 18),
                 SizedBox(width: 8),
                 Text('Keluar'),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+          child: ElevatedButton(
+            key: const Key('profile_products_button'),
+            onPressed: () => context.push('/products'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Kelola Produk'),
               ],
             ),
           ),
