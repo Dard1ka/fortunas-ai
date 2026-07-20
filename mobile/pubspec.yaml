@@ -49,6 +49,9 @@ dependencies:
   # ── QR identity render (customer) — pure-Dart, CI-safe ───
   qr_flutter: ^4.1.0
 
+  # ── Pilih gambar produk (UMKM) — web & mobile ────────────
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

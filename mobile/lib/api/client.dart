@@ -161,6 +161,33 @@ class FortunasApi {
     return CustomerTransactionsResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  // ── Produk UMKM (katalog) ──
+  Future<ProductListResponse> listProducts({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/umkm/products', cancelToken: cancelToken);
+    return ProductListResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  /// Buat produk baru. Gambar WAJIB (backend menolak tanpa image).
+  Future<ProductItem> createProduct({
+    required String name,
+    required String description,
+    required List<int> imageBytes,
+    required String imageFilename,
+    CancelToken? cancelToken,
+  }) async {
+    final form = FormData.fromMap({
+      'name': name,
+      'description': description,
+      'image': MultipartFile.fromBytes(imageBytes, filename: imageFilename),
+    });
+    final r = await _dio.post('/umkm/products', data: form, cancelToken: cancelToken);
+    return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteProduct(int productId, {CancelToken? cancelToken}) async {
+    await _dio.delete('/umkm/products/$productId', cancelToken: cancelToken);
+  }
+
   Future<DpaPayload> getDpa() async {
     final r = await _dio.get('/umkm/dpa');
     return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());

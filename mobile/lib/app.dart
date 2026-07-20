@@ -23,6 +23,7 @@ import 'screens/dpa_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/products_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/result_screen.dart';
@@ -133,6 +134,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout',
         builder: (_, __) => const PhoneFrame(child: CheckoutScreen()),
+      ),
+      GoRoute(
+        path: '/products',
+        builder: (_, __) => const PhoneFrame(child: ProductsScreen()),
       ),
       GoRoute(
         path: '/scan',

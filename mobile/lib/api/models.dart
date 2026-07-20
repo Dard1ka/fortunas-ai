@@ -959,6 +959,58 @@ class CustomerTransactionsResponse {
       );
 }
 
+// ── Produk per-UMKM (katalog) ────────────────────────────────
+class ProductItem {
+  final int id;
+  final int tenantId;
+  final String name;
+  final String description;
+  final String stockCode;
+  final String imageUrl;
+  final String createdAt;
+
+  const ProductItem({
+    required this.id,
+    required this.tenantId,
+    required this.name,
+    this.description = '',
+    required this.stockCode,
+    this.imageUrl = '',
+    this.createdAt = '',
+  });
+
+  factory ProductItem.fromJson(Map<String, dynamic> j) => ProductItem(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        tenantId: (j['tenant_id'] as num?)?.toInt() ?? 0,
+        name: j['name']?.toString() ?? '',
+        description: j['description']?.toString() ?? '',
+        stockCode: j['stock_code']?.toString() ?? '',
+        imageUrl: j['image_url']?.toString() ?? '',
+        createdAt: j['created_at']?.toString() ?? '',
+      );
+}
+
+class ProductListResponse {
+  final List<ProductItem> products;
+  final int count;
+  final bool needsOnboarding;
+
+  const ProductListResponse({
+    this.products = const [],
+    this.count = 0,
+    this.needsOnboarding = false,
+  });
+
+  factory ProductListResponse.fromJson(Map<String, dynamic> j) => ProductListResponse(
+        products: (j['products'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ProductItem.fromJson)
+            .toList(),
+        count: (j['count'] as num?)?.toInt() ?? 0,
+        needsOnboarding: j['needs_onboarding'] == true,
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

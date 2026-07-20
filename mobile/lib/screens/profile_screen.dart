@@ -96,6 +96,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
         Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+          child: ElevatedButton(
+            key: const Key('profile_products_button'),
+            onPressed: () => context.push('/products'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Kelola Produk'),
+              ],
+            ),
+          ),
+        ),
+        Padding(
           padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
           child: ElevatedButton(
             key: const Key('profile_dpa_button'),
