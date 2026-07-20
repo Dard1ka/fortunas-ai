@@ -176,6 +176,7 @@ class Product(Base):
     name = Column(Text, nullable=False)
     description = Column(Text, nullable=False, default="")
     stock_code = Column(Text, nullable=False)
+    image_url = Column(Text, nullable=False, default="")  # path served via /media/products
     created_at = Column(Text, nullable=True)
 
 

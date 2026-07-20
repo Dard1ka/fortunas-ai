@@ -79,3 +79,6 @@ HANDOVER.txt
 fortunas-ai.zip
 # Claude Code local (preview launch configs)
 .claude/
+
+# Uploaded product images (runtime, not versioned)
+app/data/product_images/

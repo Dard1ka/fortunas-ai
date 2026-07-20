@@ -1,7 +1,10 @@
 """Tests katalog produk + generator kode barang + riwayat per-barang pelanggan."""
 from __future__ import annotations
 
+import pytest
+
 from app import customer_repo, db, product_repo
+from app.product_repo import ProductImageError
 
 
 def _tenant() -> int:
@@ -42,6 +45,28 @@ def test_count_and_list_products():
     product_repo.create_product(t, name="Roti Bakar")
     assert product_repo.count_products(t) == 1
     assert product_repo.list_products(t)[0]["name"] == "Roti Bakar"
+
+
+# ── Gambar produk ────────────────────────────────────────────────
+
+def test_save_product_image_and_url(tmp_path, monkeypatch):
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    url = product_repo.save_product_image(1, "foto.png", b"\x89PNG\r\n\x1a\nfake")
+    assert url.startswith("/media/products/1/")
+    assert url.endswith(".png")
+
+
+def test_save_product_image_rejects_bad_ext(tmp_path, monkeypatch):
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    with pytest.raises(ProductImageError):
+        product_repo.save_product_image(1, "virus.exe", b"data")
+
+
+def test_create_product_stores_image_url():
+    t = _tenant()
+    p = product_repo.create_product(
+        t, name="Kopi Susu", image_url="/media/products/1/abc.png")
+    assert p["image_url"] == "/media/products/1/abc.png"
 
 
 # ── Customer per-item purchase stats (Indomaret Point) ───────────

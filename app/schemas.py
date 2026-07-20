@@ -442,6 +442,7 @@ class Product(BaseModel):
     name: str
     description: str = ""
     stock_code: str
+    image_url: str = ""
     created_at: str = ""
 
 

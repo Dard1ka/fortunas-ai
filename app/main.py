@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
     ask, auth, briefing, checkout, customer, dpa, health, ingest, loyalty, products, report, scan, upload, voice, whatsapp,
@@ -80,6 +83,11 @@ def create_app() -> FastAPI:
     app.include_router(checkout.router)
     app.include_router(loyalty.router)
     app.include_router(products.router)
+
+    # Serve gambar produk yang diupload UMKM (image_url = /media/products/...).
+    from app.product_repo import PRODUCT_IMAGE_DIR
+    os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
+    app.mount("/media/products", StaticFiles(directory=PRODUCT_IMAGE_DIR), name="product_images")
 
     return app
 

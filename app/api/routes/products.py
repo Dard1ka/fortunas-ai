@@ -5,16 +5,16 @@ Riwayat per-barang pelanggan (Indomaret Point) di-upsert saat checkout.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app import db, product_repo
 from app.core.customer_ctx import CustomerContext, get_current_customer
 from app.core.tenancy import TenantContext, get_current_tenant
+from app.product_repo import ProductImageError
 from app.schemas import (
     CustomerProductHistoryResponse,
     CustomerProductStatItem,
     Product,
-    ProductCreateRequest,
     ProductListResponse,
 )
 
@@ -32,10 +32,22 @@ def list_products(tenant: TenantContext = Depends(get_current_tenant)) -> Produc
 
 
 @router.post("/umkm/products", response_model=Product, status_code=201)
-def create_product(payload: ProductCreateRequest,
-                   tenant: TenantContext = Depends(get_current_tenant)) -> Product:
+async def create_product(
+    name: str = Form(..., min_length=1, max_length=80),
+    description: str = Form("", max_length=280),
+    image: UploadFile = File(...),  # gambar WAJIB tiap produk
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> Product:
+    if not name.strip():
+        raise HTTPException(status_code=422, detail="Nama produk wajib diisi.")
+    content = await image.read()
+    try:
+        image_url = product_repo.save_product_image(
+            tenant.tenant_id, image.filename or "", content)
+    except ProductImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     p = product_repo.create_product(
-        tenant.tenant_id, name=payload.name, description=payload.description)
+        tenant.tenant_id, name=name, description=description, image_url=image_url)
     return Product(**p)
 
 

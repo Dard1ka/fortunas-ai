@@ -8,7 +8,9 @@ Pola mengikuti app/customer_repo.py: modul-level function, SessionLocal, return 
 """
 from __future__ import annotations
 
+import os
 import re
+import secrets
 from datetime import datetime, timezone
 from typing import Any
 
@@ -17,9 +19,40 @@ from sqlalchemy import func, select
 from app.db_pg import SessionLocal
 from app.models import CustomerProductStat, Product
 
+# Direktori penyimpanan gambar produk (di-serve via StaticFiles /media/products).
+PRODUCT_IMAGE_DIR = os.getenv("PRODUCT_IMAGE_DIR", "app/data/product_images")
+ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+class ProductImageError(ValueError):
+    """Gambar produk tidak valid (format/ukuran)."""
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def save_product_image(tenant_id: int, filename: str, content: bytes) -> str:
+    """Simpan gambar ke {DIR}/{tenant_id}/{rand}.{ext}; return URL path /media/products/...
+
+    Validasi ekstensi & ukuran. Melempar ProductImageError bila tidak valid.
+    """
+    ext = os.path.splitext((filename or "").lower())[1]
+    if ext not in ALLOWED_IMAGE_EXTS:
+        raise ProductImageError(
+            f"Format gambar tidak didukung. Gunakan: {', '.join(sorted(ALLOWED_IMAGE_EXTS))}")
+    if not content:
+        raise ProductImageError("File gambar kosong.")
+    if len(content) > MAX_IMAGE_BYTES:
+        raise ProductImageError("Ukuran gambar maksimal 5 MB.")
+
+    tenant_dir = os.path.join(PRODUCT_IMAGE_DIR, str(tenant_id))
+    os.makedirs(tenant_dir, exist_ok=True)
+    fname = f"{secrets.token_hex(8)}{ext}"
+    with open(os.path.join(tenant_dir, fname), "wb") as f:
+        f.write(content)
+    return f"/media/products/{tenant_id}/{fname}"
 
 
 def _code_prefix(name: str) -> str:
@@ -61,11 +94,13 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
         "name": p.name,
         "description": p.description or "",
         "stock_code": p.stock_code,
+        "image_url": p.image_url or "",
         "created_at": p.created_at or "",
     }
 
 
-def create_product(tenant_id: int, *, name: str, description: str = "") -> dict[str, Any]:
+def create_product(tenant_id: int, *, name: str, description: str = "",
+                   image_url: str = "") -> dict[str, Any]:
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
     (hindari balapan nomor urut)."""
     with SessionLocal() as s:
@@ -75,6 +110,7 @@ def create_product(tenant_id: int, *, name: str, description: str = "") -> dict[
             name=name.strip(),
             description=description.strip(),
             stock_code=code,
+            image_url=image_url,
             created_at=_now(),
         )
         s.add(p)
