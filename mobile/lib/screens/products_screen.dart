@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/models.dart';
@@ -57,7 +58,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 100),
             children: [
               const ScreenHeader(subtitle: 'Kelola Produk'),
-              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('products_back'),
+                  onPressed: () => context.pop(),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  style: TextButton.styleFrom(
+                    foregroundColor: FortunasColors.ink,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  label: Text('Kembali',
+                      style: body(
+                          fontSize: 13,
+                          weight: FontWeight.w600,
+                          color: FortunasColors.ink)),
+                ),
+              ),
+              const SizedBox(height: 4),
               Text('Produk Saya', style: display(fontSize: 22, letterSpacing: -0.4)),
               const SizedBox(height: 4),
               Text('Kode barang dibuat otomatis dari 2 huruf awal nama.',

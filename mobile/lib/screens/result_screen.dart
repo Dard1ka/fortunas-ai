@@ -78,7 +78,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   Widget build(BuildContext context) {
     final llm = _data?.llmOutput;
     return ListView(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 130), // ruang bottom nav mengambang
       children: [
         // Top bar: back + status pill
         Padding(

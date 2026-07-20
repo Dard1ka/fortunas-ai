@@ -48,7 +48,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 30),
+      // 130 = ruang untuk bottom nav mengambang (extendBody: true) supaya
+      // kartu terakhir tidak tertutup. Samakan dengan briefing_screen.
+      padding: const EdgeInsets.only(bottom: 130),
       children: [
         const ScreenHeader(),
 
