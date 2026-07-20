@@ -92,6 +92,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
               const ScreenHeader(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 14),
+                  child: TextButton.icon(
+                    key: const Key('checkout_back'),
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    style: TextButton.styleFrom(
+                      foregroundColor: FortunasColors.ink,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                    label: Text('Kembali',
+                        style: body(
+                            fontSize: 13,
+                            weight: FontWeight.w600,
+                            color: FortunasColors.ink)),
+                  ),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
                 child: Column(
