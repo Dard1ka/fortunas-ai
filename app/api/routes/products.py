@@ -34,7 +34,7 @@ def list_products(tenant: TenantContext = Depends(get_current_tenant)) -> Produc
 @router.post("/umkm/products", response_model=Product, status_code=201)
 async def create_product(
     name: str = Form(..., min_length=1, max_length=80),
-    description: str = Form("", max_length=280),
+    description: str = Form("", max_length=1000),
     image: UploadFile = File(...),  # gambar WAJIB tiap produk
     tenant: TenantContext = Depends(get_current_tenant),
 ) -> Product:

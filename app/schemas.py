@@ -425,7 +425,7 @@ class InternalJobResponse(BaseModel):
 
 class ProductCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    description: str = Field(default="", max_length=280)
+    description: str = Field(default="", max_length=1000)
 
     @field_validator("name")
     @classmethod

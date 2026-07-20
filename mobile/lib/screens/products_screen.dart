@@ -286,7 +286,8 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
             TextField(
               key: const Key('product_desc'),
               controller: _desc,
-              maxLines: 2,
+              maxLines: 3,
+              maxLength: 1000, // sama dengan batas backend; counter tampil di UI
               decoration: const InputDecoration(labelText: 'Deskripsi'),
             ),
             const SizedBox(height: 16),
