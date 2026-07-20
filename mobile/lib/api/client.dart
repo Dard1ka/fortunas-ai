@@ -133,6 +133,34 @@ class FortunasApi {
     return VoiceTransactionResponse.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  // ── Customer loyalty / points / promo / home ──
+  Future<CustomerHomeResponse> customerHome({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/customer/home', cancelToken: cancelToken);
+    return CustomerHomeResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<PointsBalanceResponse> customerPoints({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/customer/points', cancelToken: cancelToken);
+    return PointsBalanceResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<PromoListResponse> customerPromos({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/customer/promos', cancelToken: cancelToken);
+    return PromoListResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<PromoGenerateResponse> customerGeneratePromo(PromoGenerateRequest req,
+      {CancelToken? cancelToken}) async {
+    final r = await _dio.post('/customer/promos/generate',
+        data: req.toJson(), cancelToken: cancelToken);
+    return PromoGenerateResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<CustomerTransactionsResponse> customerTransactions({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/customer/transactions', cancelToken: cancelToken);
+    return CustomerTransactionsResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
   Future<DpaPayload> getDpa() async {
     final r = await _dio.get('/umkm/dpa');
     return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());

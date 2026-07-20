@@ -38,11 +38,12 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
       return;
     }
     setState(() => _localError = null);
-    await ref.read(customerAuthControllerProvider.notifier).bootstrap(
+    final ok = await ref.read(customerAuthControllerProvider.notifier).bootstrap(
           phone: widget.phone,
           username: _username.text,
           birthDate: _birth.text,
         );
+    if (ok && mounted) context.go('/customer/home');
   }
 
   void _logout() {
@@ -119,8 +120,8 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
         const SizedBox(height: 18),
         ElevatedButton(
           key: const Key('cust_show_qr'),
-          onPressed: () => context.push('/customer/qr'),
-          child: const Text('Tampilkan QR'),
+          onPressed: () => context.go('/customer/home'),
+          child: const Text('Masuk ke Beranda'),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
