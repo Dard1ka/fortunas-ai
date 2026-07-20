@@ -126,6 +126,23 @@ def list_products(tenant_id: int) -> list[dict[str, Any]]:
         return [_product_to_dict(p) for p in rows]
 
 
+def find_by_name(tenant_id: int, name: str) -> dict[str, Any] | None:
+    """Cari produk milik tenant berdasarkan nama (case-insensitive, trim).
+
+    Dipakai checkout untuk mendeteksi apakah barang pesanan terdaftar di
+    Kelola Produk; kalau ya, stock_code katalog dipakai di histori transaksi.
+    """
+    key = (name or "").strip().lower()
+    if not key:
+        return None
+    with SessionLocal() as s:
+        rows = s.scalars(select(Product).where(Product.tenant_id == tenant_id)).all()
+        for p in rows:
+            if (p.name or "").strip().lower() == key:
+                return _product_to_dict(p)
+        return None
+
+
 def count_products(tenant_id: int) -> int:
     with SessionLocal() as s:
         return int(s.scalar(

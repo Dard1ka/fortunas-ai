@@ -70,6 +70,7 @@ def persist_basket(
     invoice: str | None,
     tx_table: str,
     customers_table: str,
+    tenant_id: int | None = None,
 ) -> dict:
     # Normalisasi invoice ke digit (konsisten dgn voice to_wa_payload yang strip non-digit),
     # supaya dup-check int(inv) tidak pernah crash & invoice di response = yang tersimpan di BQ.
@@ -80,16 +81,32 @@ def persist_basket(
     cid_str = "" if cid is None else str(cid)
 
     rows: list[dict] = []
+    matched: list[str] = []  # nama produk yang terdeteksi ada di Kelola Produk
     try:
         for it in items:
-            rows.append(_bq_validate_row({
+            # Deteksi barang pesanan di katalog tenant: kalau terdaftar, pakai
+            # stock_code katalog (ko-001) supaya histori transaksi UMKM
+            # tertaut ke produknya. Kalau tidak, fallback kode turunan nama.
+            catalog_code = None
+            if tenant_id is not None:
+                try:
+                    prod = product_repo.find_by_name(tenant_id, it.product)
+                    if prod is not None:
+                        catalog_code = prod["stock_code"]
+                        matched.append(prod["name"])
+                except Exception:
+                    catalog_code = None  # lookup gagal → jangan gagalkan penjualan
+            structured = {
                 "invoice": inv,
                 "product": it.product,
                 "qty": it.qty,
                 "unit_price": it.unit_price,
                 "customer": cid_str,
                 "country": country,
-            }))
+            }
+            if catalog_code:
+                structured["stock_code"] = catalog_code
+            rows.append(_bq_validate_row(structured))
     except CheckoutValidationError as exc:
         return {"invoice": inv, "inserted": 0, "errors": [str(exc)], "status": "validation_error"}
 
@@ -99,8 +116,10 @@ def persist_basket(
 
     inserted, errors = _bq_insert(rows, tx_table)
     if errors or inserted < len(rows):
-        return {"invoice": inv, "inserted": inserted, "errors": errors, "status": "bq_error"}
-    return {"invoice": inv, "inserted": inserted, "errors": [], "status": "ok"}
+        return {"invoice": inv, "inserted": inserted, "errors": errors,
+                "status": "bq_error", "matched_products": matched}
+    return {"invoice": inv, "inserted": inserted, "errors": [],
+            "status": "ok", "matched_products": matched}
 
 
 def _rupiah(n: int) -> str:
@@ -177,6 +196,7 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
     res = persist_basket(
         req.items, name, req.country, req.invoice,
         tenant.table("transactions"), tenant.table("customers"),
+        tenant_id=tenant.tenant_id,
     )
     if res["status"] != "ok":
         msg = {
@@ -248,6 +268,12 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
                 link_note += " (Promo gagal dipakai — sudah terpakai/kedaluwarsa.)"
         else:
             link_note += promo_note
+
+    # Beri tahu kasir barang mana yang cocok dengan katalog Kelola Produk.
+    matched = res.get("matched_products") or []
+    if matched:
+        link_note += (f" Produk terdaftar: {', '.join(matched)}."
+                      if len(matched) > 1 else f" Produk terdaftar: {matched[0]}.")
 
     return CheckoutConfirmResponse(
         ok=True, status="ok", reply=base_reply + link_note,

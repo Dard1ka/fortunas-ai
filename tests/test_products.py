@@ -39,6 +39,22 @@ def test_stock_code_isolated_per_tenant():
     assert b["stock_code"] == "ko-001"
 
 
+def test_find_by_name_case_insensitive():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi Susu")
+    assert product_repo.find_by_name(t, "kopi susu")["stock_code"] == "ko-001"
+    assert product_repo.find_by_name(t, "  KOPI SUSU  ")["stock_code"] == "ko-001"
+    assert product_repo.find_by_name(t, "Kopi Hitam") is None
+
+
+def test_find_by_name_scoped_to_tenant():
+    t1 = _tenant()
+    t2 = db.create_tenant("Toko Seberang", "toko_seberang")
+    product_repo.create_product(t1, name="Nasi Goreng")
+    # Produk tenant lain tidak boleh bocor ke tenant ini.
+    assert product_repo.find_by_name(t2, "Nasi Goreng") is None
+
+
 def test_count_and_list_products():
     t = _tenant()
     assert product_repo.count_products(t) == 0
