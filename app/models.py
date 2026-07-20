@@ -159,3 +159,43 @@ class NotificationLog(Base):
     status = Column(Text, nullable=False, default="queued")  # queued | sent | skipped | failed
     sent_at = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=False, default=dict)
+
+
+class Product(Base):
+    """Katalog produk milik satu UMKM (tenant-scoped via tenant_id).
+
+    stock_code otomatis: 2 huruf awal nama + nomor urut per-prefix per-tenant
+    (mis. "kopi susu" -> ko-001, "kopi latte" -> ko-002). Unik per tenant.
+    """
+    __tablename__ = "products"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "stock_code", name="uq_product_tenant_code"),
+    )
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    name = Column(Text, nullable=False)
+    description = Column(Text, nullable=False, default="")
+    stock_code = Column(Text, nullable=False)
+    created_at = Column(Text, nullable=True)
+
+
+class CustomerProductStat(Base):
+    """Riwayat belanja per-barang di akun pelanggan (gaya Indomaret Point).
+
+    Global lintas UMKM (milik customer), tapi menyimpan tenant_id agar bisa
+    dipisah per-UMKM saat ditampilkan. Di-upsert saat checkout customer.
+    """
+    __tablename__ = "customer_product_stats"
+    __table_args__ = (
+        UniqueConstraint("customer_user_id", "tenant_id", "product_name",
+                         name="uq_customer_product"),
+    )
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_user_id = Column(
+        Text, ForeignKey("customer_users.customer_user_id"), nullable=False, index=True
+    )
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    product_name = Column(Text, nullable=False)
+    purchase_count = Column(Integer, nullable=False, default=0)
+    total_amount = Column(Integer, nullable=False, default=0)
+    last_purchased_at = Column(Text, nullable=True)

@@ -1,0 +1,65 @@
+"""Tests katalog produk + generator kode barang + riwayat per-barang pelanggan."""
+from __future__ import annotations
+
+from app import customer_repo, db, product_repo
+
+
+def _tenant() -> int:
+    return db.create_tenant("Warung Kopi", "warung_kopi")
+
+
+# ── Stock code generator ─────────────────────────────────────────
+
+def test_stock_code_sequential_same_prefix():
+    t = _tenant()
+    p1 = product_repo.create_product(t, name="Kopi Susu", description="kopi + susu")
+    p2 = product_repo.create_product(t, name="Kopi Latte", description="kopi + latte")
+    assert p1["stock_code"] == "ko-001"
+    assert p2["stock_code"] == "ko-002"
+
+
+def test_stock_code_prefix_per_first_two_letters():
+    t = _tenant()
+    teh = product_repo.create_product(t, name="Teh Manis")
+    kopi = product_repo.create_product(t, name="Kopi Hitam")
+    assert teh["stock_code"] == "te-001"
+    assert kopi["stock_code"] == "ko-001"  # prefix beda → counter sendiri
+
+
+def test_stock_code_isolated_per_tenant():
+    t1 = _tenant()
+    t2 = db.create_tenant("Kedai Lain", "kedai_lain")
+    a = product_repo.create_product(t1, name="Kopi A")
+    b = product_repo.create_product(t2, name="Kopi B")
+    # Tenant berbeda → nomor urut mulai dari 001 masing-masing.
+    assert a["stock_code"] == "ko-001"
+    assert b["stock_code"] == "ko-001"
+
+
+def test_count_and_list_products():
+    t = _tenant()
+    assert product_repo.count_products(t) == 0
+    product_repo.create_product(t, name="Roti Bakar")
+    assert product_repo.count_products(t) == 1
+    assert product_repo.list_products(t)[0]["name"] == "Roti Bakar"
+
+
+# ── Customer per-item purchase stats (Indomaret Point) ───────────
+
+def test_record_purchase_accumulates():
+    t = _tenant()
+    cust, _ = customer_repo.upsert_customer(
+        firebase_uid="fb_p1", phone_number="+628", username="siti", birth_date="1999-01-01")
+    cid = cust["customer_user_id"]
+
+    product_repo.record_purchase(cid, t, product_name="Kopi Susu", amount=15000)
+    product_repo.record_purchase(cid, t, product_name="Kopi Susu", amount=15000)
+    product_repo.record_purchase(cid, t, product_name="Roti", amount=8000)
+
+    stats = product_repo.customer_product_stats(cid)
+    by_name = {s["product_name"]: s for s in stats}
+    assert by_name["Kopi Susu"]["purchase_count"] == 2
+    assert by_name["Kopi Susu"]["total_amount"] == 30000
+    assert by_name["Roti"]["purchase_count"] == 1
+    # Urut desc by count → Kopi Susu duluan.
+    assert stats[0]["product_name"] == "Kopi Susu"

@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from app import customer_repo, loyalty_repo, points_repo, promo_repo
+from app import customer_repo, loyalty_repo, points_repo, product_repo, promo_repo
 from app.core.tenancy import TenantContext
 from app.qr_nonce_repo import consume_nonce
 from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse
@@ -219,6 +219,19 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
                     link_note += f" +{pts} poin."
             except Exception:
                 link_note += " (Poin gagal dicatat.)"
+
+            # Riwayat belanja per-barang di akun pelanggan (Indomaret Point) —
+            # best-effort; kegagalan tidak membatalkan checkout.
+            try:
+                for it in req.items:
+                    product_repo.record_purchase(
+                        customer_user_id, tenant.tenant_id,
+                        product_name=it.product,
+                        amount=(it.total or it.qty * it.unit_price),
+                        count=1,
+                    )
+            except Exception:
+                pass
         else:
             link_note = " (QR sudah dipakai — poin tidak terhubung.)"
 

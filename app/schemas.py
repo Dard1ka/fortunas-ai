@@ -419,3 +419,48 @@ class InternalJobResponse(BaseModel):
     job: str
     processed: int = 0
     details: list[str] = Field(default_factory=list)
+
+
+# ── Produk per-UMKM (katalog) ────────────────────────────────────
+
+class ProductCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=280)
+
+    @field_validator("name")
+    @classmethod
+    def _trim_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Nama produk wajib diisi.")
+        return v
+
+
+class Product(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    description: str = ""
+    stock_code: str
+    created_at: str = ""
+
+
+class ProductListResponse(BaseModel):
+    products: list[Product] = Field(default_factory=list)
+    count: int = 0
+    needs_onboarding: bool = False  # true bila belum ada produk sama sekali
+
+
+# ── Riwayat belanja per-barang di akun pelanggan (Indomaret Point) ──
+
+class CustomerProductStatItem(BaseModel):
+    tenant_id: int
+    tenant_name: str = ""
+    product_name: str
+    purchase_count: int = 0
+    total_amount: int = 0
+    last_purchased_at: str | None = None
+
+
+class CustomerProductHistoryResponse(BaseModel):
+    items: list[CustomerProductStatItem] = Field(default_factory=list)
