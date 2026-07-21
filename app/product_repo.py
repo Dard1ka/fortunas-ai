@@ -135,6 +135,33 @@ def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
         return True
 
 
+def _find_product_obj(s, tenant_id: int, name: str):
+    """ORM Product milik tenant berdasarkan nama (case-insensitive, trim)."""
+    key = (name or "").strip().lower()
+    if not key:
+        return None
+    rows = s.scalars(select(Product).where(Product.tenant_id == tenant_id)).all()
+    for p in rows:
+        if (p.name or "").strip().lower() == key:
+            return p
+    return None
+
+
+def check_stock(tenant_id: int, items: list) -> list[dict[str, Any]]:
+    """Read-only: shortfall untuk item katalog & dilacak yang stok < qty.
+    Item tak-dilacak (stock None) / non-katalog dilewati."""
+    shortfalls: list[dict[str, Any]] = []
+    with SessionLocal() as s:
+        for it in items:
+            p = _find_product_obj(s, tenant_id, it.product)
+            if p is None or p.stock is None:
+                continue
+            if p.stock < it.qty:
+                shortfalls.append(
+                    {"name": p.name, "requested": it.qty, "available": p.stock})
+    return shortfalls
+
+
 def list_products(tenant_id: int) -> list[dict[str, Any]]:
     with SessionLocal() as s:
         rows = s.scalars(

@@ -5,6 +5,7 @@ import pytest
 
 from app import customer_repo, db, product_repo
 from app.product_repo import ProductImageError
+from app.schemas import CheckoutLineItem
 
 
 def _tenant() -> int:
@@ -103,6 +104,34 @@ def test_set_stock_wrong_tenant_returns_false():
     t2 = db.create_tenant("Toko Lain", "toko_lain")
     p = product_repo.create_product(t1, name="Kopi", stock=1)
     assert product_repo.set_stock(t2, p["id"], 99) is False
+
+
+def test_check_stock_sufficient_returns_empty():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi Susu", stock=10)
+    items = [CheckoutLineItem(product="Kopi Susu", qty=3, unit_price=15000)]
+    assert product_repo.check_stock(t, items) == []
+
+
+def test_check_stock_reports_shortfall():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi Susu", stock=2)
+    items = [CheckoutLineItem(product="Kopi Susu", qty=5, unit_price=15000)]
+    sf = product_repo.check_stock(t, items)
+    assert sf == [{"name": "Kopi Susu", "requested": 5, "available": 2}]
+
+
+def test_check_stock_untracked_skipped():
+    t = _tenant()
+    product_repo.create_product(t, name="Nasi Goreng", stock=None)  # tak-dilacak
+    items = [CheckoutLineItem(product="Nasi Goreng", qty=99, unit_price=20000)]
+    assert product_repo.check_stock(t, items) == []
+
+
+def test_check_stock_non_catalog_skipped():
+    t = _tenant()
+    items = [CheckoutLineItem(product="Barang Random", qty=99, unit_price=1000)]
+    assert product_repo.check_stock(t, items) == []
 
 
 # ── Gambar produk ────────────────────────────────────────────────
