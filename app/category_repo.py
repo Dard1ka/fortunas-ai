@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.db_pg import SessionLocal
 from app.models import Product, ProductCategory
@@ -46,3 +46,18 @@ def count_products_in_category(tenant_id: int, category_id: int) -> int:
     with SessionLocal() as s:
         return int(s.scalar(select(func.count()).select_from(Product).where(
             Product.tenant_id == tenant_id, Product.category_id == category_id)) or 0)
+
+
+def delete_category(tenant_id: int, category_id: int) -> dict[str, Any]:
+    """Hapus kategori; produk di dalamnya di-SET NULL (bukan ikut terhapus).
+    1 transaksi. Return {deleted, reassigned}. deleted=False bila bukan milik tenant."""
+    with SessionLocal() as s:
+        c = s.get(ProductCategory, category_id)
+        if c is None or c.tenant_id != tenant_id:
+            return {"deleted": False, "reassigned": 0}
+        res = s.execute(update(Product).where(
+            Product.tenant_id == tenant_id, Product.category_id == category_id
+        ).values(category_id=None))
+        s.delete(c)
+        s.commit()
+        return {"deleted": True, "reassigned": int(res.rowcount or 0)}

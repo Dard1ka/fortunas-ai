@@ -138,6 +138,22 @@ def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
         return True
 
 
+def set_category(tenant_id: int, product_id: int, category_id: int | None) -> bool:
+    """Set kategori produk. category_id non-null WAJIB milik tenant. False bila invalid/lintas-tenant."""
+    from app.models import ProductCategory
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return False
+        if category_id is not None:
+            c = s.get(ProductCategory, category_id)
+            if c is None or c.tenant_id != tenant_id:
+                return False
+        p.category_id = category_id
+        s.commit()
+        return True
+
+
 def _find_product_obj(s, tenant_id: int, name: str):
     """ORM Product milik tenant berdasarkan nama (case-insensitive, trim)."""
     key = (name or "").strip().lower()
