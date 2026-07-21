@@ -2,7 +2,7 @@
 
 **Dev hari ini:** Go Steven Sanjaya
 **Tanggal:** 2026-07-21
-**Branch:** `feat/product-categories` (dari `main` @ `5955475`) → PR #<TBD>
+**Branch:** `feat/product-categories` (dari `main` @ `5955475`) → PR #21
 
 ---
 
