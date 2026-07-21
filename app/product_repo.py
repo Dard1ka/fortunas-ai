@@ -14,7 +14,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.db_pg import SessionLocal
 from app.models import CustomerProductStat, Product
@@ -160,6 +160,43 @@ def check_stock(tenant_id: int, items: list) -> list[dict[str, Any]]:
                 shortfalls.append(
                     {"name": p.name, "requested": it.qty, "available": p.stock})
     return shortfalls
+
+
+def apply_decrement(tenant_id: int, items: list, *, allow_oversell: bool) -> dict[str, Any]:
+    """Kurangi stok item katalog & dilacak.
+    - allow_oversell=True (kasir): floor 0, ok selalu True, isi warnings.
+    - allow_oversell=False (self-order): atomik bersyarat; bila ada yang kurang →
+      ok=False + insufficient, rollback (tak ada perubahan).
+    """
+    report: dict[str, Any] = {"ok": True, "warnings": [], "insufficient": []}
+    with SessionLocal() as s:
+        for it in items:
+            p = _find_product_obj(s, tenant_id, it.product)
+            if p is None or p.stock is None:
+                continue  # non-katalog / tak-dilacak
+            if allow_oversell:
+                oversold = max(0, it.qty - p.stock)
+                p.stock = max(0, p.stock - it.qty)
+                if oversold:
+                    report["warnings"].append(
+                        f"Stok {p.name} habis (terjual {oversold} melebihi stok).")
+                elif p.stock <= LOW_STOCK_THRESHOLD:
+                    report["warnings"].append(f"Stok {p.name} tinggal {p.stock}.")
+            else:
+                res = s.execute(
+                    update(Product)
+                    .where(Product.id == p.id, Product.stock >= it.qty)
+                    .values(stock=Product.stock - it.qty)
+                )
+                if res.rowcount == 0:
+                    report["ok"] = False
+                    report["insufficient"].append(
+                        {"name": p.name, "requested": it.qty, "available": p.stock})
+        if not allow_oversell and not report["ok"]:
+            s.rollback()
+            return report
+        s.commit()
+    return report
 
 
 def list_products(tenant_id: int) -> list[dict[str, Any]]:
