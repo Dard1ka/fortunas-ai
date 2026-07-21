@@ -52,9 +52,12 @@ async def create_product(
             tenant.tenant_id, image.filename or "", content)
     except ProductImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    p = product_repo.create_product(
-        tenant.tenant_id, name=name, description=description,
-        image_url=image_url, stock=stock, category_id=category_id)
+    try:
+        p = product_repo.create_product(
+            tenant.tenant_id, name=name, description=description,
+            image_url=image_url, stock=stock, category_id=category_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Product(**p)
 
 

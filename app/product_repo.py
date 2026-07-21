@@ -108,6 +108,11 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
     (hindari balapan nomor urut). stock=None → tak-dilacak."""
     with SessionLocal() as s:
+        if category_id is not None:
+            from app.models import ProductCategory
+            cat = s.get(ProductCategory, category_id)
+            if cat is None or cat.tenant_id != tenant_id:
+                raise ValueError("Kategori tidak valid.")
         code = generate_stock_code(tenant_id, name, session=s)
         p = Product(
             tenant_id=tenant_id,

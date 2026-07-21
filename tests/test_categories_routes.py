@@ -57,3 +57,35 @@ def test_category_crud_and_assign(monkeypatch, tmp_path):
     # delete category
     r = c.delete(f"/umkm/categories/{cid}", headers=_h(tok))
     assert r.status_code == 200 and r.json()["deleted"] is True
+
+
+def test_create_product_rejects_cross_tenant_category(monkeypatch, tmp_path):
+    from app import product_repo
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    c = _client()
+    # tenant B makes a category
+    tb = c.post("/auth/register", json={"email": "b@t.com", "password": "rahasia123", "business_name": "Toko B"}).json()["access_token"]
+    cid_b = c.post("/umkm/categories", headers=_h(tb), json={"name": "Punya B"}).json()["id"]
+    # tenant A tries to use B's category_id on create → 400
+    ta = c.post("/auth/register", json={"email": "a@t.com", "password": "rahasia123", "business_name": "Toko A"}).json()["access_token"]
+    r = c.post("/umkm/products", headers=_h(ta),
+               data={"name": "Es Teh", "category_id": str(cid_b)},
+               files={"image": ("f.png", _PNG, "image/png")})
+    assert r.status_code == 400, r.text
+
+
+def test_create_product_nonexistent_category_4xx(monkeypatch, tmp_path):
+    from app import product_repo
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    c = _client()
+    tok = _tok(c)
+    r = c.post("/umkm/products", headers=_h(tok),
+               data={"name": "Kopi", "category_id": "999999"},
+               files={"image": ("f.png", _PNG, "image/png")})
+    assert r.status_code == 400, r.text  # clean 4xx, NOT 500
+
+
+def test_delete_missing_category_404(monkeypatch, tmp_path):
+    c = _client()
+    tok = _tok(c)
+    assert c.delete("/umkm/categories/999999", headers=_h(tok)).status_code == 404
