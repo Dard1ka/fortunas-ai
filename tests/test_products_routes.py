@@ -81,3 +81,27 @@ def test_patch_stock_not_found(monkeypatch, tmp_path):
     r = c.patch("/umkm/products/9999/stock",
                 headers={"Authorization": f"Bearer {tok}"}, json={"stock": 10})
     assert r.status_code == 404
+
+
+def test_patch_stock_cross_tenant_returns_404(monkeypatch, tmp_path):
+    from app import product_repo
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    c = _client()
+    tok_a = _token(c)  # tenant A = o@t.com
+    pid = _create(c, tok_a, "Kopi", stock=5).json()["id"]
+    rb = c.post("/auth/register",
+                json={"email": "b@t.com", "password": "rahasia123", "business_name": "Toko B"})
+    assert rb.status_code == 201, rb.text
+    tok_b = rb.json()["access_token"]
+    r = c.patch(f"/umkm/products/{pid}/stock",
+                headers={"Authorization": f"Bearer {tok_b}"}, json={"stock": 99})
+    assert r.status_code == 404
+
+
+def test_create_negative_stock_rejected(monkeypatch, tmp_path):
+    from app import product_repo
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    c = _client()
+    tok = _token(c)
+    r = _create(c, tok, "Kopi", stock=-1)
+    assert r.status_code == 422

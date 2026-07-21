@@ -228,3 +228,28 @@ def test_record_purchase_accumulates():
     assert by_name["Roti"]["purchase_count"] == 1
     # Urut desc by count → Kopi Susu duluan.
     assert stats[0]["product_name"] == "Kopi Susu"
+
+
+def test_decrement_selforder_cross_item_rollback_is_atomic():
+    # Item A succeeds, item B insufficient → WHOLE batch rolls back (A undone).
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi", stock=10)
+    product_repo.create_product(t, name="Es Teh", stock=1)
+    items = [CheckoutLineItem(product="Kopi", qty=2, unit_price=15000),
+             CheckoutLineItem(product="Es Teh", qty=5, unit_price=5000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=False)
+    assert rep["ok"] is False
+    assert any(x["name"] == "Es Teh" for x in rep["insufficient"])
+    assert _find_stock(t, "Kopi") == 10   # earlier successful line rolled back
+    assert _find_stock(t, "Es Teh") == 1
+
+
+def test_decrement_kasir_duplicate_lines_accumulate():
+    # Two lines of same product accumulate via identity-map (not double/under-count).
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi", stock=10)
+    items = [CheckoutLineItem(product="Kopi", qty=3, unit_price=15000),
+             CheckoutLineItem(product="Kopi", qty=2, unit_price=15000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=True)
+    assert rep["ok"] is True
+    assert _find_stock(t, "Kopi") == 5  # 10 - 3 - 2

@@ -202,3 +202,16 @@ def test_bq_error_does_not_burn_qr(monkeypatch):
     monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
     r2 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
     assert r2.json()["ok"] is True and r2.json()["customer_user_id"] is not None
+
+
+def test_checkout_oversell_warns_habis(monkeypatch, tmp_path):
+    c = _client()
+    u = _umkm_token(c)
+    _make_product(c, u, "Es Teh", 2, tmp_path, monkeypatch)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": [{"product": "Es Teh", "qty": 5, "unit_price": 5000}]})
+    assert r.status_code == 200, r.text
+    assert "habis" in r.json()["reply"]
+    lst = c.get("/umkm/products", headers={"Authorization": f"Bearer {u}"}).json()
+    assert lst["products"][0]["stock"] == 0  # floored at 0
