@@ -2,7 +2,7 @@
 
 **Dev hari ini:** Go Steven Sanjaya
 **Tanggal:** 2026-07-21
-**Branch:** `feat/mobile-product-categories` (dari `main` @ `10614ba`) → PR #<TBD>
+**Branch:** `feat/mobile-product-categories` (dari `main` @ `10614ba`) → PR #22
 
 ---
 
