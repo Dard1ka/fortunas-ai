@@ -94,6 +94,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       product: p,
                       onDelete: () =>
                           ref.read(productControllerProvider.notifier).remove(p.id),
+                      onEditStock: () => _editStock(p),
                     )),
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -118,6 +119,39 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             style: body(fontSize: 13.5, weight: FontWeight.w700, color: Colors.white)),
       ),
     );
+  }
+
+  Future<void> _editStock(ProductItem p) async {
+    final ctrl = TextEditingController(text: p.stock?.toString() ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Stok ${p.name}'),
+        content: TextField(
+          key: const Key('edit_stock_field'),
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Jumlah stok',
+            helperText: 'Kosongkan bila stok tidak dilacak.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            key: const Key('edit_stock_save'),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return; // Batal / dismiss: no-op
+    final stock = result.isEmpty ? null : int.tryParse(result);
+    await ref.read(productControllerProvider.notifier).setStock(p.id, stock);
   }
 
   Widget _mandatoryBanner() => Container(
@@ -145,7 +179,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 class _ProductTile extends StatelessWidget {
   final ProductItem product;
   final VoidCallback onDelete;
-  const _ProductTile({required this.product, required this.onDelete});
+  final VoidCallback onEditStock;
+  const _ProductTile(
+      {required this.product, required this.onDelete, required this.onEditStock});
 
   (String, Color) _stockBadge() {
     final s = product.stock;
@@ -222,6 +258,12 @@ class _ProductTile extends StatelessWidget {
                   style: body(fontSize: 11.5, color: FortunasColors.ink3)),
             ],
           ]),
+        ),
+        IconButton(
+          key: const Key('product_edit_stock'),
+          onPressed: onEditStock,
+          icon: const Icon(Icons.edit_outlined, color: FortunasColors.ink4),
+          tooltip: 'Ubah stok',
         ),
         IconButton(
           onPressed: onDelete,

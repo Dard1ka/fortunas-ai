@@ -61,4 +61,22 @@ void main() {
     await _pump(tester, api);
     expect(find.textContaining('Tak dilacak'), findsOneWidget);
   });
+
+  testWidgets('dialog edit stok menyimpan angka baru via setStock', (tester) async {
+    final product = _product(stock: 5);
+    final api = FakeApi()
+      ..listProductsResult = ProductListResponse(products: [product], count: 1)
+      ..setStockResult = _product(stock: 50);
+    await _pump(tester, api);
+
+    await tester.tap(find.byKey(const Key('product_edit_stock')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit_stock_field')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('edit_stock_field')), '50');
+    await tester.tap(find.byKey(const Key('edit_stock_save')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastSetStock, (product.id, 50));
+  });
 }
