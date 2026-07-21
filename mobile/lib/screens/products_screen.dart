@@ -152,6 +152,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ),
       );
     } finally {
+      // Deferred one frame ON PURPOSE: AlertDialog's pop-future resolves before
+      // its exit transition finishes rebuilding the TextField, so a synchronous
+      // ctrl.dispose() here crashes (ChangeNotifier used after dispose). Do not
+      // "simplify" to a plain ctrl.dispose().
       WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     }
     if (result == null) return; // Batal / dismiss: no-op
