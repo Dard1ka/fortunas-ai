@@ -42,6 +42,8 @@ def _client():
     app.include_router(auth.router)
     app.include_router(customer.router)
     app.include_router(checkout.router)
+    from app.api.routes import products  # stok butuh katalog
+    app.include_router(products.router)
     return TestClient(app)
 
 
@@ -50,6 +52,17 @@ def _umkm_token(c):
                json={"email": "owner@toko.com", "password": "rahasia123", "business_name": "Toko A"})
     assert r.status_code == 201, r.text
     return r.json()["access_token"]
+
+
+_PNG = b"\x89PNG\r\n\x1a\nfake"
+
+
+def _make_product(c, u, name, stock, tmp_path, monkeypatch):
+    from app import product_repo
+    monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
+    return c.post("/umkm/products", headers={"Authorization": f"Bearer {u}"},
+                  data={"name": name, "stock": str(stock)},
+                  files={"image": ("f.png", _PNG, "image/png")})
 
 
 def _customer_token(c, monkeypatch):
@@ -163,6 +176,19 @@ def test_qr_replay_second_checkout_link_skipped(monkeypatch):
     assert r2.json()["ok"] is True and r2.json()["customer_user_id"] is None
 
 
+def test_checkout_decrements_catalog_stock_and_warns(monkeypatch, tmp_path):
+    c = _client()
+    u = _umkm_token(c)
+    _make_product(c, u, "Kopi Susu", 10, tmp_path, monkeypatch)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": [{"product": "Kopi Susu", "qty": 8, "unit_price": 15000}]})
+    assert r.status_code == 200, r.text
+    assert "Stok Kopi Susu" in r.json()["reply"]
+    lst = c.get("/umkm/products", headers={"Authorization": f"Bearer {u}"}).json()
+    assert lst["products"][0]["stock"] == 2  # 10 - 8, best-effort setelah sale
+
+
 def test_bq_error_does_not_burn_qr(monkeypatch):
     """Invariant write-ordering: sale gagal → nonce TIDAK dikonsumsi → QR masih reusable."""
     c = _client()
@@ -176,3 +202,16 @@ def test_bq_error_does_not_burn_qr(monkeypatch):
     monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
     r2 = c.post("/checkout/confirm", headers=h, json={"items": _ITEMS, "customer_qr_token": qr})
     assert r2.json()["ok"] is True and r2.json()["customer_user_id"] is not None
+
+
+def test_checkout_oversell_warns_habis(monkeypatch, tmp_path):
+    c = _client()
+    u = _umkm_token(c)
+    _make_product(c, u, "Es Teh", 2, tmp_path, monkeypatch)
+    monkeypatch.setattr(checkout_service, "persist_basket", _FakeBQ())
+    r = c.post("/checkout/confirm", headers={"Authorization": f"Bearer {u}"},
+               json={"items": [{"product": "Es Teh", "qty": 5, "unit_price": 5000}]})
+    assert r.status_code == 200, r.text
+    assert "habis" in r.json()["reply"]
+    lst = c.get("/umkm/products", headers={"Authorization": f"Bearer {u}"}).json()
+    assert lst["products"][0]["stock"] == 0  # floored at 0

@@ -16,6 +16,7 @@ from app.schemas import (
     CustomerProductStatItem,
     Product,
     ProductListResponse,
+    StockUpdateRequest,
 )
 
 router = APIRouter(tags=["products"])
@@ -35,11 +36,14 @@ def list_products(tenant: TenantContext = Depends(get_current_tenant)) -> Produc
 async def create_product(
     name: str = Form(..., min_length=1, max_length=80),
     description: str = Form("", max_length=1000),
+    stock: int | None = Form(None),
     image: UploadFile = File(...),  # gambar WAJIB tiap produk
     tenant: TenantContext = Depends(get_current_tenant),
 ) -> Product:
     if not name.strip():
         raise HTTPException(status_code=422, detail="Nama produk wajib diisi.")
+    if stock is not None and stock < 0:
+        raise HTTPException(status_code=422, detail="Stok tidak boleh negatif.")
     content = await image.read()
     try:
         image_url = product_repo.save_product_image(
@@ -47,8 +51,24 @@ async def create_product(
     except ProductImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     p = product_repo.create_product(
-        tenant.tenant_id, name=name, description=description, image_url=image_url)
+        tenant.tenant_id, name=name, description=description,
+        image_url=image_url, stock=stock)
     return Product(**p)
+
+
+@router.patch("/umkm/products/{product_id}/stock", response_model=Product)
+def update_stock(product_id: int, body: StockUpdateRequest,
+                 tenant: TenantContext = Depends(get_current_tenant)) -> Product:
+    try:
+        ok = product_repo.set_stock(tenant.tenant_id, product_id, body.stock)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Produk tidak ditemukan.")
+    for p in product_repo.list_products(tenant.tenant_id):
+        if p["id"] == product_id:
+            return Product(**p)
+    raise HTTPException(status_code=404, detail="Produk tidak ditemukan.")
 
 
 @router.delete("/umkm/products/{product_id}")

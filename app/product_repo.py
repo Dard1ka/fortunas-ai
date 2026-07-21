@@ -14,7 +14,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.db_pg import SessionLocal
 from app.models import CustomerProductStat, Product
@@ -23,6 +23,7 @@ from app.models import CustomerProductStat, Product
 PRODUCT_IMAGE_DIR = os.getenv("PRODUCT_IMAGE_DIR", "app/data/product_images")
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+LOW_STOCK_THRESHOLD = 5  # stok <= ini → tampil "Menipis" / peringatan kasir
 
 
 class ProductImageError(ValueError):
@@ -95,14 +96,15 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
         "description": p.description or "",
         "stock_code": p.stock_code,
         "image_url": p.image_url or "",
+        "stock": p.stock,
         "created_at": p.created_at or "",
     }
 
 
 def create_product(tenant_id: int, *, name: str, description: str = "",
-                   image_url: str = "") -> dict[str, Any]:
+                   image_url: str = "", stock: int | None = None) -> dict[str, Any]:
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
-    (hindari balapan nomor urut)."""
+    (hindari balapan nomor urut). stock=None → tak-dilacak."""
     with SessionLocal() as s:
         code = generate_stock_code(tenant_id, name, session=s)
         p = Product(
@@ -111,11 +113,90 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
             description=description.strip(),
             stock_code=code,
             image_url=image_url,
+            stock=stock,
             created_at=_now(),
         )
         s.add(p)
         s.commit()
         return _product_to_dict(p)
+
+
+def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
+    """Set nilai stok absolut. None = tak-dilacak. Raises ValueError bila negatif.
+    Return False bila produk tak ada / bukan milik tenant (scoped)."""
+    if stock is not None and stock < 0:
+        raise ValueError("Stok tidak boleh negatif.")
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return False
+        p.stock = stock
+        s.commit()
+        return True
+
+
+def _find_product_obj(s, tenant_id: int, name: str):
+    """ORM Product milik tenant berdasarkan nama (case-insensitive, trim)."""
+    key = (name or "").strip().lower()
+    if not key:
+        return None
+    rows = s.scalars(select(Product).where(Product.tenant_id == tenant_id)).all()
+    for p in rows:
+        if (p.name or "").strip().lower() == key:
+            return p
+    return None
+
+
+def check_stock(tenant_id: int, items: list) -> list[dict[str, Any]]:
+    """Read-only: shortfall untuk item katalog & dilacak yang stok < qty.
+    Item tak-dilacak (stock None) / non-katalog dilewati."""
+    shortfalls: list[dict[str, Any]] = []
+    with SessionLocal() as s:
+        for it in items:
+            p = _find_product_obj(s, tenant_id, it.product)
+            if p is None or p.stock is None:
+                continue
+            if p.stock < it.qty:
+                shortfalls.append(
+                    {"name": p.name, "requested": it.qty, "available": p.stock})
+    return shortfalls
+
+
+def apply_decrement(tenant_id: int, items: list, *, allow_oversell: bool) -> dict[str, Any]:
+    """Kurangi stok item katalog & dilacak.
+    - allow_oversell=True (kasir): floor 0, ok selalu True, isi warnings.
+    - allow_oversell=False (self-order): atomik bersyarat; bila ada yang kurang →
+      ok=False + insufficient, rollback (tak ada perubahan).
+    """
+    report: dict[str, Any] = {"ok": True, "warnings": [], "insufficient": []}
+    with SessionLocal() as s:
+        for it in items:
+            p = _find_product_obj(s, tenant_id, it.product)
+            if p is None or p.stock is None:
+                continue  # non-katalog / tak-dilacak
+            if allow_oversell:
+                oversold = max(0, it.qty - p.stock)
+                p.stock = max(0, p.stock - it.qty)
+                if oversold:
+                    report["warnings"].append(
+                        f"Stok {p.name} habis (terjual {oversold} melebihi stok).")
+                elif p.stock <= LOW_STOCK_THRESHOLD:
+                    report["warnings"].append(f"Stok {p.name} tinggal {p.stock}.")
+            else:
+                res = s.execute(
+                    update(Product)
+                    .where(Product.id == p.id, Product.stock >= it.qty)
+                    .values(stock=Product.stock - it.qty)
+                )
+                if res.rowcount == 0:
+                    report["ok"] = False
+                    report["insufficient"].append(
+                        {"name": p.name, "requested": it.qty, "available": p.stock})
+        if not allow_oversell and not report["ok"]:
+            s.rollback()
+            return report
+        s.commit()
+    return report
 
 
 def list_products(tenant_id: int) -> list[dict[str, Any]]:

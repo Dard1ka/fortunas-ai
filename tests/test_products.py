@@ -5,6 +5,7 @@ import pytest
 
 from app import customer_repo, db, product_repo
 from app.product_repo import ProductImageError
+from app.schemas import CheckoutLineItem
 
 
 def _tenant() -> int:
@@ -63,6 +64,129 @@ def test_count_and_list_products():
     assert product_repo.list_products(t)[0]["name"] == "Roti Bakar"
 
 
+# ── Stock (nullable quantity) ────────────────────────────────────
+
+def test_create_product_default_stock_none():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Kopi Susu")
+    assert p["stock"] is None  # default = tak-dilacak
+
+
+def test_create_product_with_stock():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Es Teh", stock=25)
+    assert p["stock"] == 25
+
+
+def test_set_stock_updates_value():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Es Teh", stock=5)
+    assert product_repo.set_stock(t, p["id"], 30) is True
+    assert product_repo.list_products(t)[0]["stock"] == 30
+
+
+def test_set_stock_to_none_untracks():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Nasi Goreng", stock=10)
+    assert product_repo.set_stock(t, p["id"], None) is True
+    assert product_repo.list_products(t)[0]["stock"] is None
+
+
+def test_set_stock_negative_raises():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Kopi", stock=1)
+    with pytest.raises(ValueError):
+        product_repo.set_stock(t, p["id"], -3)
+
+
+def test_set_stock_wrong_tenant_returns_false():
+    t1 = _tenant()
+    t2 = db.create_tenant("Toko Lain", "toko_lain")
+    p = product_repo.create_product(t1, name="Kopi", stock=1)
+    assert product_repo.set_stock(t2, p["id"], 99) is False
+
+
+def test_check_stock_sufficient_returns_empty():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi Susu", stock=10)
+    items = [CheckoutLineItem(product="Kopi Susu", qty=3, unit_price=15000)]
+    assert product_repo.check_stock(t, items) == []
+
+
+def test_check_stock_reports_shortfall():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi Susu", stock=2)
+    items = [CheckoutLineItem(product="Kopi Susu", qty=5, unit_price=15000)]
+    sf = product_repo.check_stock(t, items)
+    assert sf == [{"name": "Kopi Susu", "requested": 5, "available": 2}]
+
+
+def test_check_stock_untracked_skipped():
+    t = _tenant()
+    product_repo.create_product(t, name="Nasi Goreng", stock=None)  # tak-dilacak
+    items = [CheckoutLineItem(product="Nasi Goreng", qty=99, unit_price=20000)]
+    assert product_repo.check_stock(t, items) == []
+
+
+def test_check_stock_non_catalog_skipped():
+    t = _tenant()
+    items = [CheckoutLineItem(product="Barang Random", qty=99, unit_price=1000)]
+    assert product_repo.check_stock(t, items) == []
+
+
+def _find_stock(t, name):
+    for p in product_repo.list_products(t):
+        if p["name"] == name:
+            return p["stock"]
+    return None
+
+
+def test_decrement_kasir_floors_at_zero_and_warns_oversell():
+    t = _tenant()
+    product_repo.create_product(t, name="Es Teh", stock=3)
+    items = [CheckoutLineItem(product="Es Teh", qty=5, unit_price=5000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=True)
+    assert rep["ok"] is True
+    assert _find_stock(t, "Es Teh") == 0  # floor, tak minus
+    assert any("Es Teh" in w and "habis" in w for w in rep["warnings"])
+
+
+def test_decrement_kasir_low_stock_warning():
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi", stock=7)
+    items = [CheckoutLineItem(product="Kopi", qty=4, unit_price=15000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=True)
+    assert _find_stock(t, "Kopi") == 3
+    assert any("Kopi" in w and "tinggal 3" in w for w in rep["warnings"])
+
+
+def test_decrement_kasir_untracked_and_noncatalog_skipped():
+    t = _tenant()
+    product_repo.create_product(t, name="Nasi", stock=None)
+    items = [CheckoutLineItem(product="Nasi", qty=9, unit_price=20000),
+             CheckoutLineItem(product="Random", qty=1, unit_price=1000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=True)
+    assert rep["warnings"] == [] and _find_stock(t, "Nasi") is None
+
+
+def test_decrement_selforder_blocks_and_no_change_when_insufficient():
+    t = _tenant()
+    product_repo.create_product(t, name="Es Teh", stock=2)
+    items = [CheckoutLineItem(product="Es Teh", qty=5, unit_price=5000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=False)
+    assert rep["ok"] is False
+    assert rep["insufficient"] == [{"name": "Es Teh", "requested": 5, "available": 2}]
+    assert _find_stock(t, "Es Teh") == 2  # tidak berubah (rollback)
+
+
+def test_decrement_selforder_succeeds_when_enough():
+    t = _tenant()
+    product_repo.create_product(t, name="Es Teh", stock=10)
+    items = [CheckoutLineItem(product="Es Teh", qty=4, unit_price=5000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=False)
+    assert rep["ok"] is True and _find_stock(t, "Es Teh") == 6
+
+
 # ── Gambar produk ────────────────────────────────────────────────
 
 def test_save_product_image_and_url(tmp_path, monkeypatch):
@@ -104,3 +228,28 @@ def test_record_purchase_accumulates():
     assert by_name["Roti"]["purchase_count"] == 1
     # Urut desc by count → Kopi Susu duluan.
     assert stats[0]["product_name"] == "Kopi Susu"
+
+
+def test_decrement_selforder_cross_item_rollback_is_atomic():
+    # Item A succeeds, item B insufficient → WHOLE batch rolls back (A undone).
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi", stock=10)
+    product_repo.create_product(t, name="Es Teh", stock=1)
+    items = [CheckoutLineItem(product="Kopi", qty=2, unit_price=15000),
+             CheckoutLineItem(product="Es Teh", qty=5, unit_price=5000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=False)
+    assert rep["ok"] is False
+    assert any(x["name"] == "Es Teh" for x in rep["insufficient"])
+    assert _find_stock(t, "Kopi") == 10   # earlier successful line rolled back
+    assert _find_stock(t, "Es Teh") == 1
+
+
+def test_decrement_kasir_duplicate_lines_accumulate():
+    # Two lines of same product accumulate via identity-map (not double/under-count).
+    t = _tenant()
+    product_repo.create_product(t, name="Kopi", stock=10)
+    items = [CheckoutLineItem(product="Kopi", qty=3, unit_price=15000),
+             CheckoutLineItem(product="Kopi", qty=2, unit_price=15000)]
+    rep = product_repo.apply_decrement(t, items, allow_oversell=True)
+    assert rep["ok"] is True
+    assert _find_stock(t, "Kopi") == 5  # 10 - 3 - 2
