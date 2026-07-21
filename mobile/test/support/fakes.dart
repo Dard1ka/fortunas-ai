@@ -127,4 +127,35 @@ class FakeApi extends FortunasApi {
     if (scanValidateError != null) throw scanValidateError!;
     return scanValidateResult!;
   }
+
+  ProductListResponse? listProductsResult;
+  ProductItem? createProductResult;
+  ProductItem? setStockResult;
+  Object? setStockError;
+  int? lastCreateStock;
+  (int, int?)? lastSetStock;
+
+  @override
+  Future<ProductListResponse> listProducts({CancelToken? cancelToken}) async =>
+      listProductsResult ?? const ProductListResponse(products: [], count: 0);
+
+  @override
+  Future<ProductItem> createProduct({
+    required String name,
+    required String description,
+    required List<int> imageBytes,
+    required String imageFilename,
+    int? stock,
+    CancelToken? cancelToken,
+  }) async {
+    lastCreateStock = stock;
+    return createProductResult!;
+  }
+
+  @override
+  Future<ProductItem> setStock(int productId, int? stock, {CancelToken? cancelToken}) async {
+    lastSetStock = (productId, stock);
+    if (setStockError != null) throw setStockError!;
+    return setStockResult!;
+  }
 }

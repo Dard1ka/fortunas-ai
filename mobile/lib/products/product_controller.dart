@@ -62,6 +62,7 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
     required String description,
     required List<int> imageBytes,
     required String imageFilename,
+    int? stock,
   }) async {
     state = state.copyWith(submitting: true, clearError: true);
     try {
@@ -70,6 +71,7 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
             description: description,
             imageBytes: imageBytes,
             imageFilename: imageFilename,
+            stock: stock,
           );
       state = state.copyWith(submitting: false);
       await load();
@@ -86,6 +88,20 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
       await load();
     } catch (e) {
       state = state.copyWith(errorMessage: humanizeError(e));
+    }
+  }
+
+  /// Set/restock stok produk. Return true bila berhasil.
+  Future<bool> setStock(int productId, int? stock) async {
+    state = state.copyWith(submitting: true, clearError: true);
+    try {
+      await ref.read(apiProvider).setStock(productId, stock);
+      state = state.copyWith(submitting: false);
+      await load();
+      return true;
+    } catch (e) {
+      state = state.copyWith(submitting: false, errorMessage: humanizeError(e));
+      return false;
     }
   }
 }
