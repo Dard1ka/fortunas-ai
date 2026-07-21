@@ -443,6 +443,7 @@ class Product(BaseModel):
     description: str = ""
     stock_code: str
     image_url: str = ""
+    stock: int | None = None
     created_at: str = ""
 
 
@@ -450,6 +451,10 @@ class ProductListResponse(BaseModel):
     products: list[Product] = Field(default_factory=list)
     count: int = 0
     needs_onboarding: bool = False  # true bila belum ada produk sama sekali
+
+
+class StockUpdateRequest(BaseModel):
+    stock: int | None = Field(default=None, ge=0)  # None = tak-dilacak
 
 
 # ── Riwayat belanja per-barang di akun pelanggan (Indomaret Point) ──
