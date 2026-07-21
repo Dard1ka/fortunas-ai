@@ -23,6 +23,7 @@ from app.models import CustomerProductStat, Product
 PRODUCT_IMAGE_DIR = os.getenv("PRODUCT_IMAGE_DIR", "app/data/product_images")
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+LOW_STOCK_THRESHOLD = 5  # stok <= ini → tampil "Menipis" / peringatan kasir
 
 
 class ProductImageError(ValueError):
@@ -118,6 +119,20 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
         s.add(p)
         s.commit()
         return _product_to_dict(p)
+
+
+def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
+    """Set nilai stok absolut. None = tak-dilacak. Raises ValueError bila negatif.
+    Return False bila produk tak ada / bukan milik tenant (scoped)."""
+    if stock is not None and stock < 0:
+        raise ValueError("Stok tidak boleh negatif.")
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return False
+        p.stock = stock
+        s.commit()
+        return True
 
 
 def list_products(tenant_id: int) -> list[dict[str, Any]]:

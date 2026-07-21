@@ -77,6 +77,34 @@ def test_create_product_with_stock():
     assert p["stock"] == 25
 
 
+def test_set_stock_updates_value():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Es Teh", stock=5)
+    assert product_repo.set_stock(t, p["id"], 30) is True
+    assert product_repo.list_products(t)[0]["stock"] == 30
+
+
+def test_set_stock_to_none_untracks():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Nasi Goreng", stock=10)
+    assert product_repo.set_stock(t, p["id"], None) is True
+    assert product_repo.list_products(t)[0]["stock"] is None
+
+
+def test_set_stock_negative_raises():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Kopi", stock=1)
+    with pytest.raises(ValueError):
+        product_repo.set_stock(t, p["id"], -3)
+
+
+def test_set_stock_wrong_tenant_returns_false():
+    t1 = _tenant()
+    t2 = db.create_tenant("Toko Lain", "toko_lain")
+    p = product_repo.create_product(t1, name="Kopi", stock=1)
+    assert product_repo.set_stock(t2, p["id"], 99) is False
+
+
 # ── Gambar produk ────────────────────────────────────────────────
 
 def test_save_product_image_and_url(tmp_path, monkeypatch):
