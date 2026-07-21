@@ -177,6 +177,7 @@ class Product(Base):
     description = Column(Text, nullable=False, default="")
     stock_code = Column(Text, nullable=False)
     image_url = Column(Text, nullable=False, default="")  # path served via /media/products
+    stock = Column(Integer, nullable=True)  # NULL = tak-dilacak; >=0 = jumlah dilacak
     created_at = Column(Text, nullable=True)
 
 

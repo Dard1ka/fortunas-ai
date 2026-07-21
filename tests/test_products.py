@@ -63,6 +63,20 @@ def test_count_and_list_products():
     assert product_repo.list_products(t)[0]["name"] == "Roti Bakar"
 
 
+# ── Stock (nullable quantity) ────────────────────────────────────
+
+def test_create_product_default_stock_none():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Kopi Susu")
+    assert p["stock"] is None  # default = tak-dilacak
+
+
+def test_create_product_with_stock():
+    t = _tenant()
+    p = product_repo.create_product(t, name="Es Teh", stock=25)
+    assert p["stock"] == 25
+
+
 # ── Gambar produk ────────────────────────────────────────────────
 
 def test_save_product_image_and_url(tmp_path, monkeypatch):

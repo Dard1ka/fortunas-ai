@@ -95,14 +95,15 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
         "description": p.description or "",
         "stock_code": p.stock_code,
         "image_url": p.image_url or "",
+        "stock": p.stock,
         "created_at": p.created_at or "",
     }
 
 
 def create_product(tenant_id: int, *, name: str, description: str = "",
-                   image_url: str = "") -> dict[str, Any]:
+                   image_url: str = "", stock: int | None = None) -> dict[str, Any]:
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
-    (hindari balapan nomor urut)."""
+    (hindari balapan nomor urut). stock=None → tak-dilacak."""
     with SessionLocal() as s:
         code = generate_stock_code(tenant_id, name, session=s)
         p = Product(
@@ -111,6 +112,7 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
             description=description.strip(),
             stock_code=code,
             image_url=image_url,
+            stock=stock,
             created_at=_now(),
         )
         s.add(p)
