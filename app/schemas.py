@@ -444,6 +444,7 @@ class Product(BaseModel):
     stock_code: str
     image_url: str = ""
     stock: int | None = None
+    category_id: int | None = None
     created_at: str = ""
 
 
@@ -455,6 +456,28 @@ class ProductListResponse(BaseModel):
 
 class StockUpdateRequest(BaseModel):
     stock: int | None = Field(default=None, ge=0)  # None = tak-dilacak
+
+
+# ── Kategori produk per-UMKM ──────────────────────────────────────
+
+class Category(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    created_at: str = ""
+
+
+class CategoryListResponse(BaseModel):
+    categories: list[Category] = Field(default_factory=list)
+    count: int = 0
+
+
+class CategoryCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+
+
+class CategoryUpdateRequest(BaseModel):
+    category_id: int | None = None
 
 
 # ── Riwayat belanja per-barang di akun pelanggan (Indomaret Point) ──

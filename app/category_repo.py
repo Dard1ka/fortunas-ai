@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.db_pg import SessionLocal
 from app.models import Product, ProductCategory
@@ -31,7 +32,11 @@ def create_category(tenant_id: int, name: str) -> dict[str, Any]:
             raise ValueError("Kategori dengan nama itu sudah ada.")
         c = ProductCategory(tenant_id=tenant_id, name=clean, created_at=_now())
         s.add(c)
-        s.commit()
+        try:
+            s.commit()
+        except IntegrityError as exc:
+            s.rollback()
+            raise ValueError("Kategori dengan nama itu sudah ada.") from exc
         return _to_dict(c)
 
 
