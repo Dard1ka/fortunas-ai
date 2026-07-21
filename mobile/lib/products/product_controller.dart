@@ -63,6 +63,7 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
     required List<int> imageBytes,
     required String imageFilename,
     int? stock,
+    int? categoryId,
   }) async {
     state = state.copyWith(submitting: true, clearError: true);
     try {
@@ -72,6 +73,7 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
             imageBytes: imageBytes,
             imageFilename: imageFilename,
             stock: stock,
+            categoryId: categoryId,
           );
       state = state.copyWith(submitting: false);
       await load();

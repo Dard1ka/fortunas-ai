@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
@@ -174,6 +174,7 @@ class FortunasApi {
     required List<int> imageBytes,
     required String imageFilename,
     int? stock,
+    int? categoryId,
     CancelToken? cancelToken,
   }) async {
     final form = FormData.fromMap({
@@ -181,6 +182,7 @@ class FortunasApi {
       'description': description,
       'image': MultipartFile.fromBytes(imageBytes, filename: imageFilename),
       if (stock != null) 'stock': stock.toString(),
+      if (categoryId != null) 'category_id': categoryId.toString(),
     });
     final r = await _dio.post('/umkm/products', data: form, cancelToken: cancelToken);
     return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
@@ -194,6 +196,28 @@ class FortunasApi {
   Future<ProductItem> setStock(int productId, int? stock, {CancelToken? cancelToken}) async {
     final r = await _dio.patch('/umkm/products/$productId/stock',
         data: {'stock': stock}, cancelToken: cancelToken);
+    return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  // ── Kategori produk UMKM ──
+  Future<CategoryListResponse> listCategories({CancelToken? cancelToken}) async {
+    final r = await _dio.get('/umkm/categories', cancelToken: cancelToken);
+    return CategoryListResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<Category> createCategory(String name, {CancelToken? cancelToken}) async {
+    final r = await _dio.post('/umkm/categories', data: {'name': name}, cancelToken: cancelToken);
+    return Category.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<Map<String, dynamic>> deleteCategory(int categoryId, {CancelToken? cancelToken}) async {
+    final r = await _dio.delete('/umkm/categories/$categoryId', cancelToken: cancelToken);
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
+  Future<ProductItem> setProductCategory(int productId, int? categoryId, {CancelToken? cancelToken}) async {
+    final r = await _dio.patch('/umkm/products/$productId/category',
+        data: {'category_id': categoryId}, cancelToken: cancelToken);
     return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
   }
 

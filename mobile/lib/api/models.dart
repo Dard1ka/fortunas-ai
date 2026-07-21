@@ -969,6 +969,7 @@ class ProductItem {
   final String imageUrl;
   final String createdAt;
   final int? stock;
+  final int? categoryId;
 
   const ProductItem({
     required this.id,
@@ -979,6 +980,7 @@ class ProductItem {
     this.imageUrl = '',
     this.createdAt = '',
     this.stock,
+    this.categoryId,
   });
 
   factory ProductItem.fromJson(Map<String, dynamic> j) => ProductItem(
@@ -990,6 +992,7 @@ class ProductItem {
         imageUrl: j['image_url']?.toString() ?? '',
         createdAt: j['created_at']?.toString() ?? '',
         stock: (j['stock'] as num?)?.toInt(),
+        categoryId: (j['category_id'] as num?)?.toInt(),
       );
 }
 
@@ -1011,6 +1014,32 @@ class ProductListResponse {
             .toList(),
         count: (j['count'] as num?)?.toInt() ?? 0,
         needsOnboarding: j['needs_onboarding'] == true,
+      );
+}
+
+// ── Kategori produk per-UMKM ────────────────────────────────
+class Category {
+  final int id;
+  final int tenantId;
+  final String name;
+  const Category({required this.id, required this.tenantId, required this.name});
+  factory Category.fromJson(Map<String, dynamic> j) => Category(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        tenantId: (j['tenant_id'] as num?)?.toInt() ?? 0,
+        name: j['name']?.toString() ?? '',
+      );
+}
+
+class CategoryListResponse {
+  final List<Category> categories;
+  final int count;
+  const CategoryListResponse({this.categories = const [], this.count = 0});
+  factory CategoryListResponse.fromJson(Map<String, dynamic> j) => CategoryListResponse(
+        categories: (j['categories'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(Category.fromJson)
+            .toList(),
+        count: (j['count'] as num?)?.toInt() ?? 0,
       );
 }
 
