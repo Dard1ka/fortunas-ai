@@ -178,6 +178,21 @@ class Product(Base):
     stock_code = Column(Text, nullable=False)
     image_url = Column(Text, nullable=False, default="")  # path served via /media/products
     stock = Column(Integer, nullable=True)  # NULL = tak-dilacak; >=0 = jumlah dilacak
+    category_id = Column(
+        Integer, ForeignKey("product_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(Text, nullable=True)
+
+
+class ProductCategory(Base):
+    """Kategori produk custom milik satu UMKM (tenant-scoped)."""
+    __tablename__ = "product_categories"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_category_tenant_name"),
+    )
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    name = Column(Text, nullable=False)
     created_at = Column(Text, nullable=True)
 
 

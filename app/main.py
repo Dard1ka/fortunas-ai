@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
-    ask, auth, briefing, checkout, customer, dpa, health, ingest, loyalty, products, report, scan, upload, voice, whatsapp,
+    ask, auth, briefing, categories, checkout, customer, dpa, health, ingest, loyalty, products, report, scan, upload, voice, whatsapp,
 )
 from app.core.config import get_settings
 from app.core.scheduler import start_scheduler, stop_scheduler
@@ -83,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(checkout.router)
     app.include_router(loyalty.router)
     app.include_router(products.router)
+    app.include_router(categories.router)
 
     # Serve gambar produk yang diupload UMKM (image_url = /media/products/...).
     from app.product_repo import PRODUCT_IMAGE_DIR

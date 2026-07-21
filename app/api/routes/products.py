@@ -12,6 +12,7 @@ from app.core.customer_ctx import CustomerContext, get_current_customer
 from app.core.tenancy import TenantContext, get_current_tenant
 from app.product_repo import ProductImageError
 from app.schemas import (
+    CategoryUpdateRequest,
     CustomerProductHistoryResponse,
     CustomerProductStatItem,
     Product,
@@ -37,6 +38,7 @@ async def create_product(
     name: str = Form(..., min_length=1, max_length=80),
     description: str = Form("", max_length=1000),
     stock: int | None = Form(None),
+    category_id: int | None = Form(None),
     image: UploadFile = File(...),  # gambar WAJIB tiap produk
     tenant: TenantContext = Depends(get_current_tenant),
 ) -> Product:
@@ -50,9 +52,12 @@ async def create_product(
             tenant.tenant_id, image.filename or "", content)
     except ProductImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    p = product_repo.create_product(
-        tenant.tenant_id, name=name, description=description,
-        image_url=image_url, stock=stock)
+    try:
+        p = product_repo.create_product(
+            tenant.tenant_id, name=name, description=description,
+            image_url=image_url, stock=stock, category_id=category_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Product(**p)
 
 
@@ -65,6 +70,18 @@ def update_stock(product_id: int, body: StockUpdateRequest,
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not ok:
         raise HTTPException(status_code=404, detail="Produk tidak ditemukan.")
+    for p in product_repo.list_products(tenant.tenant_id):
+        if p["id"] == product_id:
+            return Product(**p)
+    raise HTTPException(status_code=404, detail="Produk tidak ditemukan.")
+
+
+@router.patch("/umkm/products/{product_id}/category", response_model=Product)
+def update_category(product_id: int, body: CategoryUpdateRequest,
+                    tenant: TenantContext = Depends(get_current_tenant)) -> Product:
+    ok = product_repo.set_category(tenant.tenant_id, product_id, body.category_id)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Produk/kategori tidak valid.")
     for p in product_repo.list_products(tenant.tenant_id):
         if p["id"] == product_id:
             return Product(**p)

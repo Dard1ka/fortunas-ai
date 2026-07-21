@@ -97,15 +97,22 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
         "stock_code": p.stock_code,
         "image_url": p.image_url or "",
         "stock": p.stock,
+        "category_id": p.category_id,
         "created_at": p.created_at or "",
     }
 
 
 def create_product(tenant_id: int, *, name: str, description: str = "",
-                   image_url: str = "", stock: int | None = None) -> dict[str, Any]:
+                   image_url: str = "", stock: int | None = None,
+                   category_id: int | None = None) -> dict[str, Any]:
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
     (hindari balapan nomor urut). stock=None → tak-dilacak."""
     with SessionLocal() as s:
+        if category_id is not None:
+            from app.models import ProductCategory
+            cat = s.get(ProductCategory, category_id)
+            if cat is None or cat.tenant_id != tenant_id:
+                raise ValueError("Kategori tidak valid.")
         code = generate_stock_code(tenant_id, name, session=s)
         p = Product(
             tenant_id=tenant_id,
@@ -114,6 +121,7 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
             stock_code=code,
             image_url=image_url,
             stock=stock,
+            category_id=category_id,
             created_at=_now(),
         )
         s.add(p)
@@ -131,6 +139,22 @@ def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
         if p is None or p.tenant_id != tenant_id:
             return False
         p.stock = stock
+        s.commit()
+        return True
+
+
+def set_category(tenant_id: int, product_id: int, category_id: int | None) -> bool:
+    """Set kategori produk. category_id non-null WAJIB milik tenant. False bila invalid/lintas-tenant."""
+    from app.models import ProductCategory
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return False
+        if category_id is not None:
+            c = s.get(ProductCategory, category_id)
+            if c is None or c.tenant_id != tenant_id:
+                return False
+        p.category_id = category_id
         s.commit()
         return True
 
