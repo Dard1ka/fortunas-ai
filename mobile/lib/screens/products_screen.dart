@@ -94,6 +94,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       product: p,
                       onDelete: () =>
                           ref.read(productControllerProvider.notifier).remove(p.id),
+                      onEditStock: () => _editStock(p),
                     )),
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -118,6 +119,48 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             style: body(fontSize: 13.5, weight: FontWeight.w700, color: Colors.white)),
       ),
     );
+  }
+
+  Future<void> _editStock(ProductItem p) async {
+    final ctrl = TextEditingController(text: p.stock?.toString() ?? '');
+    String? result;
+    try {
+      result = await showDialog<String?>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Stok ${p.name}'),
+          content: TextField(
+            key: const Key('edit_stock_field'),
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Jumlah stok',
+              helperText: 'Kosongkan bila stok tidak dilacak.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              key: const Key('edit_stock_save'),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      // Deferred one frame ON PURPOSE: AlertDialog's pop-future resolves before
+      // its exit transition finishes rebuilding the TextField, so a synchronous
+      // ctrl.dispose() here crashes (ChangeNotifier used after dispose). Do not
+      // "simplify" to a plain ctrl.dispose().
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
+    }
+    if (result == null) return; // Batal / dismiss: no-op
+    final stock = result.isEmpty ? null : int.tryParse(result);
+    await ref.read(productControllerProvider.notifier).setStock(p.id, stock);
   }
 
   Widget _mandatoryBanner() => Container(
@@ -145,7 +188,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 class _ProductTile extends StatelessWidget {
   final ProductItem product;
   final VoidCallback onDelete;
-  const _ProductTile({required this.product, required this.onDelete});
+  final VoidCallback onEditStock;
+  const _ProductTile(
+      {required this.product, required this.onDelete, required this.onEditStock});
+
+  (String, Color) _stockBadge() {
+    final s = product.stock;
+    if (s == null) return ('Tak dilacak', FortunasColors.surfaceSoft);
+    if (s == 0) return ('Habis', FortunasColors.error);
+    if (s <= 5) return ('Menipis', FortunasColors.warning);
+    return ('Stok: $s', FortunasColors.lime);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,16 +232,33 @@ class _ProductTile extends StatelessWidget {
             Text(product.name,
                 style: body(fontSize: 14, weight: FontWeight.w700, color: FortunasColors.ink)),
             const SizedBox(height: 3),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: FortunasColors.lime,
-                border: Border.all(color: FortunasColors.ink, width: 1),
-                borderRadius: BorderRadius.circular(999),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: FortunasColors.lime,
+                  border: Border.all(color: FortunasColors.ink, width: 1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(product.stockCode.toUpperCase(),
+                    style: mono(fontSize: 10, color: FortunasColors.ink)),
               ),
-              child: Text(product.stockCode.toUpperCase(),
-                  style: mono(fontSize: 10, color: FortunasColors.ink)),
-            ),
+              Builder(builder: (_) {
+                final (label, bg) = _stockBadge();
+                return Container(
+                  key: const Key('product_stock_badge'),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    border: Border.all(color: FortunasColors.ink, width: 1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(label,
+                      style: body(
+                          fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink)),
+                );
+              }),
+            ]),
             if (product.description.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(product.description,
@@ -197,6 +267,12 @@ class _ProductTile extends StatelessWidget {
                   style: body(fontSize: 11.5, color: FortunasColors.ink3)),
             ],
           ]),
+        ),
+        IconButton(
+          key: const Key('product_edit_stock'),
+          onPressed: onEditStock,
+          icon: const Icon(Icons.edit_outlined, color: FortunasColors.ink4),
+          tooltip: 'Ubah stok',
         ),
         IconButton(
           onPressed: onDelete,
@@ -218,6 +294,7 @@ class _ProductFormSheet extends ConsumerStatefulWidget {
 class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   final _name = TextEditingController();
   final _desc = TextEditingController();
+  final _stock = TextEditingController();
   Uint8List? _imageBytes;
   String _imageName = '';
   String? _localError;
@@ -226,6 +303,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   void dispose() {
     _name.dispose();
     _desc.dispose();
+    _stock.dispose();
     super.dispose();
   }
 
@@ -251,11 +329,14 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
       return;
     }
     setState(() => _localError = null);
+    final stockText = _stock.text.trim();
+    final stock = stockText.isEmpty ? null : int.tryParse(stockText);
     final ok = await ref.read(productControllerProvider.notifier).create(
           name: _name.text.trim(),
           description: _desc.text.trim(),
           imageBytes: _imageBytes!,
           imageFilename: _imageName.isEmpty ? 'produk.jpg' : _imageName,
+          stock: stock,
         );
     if (ok && mounted) Navigator.of(context).pop(true);
   }
@@ -307,6 +388,16 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
               maxLines: 3,
               maxLength: 1000, // sama dengan batas backend; counter tampil di UI
               decoration: const InputDecoration(labelText: 'Deskripsi'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('product_stock'),
+              controller: _stock,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Stok (opsional)',
+                helperText: 'Kosongkan bila stok tidak dilacak.',
+              ),
             ),
             const SizedBox(height: 16),
             _imagePickerBox(),

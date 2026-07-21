@@ -968,6 +968,7 @@ class ProductItem {
   final String stockCode;
   final String imageUrl;
   final String createdAt;
+  final int? stock;
 
   const ProductItem({
     required this.id,
@@ -977,6 +978,7 @@ class ProductItem {
     required this.stockCode,
     this.imageUrl = '',
     this.createdAt = '',
+    this.stock,
   });
 
   factory ProductItem.fromJson(Map<String, dynamic> j) => ProductItem(
@@ -987,6 +989,7 @@ class ProductItem {
         stockCode: j['stock_code']?.toString() ?? '',
         imageUrl: j['image_url']?.toString() ?? '',
         createdAt: j['created_at']?.toString() ?? '',
+        stock: (j['stock'] as num?)?.toInt(),
       );
 }
 
