@@ -146,9 +146,11 @@ class FakeApi extends FortunasApi {
     required List<int> imageBytes,
     required String imageFilename,
     int? stock,
+    int? categoryId,
     CancelToken? cancelToken,
   }) async {
     lastCreateStock = stock;
+    lastCreateCategoryIdOnProduct = categoryId;
     return createProductResult!;
   }
 
@@ -157,5 +159,35 @@ class FakeApi extends FortunasApi {
     lastSetStock = (productId, stock);
     if (setStockError != null) throw setStockError!;
     return setStockResult!;
+  }
+
+  CategoryListResponse? listCategoriesResult;
+  Category? createCategoryResult;
+  Object? createCategoryError;
+  String? lastCreateCategoryName;
+  Map<String, dynamic>? deleteCategoryResult;
+  (int, int?)? lastSetProductCategory;
+  ProductItem? setProductCategoryResult;
+  int? lastCreateCategoryIdOnProduct;
+
+  @override
+  Future<CategoryListResponse> listCategories({CancelToken? cancelToken}) async =>
+      listCategoriesResult ?? const CategoryListResponse();
+
+  @override
+  Future<Category> createCategory(String name, {CancelToken? cancelToken}) async {
+    lastCreateCategoryName = name;
+    if (createCategoryError != null) throw createCategoryError!;
+    return createCategoryResult!;
+  }
+
+  @override
+  Future<Map<String, dynamic>> deleteCategory(int categoryId, {CancelToken? cancelToken}) async =>
+      deleteCategoryResult ?? {"deleted": true, "reassigned": 0};
+
+  @override
+  Future<ProductItem> setProductCategory(int productId, int? categoryId, {CancelToken? cancelToken}) async {
+    lastSetProductCategory = (productId, categoryId);
+    return setProductCategoryResult!;
   }
 }
