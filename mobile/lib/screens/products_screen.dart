@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/models.dart';
+import '../products/category_controller.dart';
 import '../products/product_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/screen_header.dart';
@@ -28,8 +29,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(
-        (_) => ref.read(productControllerProvider.notifier).load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(productControllerProvider.notifier).load();
+      ref.read(categoryControllerProvider.notifier).load();
+    });
   }
 
   Future<void> _openForm() async {
@@ -49,6 +52,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productControllerProvider);
+    final categoryNames = {
+      for (final c in ref.watch(categoryControllerProvider).categories) c.id: c.name,
+    };
     return Scaffold(
       backgroundColor: FortunasColors.bg,
       body: SafeArea(
@@ -92,6 +98,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               else
                 ...state.products.map((p) => _ProductTile(
                       product: p,
+                      categoryName: p.categoryId == null ? null : categoryNames[p.categoryId],
                       onDelete: () =>
                           ref.read(productControllerProvider.notifier).remove(p.id),
                       onEditStock: () => _editStock(p),
@@ -187,10 +194,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
 class _ProductTile extends StatelessWidget {
   final ProductItem product;
+  final String? categoryName;
   final VoidCallback onDelete;
   final VoidCallback onEditStock;
   const _ProductTile(
-      {required this.product, required this.onDelete, required this.onEditStock});
+      {required this.product,
+      this.categoryName,
+      required this.onDelete,
+      required this.onEditStock});
 
   (String, Color) _stockBadge() {
     final s = product.stock;
@@ -258,6 +269,19 @@ class _ProductTile extends StatelessWidget {
                           fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink)),
                 );
               }),
+              if (categoryName != null)
+                Container(
+                  key: const Key('product_category_label'),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: FortunasColors.surfaceSoft,
+                    border: Border.all(color: FortunasColors.ink, width: 1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(categoryName!,
+                      style: body(
+                          fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink)),
+                ),
             ]),
             if (product.description.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -298,6 +322,14 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   Uint8List? _imageBytes;
   String _imageName = '';
   String? _localError;
+  int? _categoryId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ref.read(categoryControllerProvider.notifier).load());
+  }
 
   @override
   void dispose() {
@@ -337,6 +369,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
           imageBytes: _imageBytes!,
           imageFilename: _imageName.isEmpty ? 'produk.jpg' : _imageName,
           stock: stock,
+          categoryId: _categoryId,
         );
     if (ok && mounted) Navigator.of(context).pop(true);
   }
@@ -344,6 +377,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productControllerProvider);
+    final cats = ref.watch(categoryControllerProvider).categories;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -398,6 +432,17 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                 labelText: 'Stok (opsional)',
                 helperText: 'Kosongkan bila stok tidak dilacak.',
               ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int?>(
+              key: const Key('product_category_dropdown'),
+              value: _categoryId,
+              decoration: const InputDecoration(labelText: 'Kategori (opsional)'),
+              items: [
+                const DropdownMenuItem<int?>(value: null, child: Text('Tanpa kategori')),
+                ...cats.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+              ],
+              onChanged: (v) => setState(() => _categoryId = v),
             ),
             const SizedBox(height: 16),
             _imagePickerBox(),
