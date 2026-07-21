@@ -49,6 +49,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }
   }
 
+  Future<void> _openCategories() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _CategorySheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productControllerProvider);
@@ -82,7 +91,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text('Produk Saya', style: display(fontSize: 22, letterSpacing: -0.4)),
+              Row(children: [
+                Expanded(
+                  child: Text('Produk Saya', style: display(fontSize: 22, letterSpacing: -0.4)),
+                ),
+                TextButton.icon(
+                  key: const Key('products_manage_categories'),
+                  onPressed: _openCategories,
+                  icon: const Icon(Icons.sell_outlined, size: 16, color: FortunasColors.violet),
+                  label: Text('Kategori',
+                      style: body(
+                          fontSize: 12, weight: FontWeight.w700, color: FortunasColors.violet)),
+                ),
+              ]),
               const SizedBox(height: 4),
               Text('Kode barang dibuat otomatis dari 2 huruf awal nama.',
                   style: body(fontSize: 12.5, color: FortunasColors.ink3)),
@@ -510,6 +531,182 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                     fit: BoxFit.cover, width: double.infinity),
               ),
       ),
+    );
+  }
+}
+
+/// Sheet kelola kategori: tambah, daftar, dan hapus (dengan dialog konfirmasi
+/// yang menyebut jumlah produk yang akan jadi tanpa kategori).
+class _CategorySheet extends ConsumerStatefulWidget {
+  const _CategorySheet();
+  @override
+  ConsumerState<_CategorySheet> createState() => _CategorySheetState();
+}
+
+class _CategorySheetState extends ConsumerState<_CategorySheet> {
+  final _name = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ref.read(categoryControllerProvider.notifier).load());
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    final ok = await ref.read(categoryControllerProvider.notifier).create(name);
+    if (ok) _name.clear();
+  }
+
+  Future<void> _confirmDelete(Category c, List<ProductItem> products) async {
+    final affected = products.where((p) => p.categoryId == c.id).length;
+    // Dialog ini TIDAK punya TextField/controller sendiri, jadi tidak ada
+    // TextEditingController yang perlu dispose (lihat _editStock di atas
+    // untuk kasus yang butuh deferred dispose).
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Hapus kategori ${c.name}?'),
+        content: Text(affected == 0
+            ? 'Tidak ada produk di kategori ini.'
+            : '$affected produk akan jadi tanpa kategori.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            key: const Key('category_delete_confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return; // Batal / dismiss: no-op
+    await ref.read(categoryControllerProvider.notifier).remove(c.id);
+    // Refresh produk supaya label kategori pada tile langsung hilang.
+    await ref.read(productControllerProvider.notifier).load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catState = ref.watch(categoryControllerProvider);
+    final products = ref.watch(productControllerProvider).products;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: FortunasColors.bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: FortunasColors.ink, width: 1.5)),
+        ),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: FortunasColors.ink4,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Kelola Kategori', style: display(fontSize: 20, letterSpacing: -0.4)),
+              const SizedBox(height: 4),
+              Text('Hapus kategori tidak menghapus produknya — produk jadi tanpa kategori.',
+                  style: body(fontSize: 12, color: FortunasColors.ink3)),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('category_add_field'),
+                    controller: _name,
+                    decoration: const InputDecoration(labelText: 'Nama kategori baru'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  key: const Key('category_add_btn'),
+                  onPressed: _add,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FortunasColors.violet,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FortunasRadius.lg),
+                      side: const BorderSide(color: FortunasColors.ink, width: 1.5),
+                    ),
+                  ),
+                  child: const Text('Tambah'),
+                ),
+              ]),
+              if (catState.errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(catState.errorMessage!,
+                    style: body(fontSize: 12.5, color: FortunasColors.error)),
+              ],
+              const SizedBox(height: 16),
+              if (catState.loading && catState.categories.isEmpty)
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()))
+              else if (catState.categories.isEmpty)
+                Text('Belum ada kategori.', style: body(fontSize: 12.5, color: FortunasColors.ink3))
+              else
+                ...catState.categories.map((c) => _CategoryRow(
+                      category: c,
+                      onDelete: () => _confirmDelete(c, products),
+                    )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  final Category category;
+  final VoidCallback onDelete;
+  const _CategoryRow({required this.category, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: FortunasColors.surface,
+        border: Border.all(color: FortunasColors.ink, width: 1.5),
+        borderRadius: BorderRadius.circular(FortunasRadius.lg),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Text(category.name,
+              style: body(fontSize: 13.5, weight: FontWeight.w600, color: FortunasColors.ink)),
+        ),
+        IconButton(
+          key: Key('category_delete_${category.id}'),
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline, color: FortunasColors.ink4),
+          tooltip: 'Hapus kategori',
+        ),
+      ]),
     );
   }
 }

@@ -169,6 +169,7 @@ class FakeApi extends FortunasApi {
   (int, int?)? lastSetProductCategory;
   ProductItem? setProductCategoryResult;
   int? lastCreateCategoryIdOnProduct;
+  int? lastDeleteCategoryId;
 
   @override
   Future<CategoryListResponse> listCategories({CancelToken? cancelToken}) async =>
@@ -182,8 +183,10 @@ class FakeApi extends FortunasApi {
   }
 
   @override
-  Future<Map<String, dynamic>> deleteCategory(int categoryId, {CancelToken? cancelToken}) async =>
-      deleteCategoryResult ?? {"deleted": true, "reassigned": 0};
+  Future<Map<String, dynamic>> deleteCategory(int categoryId, {CancelToken? cancelToken}) async {
+    lastDeleteCategoryId = categoryId;
+    return deleteCategoryResult ?? {"deleted": true, "reassigned": 0};
+  }
 
   @override
   Future<ProductItem> setProductCategory(int productId, int? categoryId, {CancelToken? cancelToken}) async {
