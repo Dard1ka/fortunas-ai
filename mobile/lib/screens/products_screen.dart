@@ -123,32 +123,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   Future<void> _editStock(ProductItem p) async {
     final ctrl = TextEditingController(text: p.stock?.toString() ?? '');
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Stok ${p.name}'),
-        content: TextField(
-          key: const Key('edit_stock_field'),
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Jumlah stok',
-            helperText: 'Kosongkan bila stok tidak dilacak.',
+    String? result;
+    try {
+      result = await showDialog<String?>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Stok ${p.name}'),
+          content: TextField(
+            key: const Key('edit_stock_field'),
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Jumlah stok',
+              helperText: 'Kosongkan bila stok tidak dilacak.',
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              key: const Key('edit_stock_save'),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Simpan'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            key: const Key('edit_stock_save'),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
+    }
     if (result == null) return; // Batal / dismiss: no-op
     final stock = result.isEmpty ? null : int.tryParse(result);
     await ref.read(productControllerProvider.notifier).setStock(p.id, stock);

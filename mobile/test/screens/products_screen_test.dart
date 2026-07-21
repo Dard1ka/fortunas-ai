@@ -79,4 +79,38 @@ void main() {
 
     expect(api.lastSetStock, (product.id, 50));
   });
+
+  testWidgets('dialog edit stok: Batal tidak memanggil setStock', (tester) async {
+    final product = _product(stock: 5);
+    final api = FakeApi()
+      ..listProductsResult = ProductListResponse(products: [product], count: 1);
+    await _pump(tester, api);
+
+    await tester.tap(find.byKey(const Key('product_edit_stock')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit_stock_field')), findsOneWidget);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(api.lastSetStock, isNull);
+  });
+
+  testWidgets('dialog edit stok: field kosong menyimpan stok null (tak dilacak)',
+      (tester) async {
+    final product = _product(stock: 5);
+    final api = FakeApi()
+      ..listProductsResult = ProductListResponse(products: [product], count: 1)
+      ..setStockResult = product;
+    await _pump(tester, api);
+
+    await tester.tap(find.byKey(const Key('product_edit_stock')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('edit_stock_field')), '');
+    await tester.tap(find.byKey(const Key('edit_stock_save')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastSetStock, (product.id, null));
+  });
 }
