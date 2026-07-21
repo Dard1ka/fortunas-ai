@@ -269,6 +269,16 @@ def confirm_checkout(req: CheckoutConfirmRequest, tenant: TenantContext) -> Chec
         else:
             link_note += promo_note
 
+    # ── Stock decrement (kasir = warning; best-effort SETELAH sale sukses) ──
+    # Tak pernah membatalkan sale; item non-katalog/tak-dilacak dilewati oleh repo.
+    try:
+        stock_report = product_repo.apply_decrement(
+            tenant.tenant_id, req.items, allow_oversell=True)
+        for w in stock_report["warnings"]:
+            link_note += " " + w
+    except Exception:
+        pass
+
     # Beri tahu kasir barang mana yang cocok dengan katalog Kelola Produk.
     matched = res.get("matched_products") or []
     if matched:
