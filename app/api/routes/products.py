@@ -12,6 +12,7 @@ from app.core.customer_ctx import CustomerContext, get_current_customer
 from app.core.tenancy import TenantContext, get_current_tenant
 from app.product_repo import ProductImageError
 from app.schemas import (
+    AutoCategorizeResponse,
     CategoryUpdateRequest,
     CustomerProductHistoryResponse,
     CustomerProductStatItem,
@@ -19,6 +20,7 @@ from app.schemas import (
     ProductListResponse,
     StockUpdateRequest,
 )
+from app.services import category_ai
 
 router = APIRouter(tags=["products"])
 
@@ -31,6 +33,18 @@ def list_products(tenant: TenantContext = Depends(get_current_tenant)) -> Produc
         count=len(products),
         needs_onboarding=len(products) == 0,
     )
+
+
+@router.get("/umkm/products/search", response_model=ProductListResponse)
+def search_products(q: str = "",
+                    tenant: TenantContext = Depends(get_current_tenant)) -> ProductListResponse:
+    """Autocomplete produk untuk kasir: cocokkan nama (contains, case-insensitive).
+    Balikan menyertakan image_url untuk ditampilkan sebagai rekomendasi."""
+    items = product_repo.list_products(tenant.tenant_id)
+    ql = q.strip().lower()
+    if ql:
+        items = [p for p in items if ql in (p["name"] or "").lower()]
+    return ProductListResponse(products=[Product(**p) for p in items], count=len(items))
 
 
 @router.post("/umkm/products", response_model=Product, status_code=201)
@@ -58,6 +72,13 @@ async def create_product(
             image_url=image_url, stock=stock, category_id=category_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Auto-kategori AI bila UMKM tidak memilih kategori sendiri (best-effort:
+    # kegagalan LLM tidak membatalkan pembuatan produk). User tetap bisa
+    # mengganti kategori lewat PATCH /umkm/products/{id}/category.
+    if category_id is None:
+        new_cat_id = category_ai.categorize_product(tenant.tenant_id, p)
+        if new_cat_id is not None:
+            p["category_id"] = new_cat_id
     return Product(**p)
 
 
@@ -74,6 +95,20 @@ def update_stock(product_id: int, body: StockUpdateRequest,
         if p["id"] == product_id:
             return Product(**p)
     raise HTTPException(status_code=404, detail="Produk tidak ditemukan.")
+
+
+@router.post("/umkm/products/auto-categorize", response_model=AutoCategorizeResponse)
+def auto_categorize_products(
+        tenant: TenantContext = Depends(get_current_tenant)) -> AutoCategorizeResponse:
+    """Auto-kategori AI untuk SEMUA produk milik tenant yang belum berkategori.
+
+    Dipakai untuk produk lama yang sudah terlanjur ditambahkan tanpa kategori.
+    Idempotent: produk yang sudah punya kategori tidak disentuh.
+    """
+    res = category_ai.categorize_all_uncategorized(tenant.tenant_id)
+    return AutoCategorizeResponse(
+        categorized=res["categorized"],
+        total_uncategorized=res["total_uncategorized"])
 
 
 @router.patch("/umkm/products/{product_id}/category", response_model=Product)

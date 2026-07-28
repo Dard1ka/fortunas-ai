@@ -58,12 +58,27 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
+  Future<void> _autoCategorize() async {
+    final n = await ref.read(productControllerProvider.notifier).autoCategorize();
+    if (!mounted) return;
+    // Kategori baru mungkin dibuat AI → segarkan daftar kategori juga.
+    ref.read(categoryControllerProvider.notifier).load();
+    final msg = n == null
+        ? 'Gagal menjalankan auto-kategori. Coba lagi.'
+        : n == 0
+            ? 'Semua produk sudah punya kategori.'
+            : 'AI mengelompokkan $n produk. Kamu tetap bisa mengubahnya.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productControllerProvider);
     final categoryNames = {
       for (final c in ref.watch(categoryControllerProvider).categories) c.id: c.name,
     };
+    final uncategorizedCount =
+        state.products.where((p) => p.categoryId == null).length;
     return Scaffold(
       backgroundColor: FortunasColors.bg,
       body: SafeArea(
@@ -108,6 +123,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               Text('Kode barang dibuat otomatis dari 2 huruf awal nama.',
                   style: body(fontSize: 12.5, color: FortunasColors.ink3)),
               const SizedBox(height: 16),
+              if (!state.needsOnboarding && uncategorizedCount > 0) ...[
+                _autoCatBanner(uncategorizedCount, state.submitting),
+                const SizedBox(height: 12),
+              ],
               if (state.needsOnboarding && !state.loading) _mandatoryBanner(),
               if (state.loading && state.products.isEmpty)
                 const Padding(
@@ -190,6 +209,58 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final stock = result.isEmpty ? null : int.tryParse(result);
     await ref.read(productControllerProvider.notifier).setStock(p.id, stock);
   }
+
+  Widget _autoCatBanner(int count, bool busy) => Container(
+        key: const Key('auto_categorize_banner'),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: FortunasColors.violetSoft,
+          border: Border.all(color: FortunasColors.violet, width: 1.5),
+          borderRadius: BorderRadius.circular(FortunasRadius.lg),
+          boxShadow: popShadow(offset: 2),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.auto_awesome, size: 18, color: FortunasColors.violetDeep),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('$count produk belum berkategori',
+                  style: body(
+                      fontSize: 13.5,
+                      weight: FontWeight.w700,
+                      color: FortunasColors.violetDeep)),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text('Biarkan AI mengelompokkannya otomatis. Kamu tetap bisa mengubah '
+              'kategori tiap produk kapan saja.',
+              style: body(fontSize: 12, color: FortunasColors.ink2)),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('auto_categorize_banner_btn'),
+              onPressed: busy ? null : _autoCategorize,
+              style: FilledButton.styleFrom(
+                backgroundColor: FortunasColors.violet,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FortunasRadius.md),
+                  side: const BorderSide(color: FortunasColors.ink, width: 1.5),
+                ),
+              ),
+              icon: busy
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.auto_awesome, size: 18),
+              label: Text(busy ? 'Mengelompokkan…' : 'Kelompokkan dengan AI',
+                  style: body(fontSize: 13, weight: FontWeight.w700, color: Colors.white)),
+            ),
+          ),
+        ]),
+      );
 
   Widget _mandatoryBanner() => Container(
         margin: const EdgeInsets.only(bottom: 14),
@@ -295,13 +366,33 @@ class _ProductTile extends StatelessWidget {
                   key: const Key('product_category_label'),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: FortunasColors.surfaceSoft,
-                    border: Border.all(color: FortunasColors.ink, width: 1),
+                    color: FortunasColors.violetSoft,
+                    border: Border.all(color: FortunasColors.violet, width: 1),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(categoryName!,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.local_offer,
+                        size: 10, color: FortunasColors.violetDeep),
+                    const SizedBox(width: 3),
+                    Text(categoryName!,
+                        style: body(
+                            fontSize: 10,
+                            weight: FontWeight.w700,
+                            color: FortunasColors.violetDeep)),
+                  ]),
+                )
+              else
+                Container(
+                  key: const Key('product_no_category_label'),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: FortunasColors.surfaceSoft,
+                    border: Border.all(color: FortunasColors.ink4, width: 1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('Tanpa kategori',
                       style: body(
-                          fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink)),
+                          fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink4)),
                 ),
             ]),
             if (product.description.isNotEmpty) ...[

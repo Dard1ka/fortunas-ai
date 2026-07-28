@@ -480,6 +480,38 @@ class CategoryUpdateRequest(BaseModel):
     category_id: int | None = None
 
 
+class AutoCategorizeResponse(BaseModel):
+    """Hasil auto-kategori AI massal untuk produk tanpa kategori."""
+    status: str = "ok"
+    categorized: int = 0          # jumlah produk yang berhasil diberi kategori
+    total_uncategorized: int = 0  # jumlah produk tanpa kategori sebelum proses
+
+
+# ── Riwayat transaksi milik UMKM (dibaca dari BigQuery per-tenant) ──
+
+class UmkmTransactionItem(BaseModel):
+    product: str = ""
+    stock_code: str = ""
+    qty: int = 0
+    unit_price: int = 0
+    total: int = 0
+
+
+class UmkmTransaction(BaseModel):
+    invoice: str
+    customer: str = ""
+    country: str = ""
+    invoice_date: str = ""
+    total: int = 0
+    items: list[UmkmTransactionItem] = Field(default_factory=list)
+
+
+class UmkmTransactionsResponse(BaseModel):
+    transactions: list[UmkmTransaction] = Field(default_factory=list)
+    count: int = 0
+    source: str = "bigquery"  # asal data; "bigquery" (kosong bila BQ tak aktif)
+
+
 # ── Riwayat belanja per-barang di akun pelanggan (Indomaret Point) ──
 
 class CustomerProductStatItem(BaseModel):

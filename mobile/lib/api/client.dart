@@ -221,6 +221,22 @@ class FortunasApi {
     return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
   }
 
+  /// Auto-kategori AI untuk semua produk yang belum berkategori.
+  /// Return {status, categorized, total_uncategorized}.
+  Future<Map<String, dynamic>> autoCategorizeProducts({CancelToken? cancelToken}) async {
+    final r = await _dio.post('/umkm/products/auto-categorize', cancelToken: cancelToken);
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
+  /// Riwayat transaksi milik UMKM ini dari BigQuery (per-tenant).
+  /// Return {transactions:[...], count, source}. Empty saat BQ belum aktif.
+  Future<Map<String, dynamic>> listUmkmTransactions(
+      {int limit = 200, CancelToken? cancelToken}) async {
+    final r = await _dio.get('/umkm/transactions',
+        queryParameters: {'limit': limit}, cancelToken: cancelToken);
+    return (r.data as Map).cast<String, dynamic>();
+  }
+
   Future<DpaPayload> getDpa() async {
     final r = await _dio.get('/umkm/dpa');
     return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());

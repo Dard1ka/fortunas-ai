@@ -84,6 +84,21 @@ class ProductController extends AutoDisposeNotifier<ProductState> {
     }
   }
 
+  /// Auto-kategori AI untuk semua produk yang belum berkategori.
+  /// Return jumlah produk yang berhasil dikategorikan, atau null bila gagal.
+  Future<int?> autoCategorize() async {
+    state = state.copyWith(submitting: true, clearError: true);
+    try {
+      final res = await ref.read(apiProvider).autoCategorizeProducts();
+      state = state.copyWith(submitting: false);
+      await load();
+      return (res['categorized'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      state = state.copyWith(submitting: false, errorMessage: humanizeError(e));
+      return null;
+    }
+  }
+
   Future<void> remove(int productId) async {
     try {
       await ref.read(apiProvider).deleteProduct(productId);
