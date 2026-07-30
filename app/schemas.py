@@ -444,6 +444,7 @@ class Product(BaseModel):
     stock_code: str
     image_url: str = ""
     stock: int | None = None
+    price: int | None = None
     category_id: int | None = None
     created_at: str = ""
 
@@ -456,6 +457,39 @@ class ProductListResponse(BaseModel):
 
 class StockUpdateRequest(BaseModel):
     stock: int | None = Field(default=None, ge=0)  # None = tak-dilacak
+
+
+class PriceUpdateRequest(BaseModel):
+    price: int | None = Field(default=None, ge=0)  # None = harga belum diset
+
+
+# ── Pesanan publik pelanggan (self-order lewat kode UMKM) ─────────
+
+class PublicOrderItemInput(BaseModel):
+    product_id: int
+    qty: int = Field(ge=1)
+
+
+class PublicOrderCreateRequest(BaseModel):
+    customer_name: str = Field(default="", max_length=80)
+    customer_phone: str = Field(default="", max_length=30)
+    items: list[PublicOrderItemInput] = Field(min_length=1)
+
+
+class PublicOrderResponse(BaseModel):
+    id: int
+    tenant_id: int
+    code: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    items: list[dict] = Field(default_factory=list)
+    total: int = 0
+    status: str = "pending_payment"
+    payment_provider: str | None = None
+    payment_token: str | None = None
+    payment_redirect_url: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
 
 
 # ── Kategori produk per-UMKM ──────────────────────────────────────

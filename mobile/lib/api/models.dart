@@ -969,6 +969,7 @@ class ProductItem {
   final String imageUrl;
   final String createdAt;
   final int? stock;
+  final int? price;
   final int? categoryId;
 
   const ProductItem({
@@ -980,6 +981,7 @@ class ProductItem {
     this.imageUrl = '',
     this.createdAt = '',
     this.stock,
+    this.price,
     this.categoryId,
   });
 
@@ -992,6 +994,7 @@ class ProductItem {
         imageUrl: j['image_url']?.toString() ?? '',
         createdAt: j['created_at']?.toString() ?? '',
         stock: (j['stock'] as num?)?.toInt(),
+        price: (j['price'] as num?)?.toInt(),
         categoryId: (j['category_id'] as num?)?.toInt(),
       );
 }

@@ -178,6 +178,7 @@ class Product(Base):
     stock_code = Column(Text, nullable=False)
     image_url = Column(Text, nullable=False, default="")  # path served via /media/products
     stock = Column(Integer, nullable=True)  # NULL = tak-dilacak; >=0 = jumlah dilacak
+    price = Column(Integer, nullable=True)  # harga jual (Rupiah, bulat); NULL = belum diset
     category_id = Column(
         Integer, ForeignKey("product_categories.id", ondelete="SET NULL"), nullable=True
     )
@@ -216,3 +217,30 @@ class CustomerProductStat(Base):
     purchase_count = Column(Integer, nullable=False, default=0)
     total_amount = Column(Integer, nullable=False, default=0)
     last_purchased_at = Column(Text, nullable=True)
+
+
+class PublicOrder(Base):
+    """Pesanan pelanggan lewat alur publik (kode UMKM, tanpa akun/scan QR).
+
+    Menyimpan state pesanan sebelum jadi transaksi final. Alur status:
+      pending_payment → paid → accepted/rejected → completed
+                              ↘ expired / cancelled
+    Stok dipotong saat status menjadi `paid` (lihat order_repo.mark_paid).
+    """
+    __tablename__ = "public_orders"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    code = Column(Text, nullable=False, default="")  # snapshot kode UMKM
+    customer_name = Column(Text, nullable=False, default="")
+    customer_phone = Column(Text, nullable=False, default="")
+    # items: list[{product_id, name, qty, unit_price, subtotal}]
+    items = Column(JSON, nullable=False, default=list)
+    total = Column(Integer, nullable=False, default=0)  # Rupiah bulat
+    status = Column(Text, nullable=False, default="pending_payment", index=True)
+    payment_provider = Column(Text, nullable=True)      # "midtrans" | "simulated"
+    payment_order_id = Column(Text, nullable=True, unique=True, index=True)  # id ke gateway
+    payment_token = Column(Text, nullable=True)         # Snap token
+    payment_redirect_url = Column(Text, nullable=True)  # Snap redirect URL
+    payment_status = Column(Text, nullable=True)        # status mentah dari gateway
+    created_at = Column(Text, nullable=True)
+    updated_at = Column(Text, nullable=True)

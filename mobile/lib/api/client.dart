@@ -174,6 +174,7 @@ class FortunasApi {
     required List<int> imageBytes,
     required String imageFilename,
     int? stock,
+    int? price,
     int? categoryId,
     CancelToken? cancelToken,
   }) async {
@@ -182,6 +183,7 @@ class FortunasApi {
       'description': description,
       'image': MultipartFile.fromBytes(imageBytes, filename: imageFilename),
       if (stock != null) 'stock': stock.toString(),
+      if (price != null) 'price': price.toString(),
       if (categoryId != null) 'category_id': categoryId.toString(),
     });
     final r = await _dio.post('/umkm/products', data: form, cancelToken: cancelToken);
@@ -196,6 +198,13 @@ class FortunasApi {
   Future<ProductItem> setStock(int productId, int? stock, {CancelToken? cancelToken}) async {
     final r = await _dio.patch('/umkm/products/$productId/stock',
         data: {'stock': stock}, cancelToken: cancelToken);
+    return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  /// Set harga jual (Rupiah bulat). null = harga belum diset.
+  Future<ProductItem> setPrice(int productId, int? price, {CancelToken? cancelToken}) async {
+    final r = await _dio.patch('/umkm/products/$productId/price',
+        data: {'price': price}, cancelToken: cancelToken);
     return ProductItem.fromJson((r.data as Map).cast<String, dynamic>());
   }
 

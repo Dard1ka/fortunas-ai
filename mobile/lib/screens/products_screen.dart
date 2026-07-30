@@ -142,6 +142,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       onDelete: () =>
                           ref.read(productControllerProvider.notifier).remove(p.id),
                       onEditStock: () => _editStock(p),
+                      onEditPrice: () => _editPrice(p),
                     )),
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -208,6 +209,46 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     if (result == null) return; // Batal / dismiss: no-op
     final stock = result.isEmpty ? null : int.tryParse(result);
     await ref.read(productControllerProvider.notifier).setStock(p.id, stock);
+  }
+
+  Future<void> _editPrice(ProductItem p) async {
+    final ctrl = TextEditingController(text: p.price?.toString() ?? '');
+    String? result;
+    try {
+      result = await showDialog<String?>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Harga ${p.name}'),
+          content: TextField(
+            key: const Key('edit_price_field'),
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Harga jual',
+              prefixText: 'Rp ',
+              helperText: 'Kosongkan bila harga belum diset.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              key: const Key('edit_price_save'),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      // Sama seperti _editStock: dispose ditunda satu frame agar tidak crash.
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
+    }
+    if (result == null) return; // Batal / dismiss: no-op
+    final price = result.isEmpty ? null : int.tryParse(result);
+    await ref.read(productControllerProvider.notifier).setPrice(p.id, price);
   }
 
   Widget _autoCatBanner(int count, bool busy) => Container(
@@ -289,11 +330,23 @@ class _ProductTile extends StatelessWidget {
   final String? categoryName;
   final VoidCallback onDelete;
   final VoidCallback onEditStock;
+  final VoidCallback onEditPrice;
   const _ProductTile(
       {required this.product,
       this.categoryName,
       required this.onDelete,
-      required this.onEditStock});
+      required this.onEditStock,
+      required this.onEditPrice});
+
+  static String _rupiah(int n) {
+    final s = n.toString();
+    final buf = StringBuffer('Rp ');
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
 
   (String, Color) _stockBadge() {
     final s = product.stock;
@@ -361,6 +414,21 @@ class _ProductTile extends StatelessWidget {
                           fontSize: 10, weight: FontWeight.w600, color: FortunasColors.ink)),
                 );
               }),
+              Container(
+                key: const Key('product_price_badge'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: product.price == null
+                      ? FortunasColors.warning
+                      : FortunasColors.limeDeep,
+                  border: Border.all(color: FortunasColors.ink, width: 1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                    product.price == null ? 'Harga belum diset' : _rupiah(product.price!),
+                    style: body(
+                        fontSize: 10, weight: FontWeight.w700, color: FortunasColors.ink)),
+              ),
               if (categoryName != null)
                 Container(
                   key: const Key('product_category_label'),
@@ -405,9 +473,15 @@ class _ProductTile extends StatelessWidget {
           ]),
         ),
         IconButton(
+          key: const Key('product_edit_price'),
+          onPressed: onEditPrice,
+          icon: const Icon(Icons.sell_outlined, color: FortunasColors.ink4),
+          tooltip: 'Ubah harga',
+        ),
+        IconButton(
           key: const Key('product_edit_stock'),
           onPressed: onEditStock,
-          icon: const Icon(Icons.edit_outlined, color: FortunasColors.ink4),
+          icon: const Icon(Icons.inventory_2_outlined, color: FortunasColors.ink4),
           tooltip: 'Ubah stok',
         ),
         IconButton(
@@ -431,6 +505,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   final _name = TextEditingController();
   final _desc = TextEditingController();
   final _stock = TextEditingController();
+  final _price = TextEditingController();
   Uint8List? _imageBytes;
   String _imageName = '';
   String? _localError;
@@ -448,6 +523,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
     _name.dispose();
     _desc.dispose();
     _stock.dispose();
+    _price.dispose();
     super.dispose();
   }
 
@@ -475,12 +551,15 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
     setState(() => _localError = null);
     final stockText = _stock.text.trim();
     final stock = stockText.isEmpty ? null : int.tryParse(stockText);
+    final priceText = _price.text.trim();
+    final price = priceText.isEmpty ? null : int.tryParse(priceText);
     final ok = await ref.read(productControllerProvider.notifier).create(
           name: _name.text.trim(),
           description: _desc.text.trim(),
           imageBytes: _imageBytes!,
           imageFilename: _imageName.isEmpty ? 'produk.jpg' : _imageName,
           stock: stock,
+          price: price,
           categoryId: _categoryId,
         );
     if (ok && mounted) Navigator.of(context).pop(true);
@@ -543,6 +622,17 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
               decoration: const InputDecoration(
                 labelText: 'Stok (opsional)',
                 helperText: 'Kosongkan bila stok tidak dilacak.',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('product_price'),
+              controller: _price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Harga (Rp)',
+                prefixText: 'Rp ',
+                helperText: 'Wajib bila mau terima pesanan online.',
               ),
             ),
             const SizedBox(height: 12),
