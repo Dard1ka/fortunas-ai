@@ -20,6 +20,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=6)
     business_name: str = Field(min_length=2)
     table_prefix: str | None = None  # opsional; kalau kosong diturunkan dari business_name
+    address: str = ""  # alamat lengkap → AI generate kode kota (mis. KDS-001)
     business_profile: dict = Field(default_factory=dict)  # jenis usaha, target, dll
 
     @field_validator("email")
@@ -41,6 +42,8 @@ class AuthResponse(BaseModel):
     tenant_id: int
     tenant_name: str
     table_prefix: str
+    code: str = ""      # kode publik UMKM (mis. KDS-001) untuk dipesan pelanggan
+    address: str = ""   # alamat lengkap UMKM
 
 
 def _slugify_prefix(name: str) -> str:
@@ -65,10 +68,21 @@ def register(payload: RegisterRequest) -> AuthResponse:
     if db.get_tenant_by_prefix(prefix):
         raise HTTPException(status_code=409, detail=f"Prefix '{prefix}' sudah dipakai bisnis lain.")
 
+    # Alamat lengkap → AI generate kode publik UMKM (mis. Kudus → KDS-001).
+    profile = dict(payload.business_profile or {})
+    address = (payload.address or "").strip()
+    code = ""
+    if address:
+        from app.services.umkm_code import generate_umkm_code
+
+        gen = generate_umkm_code(address, db.all_umkm_codes())
+        code = gen["code"]
+        profile.update({"address": address, "code": code, "city": gen["city"]})
+
     tenant_id = db.create_tenant(
         name=payload.business_name,
         table_prefix=prefix,
-        business_profile=payload.business_profile,
+        business_profile=profile,
     )
     # Provisioning tabel BigQuery tenant (idempotent). Fase 3.
     try:
@@ -87,6 +101,8 @@ def register(payload: RegisterRequest) -> AuthResponse:
         tenant_id=tenant_id,
         tenant_name=payload.business_name,
         table_prefix=prefix,
+        code=code,
+        address=address,
     )
 
 
@@ -115,9 +131,40 @@ def login(payload: LoginRequest) -> AuthResponse:
     token = create_access_token(
         user_id=user["id"], email=user["email"], tenant_id=user["tenant_id"]
     )
+    bp = tenant.get("business_profile") or {}
     return AuthResponse(
         access_token=token,
         tenant_id=tenant["id"],
         tenant_name=tenant["name"],
         table_prefix=tenant["table_prefix"],
+        code=bp.get("code", ""),
+        address=bp.get("address", ""),
     )
+
+
+class AddressRequest(BaseModel):
+    address: str = Field(min_length=3)
+
+
+@router.put("/umkm/address")
+def set_address(payload: AddressRequest,
+                tenant: TenantContext = Depends(get_current_tenant)) -> dict:
+    """Set/ubah alamat UMKM → AI generate/perbarui kode publik (mis. KDS-001).
+
+    Kalau UMKM sudah punya kode, kode dipertahankan (hanya alamat diperbarui) supaya
+    kode yang sudah dibagikan ke pelanggan tidak berubah."""
+    from app.services.umkm_code import generate_umkm_code
+
+    address = payload.address.strip()
+    bp = tenant.business_profile or {}
+    existing_code = bp.get("code", "")
+    updates = {"address": address}
+    if existing_code:
+        code = existing_code  # jangan ubah kode yang mungkin sudah dibagikan
+    else:
+        gen = generate_umkm_code(address, db.all_umkm_codes())
+        code = gen["code"]
+        updates["city"] = gen["city"]
+    updates["code"] = code
+    db.update_tenant_profile(tenant.tenant_id, updates)
+    return {"status": "ok", "code": code, "address": address}

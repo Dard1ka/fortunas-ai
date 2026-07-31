@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -166,6 +167,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               controller: _qty,
                               hint: '1',
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              maxLength: 5, // maks 99.999 qty; cegah overflow
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -176,6 +179,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               controller: _price,
                               hint: '15000',
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              maxLength: 9, // maks Rp 999.999.999; cegah overflow
                             ),
                           ),
                         ],
@@ -274,12 +279,16 @@ class _Field extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? maxLength;
   const _Field({
     required this.fieldKey,
     required this.label,
     required this.controller,
     required this.hint,
     this.keyboardType,
+    this.inputFormatters,
+    this.maxLength,
   });
 
   @override
@@ -293,9 +302,15 @@ class _Field extends StatelessWidget {
           key: fieldKey,
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          maxLength: maxLength,
           style: body(fontSize: 14, color: FortunasColors.ink),
           decoration: InputDecoration(
             hintText: hint,
+            // Opacity rendah supaya jelas ini contoh, bukan nilai asli.
+            hintStyle: body(
+                fontSize: 14, color: FortunasColors.ink4.withValues(alpha: 0.6)),
+            counterText: '', // sembunyikan penghitung maxLength
             isDense: true,
             filled: true,
             fillColor: FortunasColors.surfaceSoft,

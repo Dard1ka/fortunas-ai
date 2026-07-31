@@ -40,6 +40,35 @@ def create_category(tenant_id: int, name: str) -> dict[str, Any]:
         return _to_dict(c)
 
 
+def get_or_create_category(tenant_id: int, name: str) -> dict[str, Any]:
+    """Kembalikan kategori milik tenant dengan nama itu (case-insensitive);
+    buat baru bila belum ada. Dipakai auto-kategori AI agar nama kategori yang
+    disarankan tidak menghasilkan duplikat. Idempotent terhadap balapan (retry
+    lookup saat IntegrityError)."""
+    clean = (name or "").strip()
+    if not clean:
+        raise ValueError("Nama kategori wajib diisi.")
+    with SessionLocal() as s:
+        existing = s.scalar(select(ProductCategory).where(
+            ProductCategory.tenant_id == tenant_id,
+            func.lower(ProductCategory.name) == clean.lower()))
+        if existing is not None:
+            return _to_dict(existing)
+        c = ProductCategory(tenant_id=tenant_id, name=clean, created_at=_now())
+        s.add(c)
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            existing = s.scalar(select(ProductCategory).where(
+                ProductCategory.tenant_id == tenant_id,
+                func.lower(ProductCategory.name) == clean.lower()))
+            if existing is not None:
+                return _to_dict(existing)
+            raise
+        return _to_dict(c)
+
+
 def list_categories(tenant_id: int) -> list[dict[str, Any]]:
     with SessionLocal() as s:
         rows = s.scalars(select(ProductCategory).where(

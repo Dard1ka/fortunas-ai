@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/client.dart';
 import '../api/models.dart';
+import '../auth/auth_controller.dart';
+import '../history/tx_store.dart';
 import '../screens/history_screen.dart' show recentVoiceKey;
 import '../theme/tokens.dart';
 import '../ui/icon_set.dart';
@@ -176,12 +178,40 @@ class _VoiceFlowState extends ConsumerState<VoiceFlow> {
       final List existing = raw != null ? (jsonDecode(raw) as List) : [];
       final savedAt = DateTime.now().toUtc().toIso8601String();
       // One history row per line item (history list stays single-item shape).
+      final payloads = tx.toTransactionPayloads();
       final entries = [
-        for (final payload in tx.toTransactionPayloads())
-          {...payload, 'savedAt': savedAt}
+        for (final payload in payloads) {...payload, 'savedAt': savedAt}
       ];
       final next = [...entries, ...existing].take(30).toList();
       await prefs.setString(recentVoiceKey, jsonEncode(next));
+    } catch (_) {
+      /* non-fatal */
+    }
+    // Catat juga ke riwayat transaksi terpadu (metode: voice). Semua line item
+    // digabung jadi satu transaksi supaya detailnya bisa dibuka di Riwayat.
+    try {
+      final payloads = tx.toTransactionPayloads();
+      if (payloads.isNotEmpty) {
+        final first = payloads.first;
+        final items = [
+          for (final p in payloads)
+            TxItem(
+              product: p['product']?.toString() ?? '',
+              qty: (p['qty'] as num?)?.toInt() ?? 0,
+              unitPrice: (p['unit_price'] as num?)?.toInt() ?? 0,
+              total: (p['total'] as num?)?.toInt(),
+            ),
+        ];
+        final tenantId = ref.read(authControllerProvider).account?.tenantId;
+        await addTxRecord(tenantId: tenantId, TxRecord(
+          invoice: first['invoice']?.toString() ?? '',
+          method: TxMethod.voice,
+          customer: first['customer']?.toString() ?? '',
+          total: items.fold(0, (s, it) => s + it.total),
+          savedAt: DateTime.now(),
+          items: items,
+        ));
+      }
     } catch (_) {
       /* non-fatal */
     }

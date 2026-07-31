@@ -97,6 +97,7 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
         "stock_code": p.stock_code,
         "image_url": p.image_url or "",
         "stock": p.stock,
+        "price": p.price,
         "category_id": p.category_id,
         "created_at": p.created_at or "",
     }
@@ -104,6 +105,7 @@ def _product_to_dict(p: Product) -> dict[str, Any]:
 
 def create_product(tenant_id: int, *, name: str, description: str = "",
                    image_url: str = "", stock: int | None = None,
+                   price: int | None = None,
                    category_id: int | None = None) -> dict[str, Any]:
     """Buat produk baru; stock_code di-generate otomatis dalam transaksi yang sama
     (hindari balapan nomor urut). stock=None → tak-dilacak."""
@@ -121,6 +123,7 @@ def create_product(tenant_id: int, *, name: str, description: str = "",
             stock_code=code,
             image_url=image_url,
             stock=stock,
+            price=price,
             category_id=category_id,
             created_at=_now(),
         )
@@ -139,6 +142,20 @@ def set_stock(tenant_id: int, product_id: int, stock: int | None) -> bool:
         if p is None or p.tenant_id != tenant_id:
             return False
         p.stock = stock
+        s.commit()
+        return True
+
+
+def set_price(tenant_id: int, product_id: int, price: int | None) -> bool:
+    """Set harga jual absolut (Rupiah bulat). None = harga belum diset.
+    Raises ValueError bila negatif. Return False bila produk tak ada / lintas-tenant."""
+    if price is not None and price < 0:
+        raise ValueError("Harga tidak boleh negatif.")
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return False
+        p.price = price
         s.commit()
         return True
 
@@ -217,6 +234,47 @@ def apply_decrement(tenant_id: int, items: list, *, allow_oversell: bool) -> dic
                     report["insufficient"].append(
                         {"name": p.name, "requested": it.qty, "available": p.stock})
         if not allow_oversell and not report["ok"]:
+            s.rollback()
+            return report
+        s.commit()
+    return report
+
+
+def get_product(tenant_id: int, product_id: int) -> dict[str, Any] | None:
+    """Ambil satu produk milik tenant by id. None bila tak ada / lintas-tenant."""
+    with SessionLocal() as s:
+        p = s.get(Product, product_id)
+        if p is None or p.tenant_id != tenant_id:
+            return None
+        return _product_to_dict(p)
+
+
+def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Potong stok berdasarkan product_id (untuk fulfilment pesanan self-order).
+
+    items: list[{"product_id": int, "qty": int}]. Atomik bersyarat: bila ada
+    item dilacak yang stok < qty → ok=False + insufficient, rollback total.
+    Item tak-dilacak (stock None) dilewati.
+    """
+    report: dict[str, Any] = {"ok": True, "insufficient": []}
+    with SessionLocal() as s:
+        for it in items:
+            pid = int(it["product_id"])
+            qty = int(it["qty"])
+            p = s.get(Product, pid)
+            if p is None or p.tenant_id != tenant_id or p.stock is None:
+                continue  # non-katalog / lintas-tenant / tak-dilacak
+            res = s.execute(
+                update(Product)
+                .where(Product.id == pid, Product.stock >= qty)
+                .values(stock=Product.stock - qty)
+            )
+            if res.rowcount == 0:
+                report["ok"] = False
+                report["insufficient"].append(
+                    {"product_id": pid, "name": p.name, "requested": qty,
+                     "available": p.stock})
+        if not report["ok"]:
             s.rollback()
             return report
         s.commit()

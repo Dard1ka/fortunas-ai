@@ -88,6 +88,46 @@ def list_tenants() -> list[dict[str, Any]]:
         return [_tenant_to_dict(t) for t in s.scalars(select(Tenant)).all()]
 
 
+def get_tenant_by_code(code: str) -> dict[str, Any] | None:
+    """Cari tenant berdasarkan kode publik UMKM (mis. 'KDS-001'), case-insensitive.
+
+    Kode disimpan di business_profile['code']. Scan sederhana (jumlah tenant kecil);
+    bisa dioptimalkan jadi kolom terindeks bila perlu."""
+    key = (code or "").strip().upper()
+    if not key:
+        return None
+    with SessionLocal() as s:
+        for t in s.scalars(select(Tenant)).all():
+            c = ((t.business_profile or {}).get("code") or "").strip().upper()
+            if c == key:
+                return _tenant_to_dict(t)
+    return None
+
+
+def update_tenant_profile(tenant_id: int, updates: dict[str, Any]) -> dict[str, Any] | None:
+    """Merge `updates` ke business_profile tenant (mis. address, code). Return tenant baru."""
+    with SessionLocal() as s:
+        t = s.get(Tenant, tenant_id)
+        if t is None:
+            return None
+        merged = dict(t.business_profile or {})
+        merged.update(updates)
+        t.business_profile = merged
+        s.commit()
+        return _tenant_to_dict(t)
+
+
+def all_umkm_codes() -> list[str]:
+    """Semua kode publik UMKM yang sudah terpakai (untuk penomoran urut unik)."""
+    with SessionLocal() as s:
+        codes = []
+        for t in s.scalars(select(Tenant)).all():
+            c = (t.business_profile or {}).get("code")
+            if c:
+                codes.append(str(c))
+        return codes
+
+
 def create_user(email: str, password_hash: str, tenant_id: int, role: str = "admin") -> int:
     with SessionLocal() as s:
         user = TenantUser(

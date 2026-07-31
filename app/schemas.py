@@ -444,6 +444,7 @@ class Product(BaseModel):
     stock_code: str
     image_url: str = ""
     stock: int | None = None
+    price: int | None = None
     category_id: int | None = None
     created_at: str = ""
 
@@ -456,6 +457,39 @@ class ProductListResponse(BaseModel):
 
 class StockUpdateRequest(BaseModel):
     stock: int | None = Field(default=None, ge=0)  # None = tak-dilacak
+
+
+class PriceUpdateRequest(BaseModel):
+    price: int | None = Field(default=None, ge=0)  # None = harga belum diset
+
+
+# ── Pesanan publik pelanggan (self-order lewat kode UMKM) ─────────
+
+class PublicOrderItemInput(BaseModel):
+    product_id: int
+    qty: int = Field(ge=1)
+
+
+class PublicOrderCreateRequest(BaseModel):
+    customer_name: str = Field(default="", max_length=80)
+    customer_phone: str = Field(default="", max_length=30)
+    items: list[PublicOrderItemInput] = Field(min_length=1)
+
+
+class PublicOrderResponse(BaseModel):
+    id: int
+    tenant_id: int
+    code: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    items: list[dict] = Field(default_factory=list)
+    total: int = 0
+    status: str = "pending_payment"
+    payment_provider: str | None = None
+    payment_token: str | None = None
+    payment_redirect_url: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
 
 
 # ── Kategori produk per-UMKM ──────────────────────────────────────
@@ -478,6 +512,38 @@ class CategoryCreateRequest(BaseModel):
 
 class CategoryUpdateRequest(BaseModel):
     category_id: int | None = None
+
+
+class AutoCategorizeResponse(BaseModel):
+    """Hasil auto-kategori AI massal untuk produk tanpa kategori."""
+    status: str = "ok"
+    categorized: int = 0          # jumlah produk yang berhasil diberi kategori
+    total_uncategorized: int = 0  # jumlah produk tanpa kategori sebelum proses
+
+
+# ── Riwayat transaksi milik UMKM (dibaca dari BigQuery per-tenant) ──
+
+class UmkmTransactionItem(BaseModel):
+    product: str = ""
+    stock_code: str = ""
+    qty: int = 0
+    unit_price: int = 0
+    total: int = 0
+
+
+class UmkmTransaction(BaseModel):
+    invoice: str
+    customer: str = ""
+    country: str = ""
+    invoice_date: str = ""
+    total: int = 0
+    items: list[UmkmTransactionItem] = Field(default_factory=list)
+
+
+class UmkmTransactionsResponse(BaseModel):
+    transactions: list[UmkmTransaction] = Field(default_factory=list)
+    count: int = 0
+    source: str = "bigquery"  # asal data; "bigquery" (kosong bila BQ tak aktif)
 
 
 # ── Riwayat belanja per-barang di akun pelanggan (Indomaret Point) ──

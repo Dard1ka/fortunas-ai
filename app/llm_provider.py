@@ -6,12 +6,19 @@ Pilih backend via env LLM_PROVIDER:
 
 Semua pemanggilan LLM di app (insight, voice parser, SQL agent) lewat
 `llm_generate()` supaya ganti provider cukup ubah .env tanpa sentuh kode.
+
+CATATAN IMPORT: `requests` di-import LOKAL di dalam tiap fungsi yang benar-benar
+memanggil HTTP, bukan di module scope. Alasannya CI (`.github/workflows/ci.yml`)
+sengaja meng-install dep minimal tanpa `requirements.txt`, sehingga `requests`
+tidak ada di sana; kalau di-import di module scope, setiap modul yang meng-import
+`llm_generate` (routes → services) bikin collection pytest mati total. Dep
+call-time jangan bocor ke import time — dikunci oleh
+`tests/test_llm_provider_import.py`.
 """
 from __future__ import annotations
 
 import os
 
-import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,6 +59,8 @@ def llm_generate(
 
 
 def _ollama_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str:
+    import requests
+
     base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
     payload = {
@@ -74,6 +83,8 @@ def _ollama_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str
 
 
 def _openai_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str:
+    import requests
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY belum di-set di .env")
@@ -107,6 +118,8 @@ def _openai_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str
 
 
 def _gemini_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str:
+    import requests
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY belum di-set di .env")
@@ -153,6 +166,8 @@ def _gemini_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str
 
 def check_llm_health() -> dict:
     """Status koneksi LLM sesuai provider aktif (untuk endpoint /llm/health)."""
+    import requests
+
     provider = get_provider()
     model = get_model()
     if provider == "openai":
