@@ -5,6 +5,8 @@ menu (produk bergambar). Tidak perlu scan QR. Checkout pelanggan menyusul di Fas
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app import db, order_repo, product_repo
@@ -12,6 +14,26 @@ from app.schemas import PublicOrderCreateRequest, PublicOrderResponse
 from app.services import payment
 
 router = APIRouter(tags=["public"])
+
+# Pengganjal spam untuk endpoint order publik (tanpa auth).
+# JUJUR SOAL BATASNYA: in-process → hitungan per worker uvicorn dan hilang saat
+# restart. Ini bukan kontrol abuse sungguhan, cukup untuk MVP. Kalau butuh
+# serius, tempatnya di reverse-proxy (nginx `limit_req`) saat VPS ditata.
+_ORDER_RATE_LIMIT = 10        # order per IP per jendela
+_ORDER_RATE_WINDOW = 60.0     # detik
+_order_hits: dict[str, list[float]] = {}
+
+
+def _rate_limit_order(request: Request) -> None:
+    ip = request.client.host if request.client else "?"
+    now = time.monotonic()
+    hits = [t for t in _order_hits.get(ip, []) if now - t < _ORDER_RATE_WINDOW]
+    if len(hits) >= _ORDER_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="Terlalu banyak pesanan dari perangkat ini. Coba lagi sebentar.")
+    hits.append(now)
+    _order_hits[ip] = hits
 
 
 @router.get("/public/umkm/{code}")
@@ -56,9 +78,11 @@ def _order_out(o: dict) -> PublicOrderResponse:
 
 @router.post("/public/umkm/{code}/orders", response_model=PublicOrderResponse,
              status_code=201)
-def create_public_order(code: str, req: PublicOrderCreateRequest) -> PublicOrderResponse:
+def create_public_order(code: str, req: PublicOrderCreateRequest,
+                        request: Request) -> PublicOrderResponse:
     """Pelanggan membuat pesanan lewat kode UMKM → buat order pending_payment +
     inisiasi pembayaran. Validasi: produk milik UMKM, punya harga, stok cukup."""
+    _rate_limit_order(request)
     tenant = db.get_tenant_by_code(code)
     if tenant is None:
         raise HTTPException(status_code=404, detail="UMKM dengan kode itu tidak ditemukan.")

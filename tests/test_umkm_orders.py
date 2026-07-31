@@ -541,3 +541,19 @@ def test_set_pending_by_gateway_does_not_resurrect_cancelled_order(monkeypatch, 
     row = order_repo.get_order(o["id"])
     assert row["status"] == order_repo.STATUS_CANCELLED
     assert row["payment_status"] == "pending"
+
+
+# ── Task 6: rate limit ───────────────────────────────────────────
+
+def test_public_order_rate_limited(monkeypatch, tmp_path):
+    from app.api.routes import public as public_routes
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    public_routes._order_hits.clear()
+    c = _client()
+    # stok None = tak dilacak → tak akan kena 409 stok kurang
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="rl@t.com", stock=None)
+    body = {"items": [{"product_id": pid, "qty": 1}]}
+    for i in range(public_routes._ORDER_RATE_LIMIT):
+        assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 201, i
+    assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 429
