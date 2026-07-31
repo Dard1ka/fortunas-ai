@@ -320,15 +320,35 @@ def cancel_by_gateway(order_id: int, *, payment_status: str | None = None) -> di
     Status hanya boleh digerakkan gateway selama UMKM BELUM bersikap
     (`pending_payment` atau `paid`). Begitu UMKM menerima/menolak/menyelesaikan
     pesanan, status jadi wilayah UMKM — refund yang datang belakangan tak boleh
-    menghapus keputusan itu. Stok tetap dikembalikan terpisah lewat
-    `restore_stock` (idempoten), terlepas dari apakah status ikut berubah.
+    menghapus keputusan itu.
+
+    Klaimnya ATOMIK (satu UPDATE bersyarat, bukan baca-lalu-tulis): tanpa itu,
+    `accept` yang mendarat antara pembacaan status dan penulisannya akan tertimpa
+    `cancelled` — persis kerusakan yang fungsi ini ada untuk mencegah.
+    Stok dikembalikan terpisah lewat `restore_stock` (idempoten), terlepas dari
+    apakah status ikut berubah.
     """
-    o = get_order(order_id)
-    if o is None:
-        return None
-    if o["status"] not in _GATEWAY_CANCELLABLE:   # UMKM sudah bersikap → jangan sentuh status
-        return _update(order_id, payment_status=payment_status) if payment_status else o
-    return set_status(order_id, STATUS_CANCELLED, payment_status=payment_status)
+    now = _now()
+    values: dict[str, Any] = {"status": STATUS_CANCELLED, "updated_at": now}
+    if payment_status is not None:
+        values["payment_status"] = payment_status
+    with SessionLocal() as s:
+        res = s.execute(
+            update(PublicOrder)
+            .where(PublicOrder.id == order_id,
+                   PublicOrder.status.in_(_GATEWAY_CANCELLABLE))
+            .values(**values)
+        )
+        s.commit()
+        o = s.get(PublicOrder, order_id)
+        if o is None:
+            return None
+        if res.rowcount == 1:
+            return _to_dict(o)
+    # UMKM sudah bersikap → status dibekukan, tapi jejak gateway tetap dicatat.
+    if payment_status is not None:
+        return _update(order_id, payment_status=payment_status)
+    return get_order(order_id)
 
 
 def set_pending_by_gateway(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
@@ -338,5 +358,5 @@ def set_pending_by_gateway(order_id: int, *, payment_status: str | None = None) 
     if o is None:
         return None
     if o["paid_at"] is not None:
-        return _update(order_id, payment_status=payment_status) if payment_status else o
+        return _update(order_id, payment_status=payment_status) if payment_status is not None else o
     return set_status(order_id, STATUS_PENDING, payment_status=payment_status)

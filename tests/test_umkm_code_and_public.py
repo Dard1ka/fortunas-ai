@@ -209,3 +209,10 @@ def test_webhook_rejects_bad_signature(monkeypatch, tmp_path):
         "order_id": "ORD-1-xx", "status_code": "200", "gross_amount": "1000",
         "signature_key": "wrong", "transaction_status": "settlement"})
     assert r.status_code == 403
+
+    # non-ASCII signature_key tak boleh menabrak hmac.compare_digest jadi 500 —
+    # penyerang yang tak berwenang harus tetap dibalas 403, bukan traceback.
+    r2 = c.post("/public/payment/webhook", json={
+        "order_id": "ORD-1-xx", "status_code": "200", "gross_amount": "1000",
+        "signature_key": "café", "transaction_status": "settlement"})
+    assert r2.status_code == 403, r2.text

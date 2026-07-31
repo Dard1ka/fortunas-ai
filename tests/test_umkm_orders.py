@@ -456,3 +456,31 @@ def test_webhook_refund_after_accept_keeps_accepted_status(monkeypatch, tmp_path
     assert row["status"] == order_repo.STATUS_ACCEPTED, "refund membatalkan penerimaan UMKM"
     assert row["payment_status"] == "refund"
     assert product_repo.get_product(tenant_id, pid)["stock"] == 5
+
+
+def test_cancel_by_gateway_records_empty_payment_status_after_accept(monkeypatch, tmp_path):
+    """`transaction_status: ""` --> outcome `failed` --> `payment_status=""` tiba
+    di `cancel_by_gateway` pada pesanan yang sudah `accepted` (status dibekukan).
+    Guard-nya HARUS `is not None`, bukan truthy: string kosong tetap jejak audit
+    yang sah dan tak boleh diam-diam dibuang begitu status dibekukan."""
+    import hashlib
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p6@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    order_repo.apply_action(tenant_id, o["id"], "accept")
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+    r = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": ""})
+    assert r.status_code == 200, r.text
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_ACCEPTED
+    assert row["payment_status"] == "", "payment_status kosong dibuang diam-diam"
