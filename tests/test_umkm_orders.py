@@ -250,6 +250,98 @@ def test_apply_action_returns_none_for_missing_order(monkeypatch, tmp_path):
     assert order_repo.apply_action(tenant_id, 999999, "accept") is None
 
 
+# ── apply_action: klaim CAS, bukan baca-lalu-tulis ───────────────
+
+def _stale_read_then(monkeypatch, interferensi):
+    """Buat `apply_action` membaca status LAMA, lalu penulis lain menang persis
+    di jendela baca→tulis.
+
+    Dua writer sungguhan tak bisa direproduksi di sini (SQLite + `TestClient`,
+    satu thread), jadi race-nya dibuat DETERMINISTIK dengan pola yang sama
+    seperti `test_sweep_survives_key_removed_during_iteration`: efek samping
+    dipasang di titik akses. `interferensi` jalan SEKALI saja — pembacaan ulang
+    setelah klaim CAS kalah harus melihat KENYATAAN, bukan efek samping baru.
+    """
+    asli = order_repo.get_order_for_tenant
+    sudah = {"jalan": False}
+
+    def _baca(tenant_id: int, order_id: int):
+        row = asli(tenant_id, order_id)      # masih `paid` pada saat dibaca
+        if not sudah["jalan"]:
+            sudah["jalan"] = True
+            interferensi(order_id)           # penulis lain menang DI SINI
+        return row                           # dict BASI kembali ke apply_action
+
+    monkeypatch.setattr(order_repo, "get_order_for_tenant", _baca)
+
+
+def _cancel_gateway(order_id: int) -> None:
+    """Webhook refund/chargeback mendarat: status → `cancelled`. Sengaja TIDAK
+    memanggil `restore_stock`, supaya perubahan stok apa pun sesudahnya pasti
+    berasal dari `apply_action`, bukan dari interferensi ini."""
+    order_repo.cancel_by_gateway(order_id, payment_status="refund")
+
+
+def test_accept_does_not_overwrite_gateway_cancel_landing_mid_window(monkeypatch, tmp_path):
+    """Refund yang mendarat DI DALAM jendela baca→tulis `accept` tidak boleh
+    tertimpa. Dengan tulis tanpa syarat, `accept` menulis `accepted` di atas
+    baris yang sudah `cancelled` oleh gateway → pesanan hidup lagi (dan bisa
+    di-`complete`) padahal uangnya sudah dikembalikan."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="race1@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+
+    _stale_read_then(monkeypatch, _cancel_gateway)
+
+    ditolak = False
+    try:
+        order_repo.apply_action(tenant_id, o["id"], "accept")
+    except order_repo.TransitionError:
+        ditolak = True
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_CANCELLED, \
+        f"accept menimpa pembatalan gateway → {row['status']}"
+    assert ditolak, "klaim CAS kalah tapi apply_action tidak melapor 409"
+
+
+def test_reject_does_not_restore_stock_when_claim_lost(monkeypatch, tmp_path):
+    """`reject` hanya boleh mengembalikan stok kalau klaim statusnya MENANG.
+    Versi lama memanggil `restore_stock` sebelum menulis, tanpa syarat: stok
+    kembali walau baris itu sudah digerakkan penulis lain (atau ditolak staf
+    kedua dari HP lain) — dan `_ALLOWED_FROM` membuat `accept`/`reject`
+    sama-sama berangkat dari `paid`, jadi dua staf bisa lolos cek yang sama."""
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="race2@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    _stale_read_then(monkeypatch, _cancel_gateway)
+
+    ditolak = False
+    try:
+        order_repo.apply_action(tenant_id, o["id"], "reject")
+    except order_repo.TransitionError:
+        ditolak = True
+
+    row = order_repo.get_order(o["id"])
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3, \
+        "stok dikembalikan padahal klaim reject kalah"
+    assert row["stock_restored_at"] is None, "stock_restored_at diklaim tanpa reject"
+    assert row["status"] == order_repo.STATUS_CANCELLED, \
+        f"reject menimpa pembatalan gateway → {row['status']}"
+    assert ditolak, "klaim CAS kalah tapi apply_action tidak melapor 409"
+
+
 # ── Task 4: route inbox ──────────────────────────────────────────
 
 def test_inbox_hides_unpaid_by_default(monkeypatch, tmp_path):
@@ -296,6 +388,19 @@ def test_inbox_action_flow_paid_accept_complete(monkeypatch, tmp_path):
     r = c.post(f"/umkm/orders/{o['id']}/accept", headers=_h(tok))
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "accepted"
+
+    # Pesanan yang sudah diterima HARUS tetap muncul di inbox default. Tanpa
+    # `STATUS_ACCEPTED` di `_ACTIONABLE`, pesanan hilang dari daftar begitu UMKM
+    # menekan Terima → tombol "Selesai" tak pernah terjangkau dan alur
+    # accept→complete yang jadi alasan slice ini ada patah. Sebelum test ini,
+    # `_ACTIONABLE` bisa dipangkas jadi `[STATUS_PAID]` dengan 268/268 tetap
+    # hijau: `test_inbox_hides_unpaid_by_default` cuma punya pesanan `paid`, dan
+    # test ini tak pernah memanggil `GET /umkm/orders`.
+    r = c.get("/umkm/orders", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    assert [x["id"] for x in r.json()["orders"]] == [o["id"]], \
+        "pesanan `accepted` hilang dari inbox default"
+    assert r.json()["orders"][0]["status"] == "accepted"
 
     r = c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok))
     assert r.status_code == 200
@@ -456,6 +561,40 @@ def test_webhook_refund_after_accept_keeps_accepted_status(monkeypatch, tmp_path
     assert row["status"] == order_repo.STATUS_ACCEPTED, "refund membatalkan penerimaan UMKM"
     assert row["payment_status"] == "refund"
     assert product_repo.get_product(tenant_id, pid)["stock"] == 5
+
+
+def test_webhook_chargeback_on_completed_order_keeps_stock(monkeypatch, tmp_path):
+    """Chargeback pada pesanan `completed`: barangnya SUDAH diserahkan ke
+    pelanggan, jadi stok tak boleh ditambah balik. `cancel_by_gateway` memang
+    menolak menggerakkan STATUS pesanan completed, tapi stok butuh pagarnya
+    sendiri — webhook memanggil `restore_stock` di jalur terpisah."""
+    import hashlib
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p9@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    order_repo.apply_action(tenant_id, o["id"], "accept")
+    order_repo.apply_action(tenant_id, o["id"], "complete")
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+    r = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "chargeback"})
+    assert r.status_code == 200, r.text
+
+    row = order_repo.get_order(o["id"])
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3, \
+        "stok pesanan completed ditambah balik oleh chargeback"
+    assert row["stock_restored_at"] is None
+    assert row["status"] == order_repo.STATUS_COMPLETED
+    assert row["payment_status"] == "chargeback", "jejak gateway tetap harus dicatat"
 
 
 def test_cancel_by_gateway_records_empty_payment_status_after_accept(monkeypatch, tmp_path):

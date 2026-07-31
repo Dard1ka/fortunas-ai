@@ -15,8 +15,25 @@ down_revision: Union[str, Sequence[str], None] = "009"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Status yang berarti "pesanan pernah lunas" — dipakai backfill di bawah.
-_PAID_ONWARDS = ("paid", "accepted", "rejected", "completed")
+# Status yang sudah LEWAT titik bayar — dipakai backfill di bawah.
+#
+# `cancelled` ikut: pesanan yang lunas lalu di-refund/chargeback gateway berakhir
+# di sini (`cancel_by_gateway` menggerakkan `paid` → `cancelled`). Tanpa `paid_at`
+# terisi, replay notifikasi settlement untuk baris seperti itu akan MENANG klaim
+# `WHERE paid_at IS NULL` lalu memotong stok LAGI — persis lubang yang backfill
+# ini ada untuk menutup.
+#
+# Konsekuensi yang diterima sadar: `cancelled` juga memuat pesanan yang BELUM
+# pernah lunas (deny/cancel/expire dari gateway saat masih `pending_payment`).
+# Baris seperti itu ikut kebagian `paid_at`, jadi `restore_stock` yang datang
+# belakangan bisa menaikkan stok yang tak pernah dipotong. Status saja tak bisa
+# membedakan keduanya — ini varian dari utang "paid_at cuma berarti klaim menang,
+# bukan stok pernah dipotong" (day-15 §Utang, kandidat `stock_decremented_at` +
+# migrasi 011). Ditukar sadar: stok terpotong DUA KALI lebih berbahaya daripada
+# stok naik sekali pada pesanan yang sudah mati di gateway.
+#
+# `expired` sengaja TIDAK ikut: itu pesanan yang kedaluwarsa sebelum dibayar.
+_PAID_ONWARDS = ("paid", "accepted", "rejected", "completed", "cancelled")
 
 
 def upgrade() -> None:

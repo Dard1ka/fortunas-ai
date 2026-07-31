@@ -158,10 +158,13 @@ def get_order_for_tenant(tenant_id: int, order_id: int) -> dict[str, Any] | None
 def _update(order_id: int, **fields: Any) -> dict[str, Any] | None:
     """Terapkan perubahan field ke satu pesanan + stempel updated_at.
 
-    `mark_paid` dan `restore_stock` pindah ke compare-and-set atomik sendiri
-    (satu `UPDATE` per fungsi) dan tak lagi lewat sini. Sekarang ini cuma
-    dipakai oleh `set_status` (dan `apply_action` lewat `set_status`), plus
-    tulis `payment_status` mentah dari gateway saat status tak digerakkan.
+    BUKAN satu-satunya penulis baris pesanan: `mark_paid`, `restore_stock`,
+    `cancel_by_gateway`, dan `apply_action` masing-masing punya compare-and-set
+    atomik sendiri (satu `UPDATE` bersyarat per fungsi) dan tak lewat sini.
+    Yang tersisa di sini cuma tulis `payment_status` mentah dari gateway saat
+    status TIDAK digerakkan (`cancel_by_gateway` yang klaimnya kalah,
+    `set_pending_by_gateway`) — plus `set_status`, yang kini tak punya pemanggil
+    produksi lagi.
     """
     with SessionLocal() as s:
         o = s.get(PublicOrder, order_id)
@@ -176,6 +179,15 @@ def _update(order_id: int, **fields: Any) -> dict[str, Any] | None:
 
 def set_status(order_id: int, status: str, *,
                payment_status: str | None = None) -> dict[str, Any] | None:
+    """Tulis status TANPA SYARAT — tanpa pemanggil produksi sejak `apply_action`
+    pindah ke compare-and-set.
+
+    JANGAN pakai ini untuk transisi (aksi UMKM, job kedaluwarsa, webhook
+    gateway): tulisan tanpa syarat menimpa apa pun yang ditulis penulis lain di
+    jendela baca→tulis. Pola yang benar ada di `apply_action` /
+    `cancel_by_gateway`: `UPDATE ... WHERE status IN (...)` lalu periksa
+    `rowcount`.
+    """
     fields: dict[str, Any] = {"status": status}
     if payment_status is not None:
         fields["payment_status"] = payment_status
@@ -289,9 +301,27 @@ def apply_action(tenant_id: int, order_id: int,
     Return order terbaru. None bila pesanan tak ada / bukan milik tenant.
     Raise `TransitionError` bila status sekarang tak mengizinkan aksi itu.
 
-    `reject` mengembalikan stok lebih dulu (idempoten) — pesanan yang sudah lunas
-    berarti stoknya sudah dipotong; menolak tanpa mengembalikan membuat barang yang
-    tak terjual tercatat terjual. Pengembalian UANG tidak otomatis (bucket B).
+    Transisinya diklaim lewat compare-and-set atomik (`UPDATE ... WHERE status IN
+    (...)`), cermin dari `mark_paid`/`restore_stock`/`cancel_by_gateway` — BUKAN
+    baca-lalu-tulis. Tulis tanpa syarat punya dua korban yang bisa dicapai:
+    (1) refund yang mendarat di dalam jendela baca→tulis `accept` akan tertimpa
+    `accepted`, menghidupkan ulang pesanan yang uangnya sudah dikembalikan dan
+    stoknya sudah dikembalikan gateway; (2) `_ALLOWED_FROM` membuat `accept` dan
+    `reject` sama-sama berangkat dari `paid`, jadi dua staf di dua HP (satu
+    Terima, satu Tolak) bisa sama-sama lolos cek lalu sama-sama menulis. Flag
+    `busy` di UI tak menolong — itu state Riverpod per-klien.
+
+    Pembacaan awal DIPERTAHANKAN, tapi bukan lagi yang mengotorisasi tulisan:
+    tugasnya cuma membedakan 404 (tak ada / tenant lain) dari 409 (transisi tak
+    sah). Begitu klaim CAS kalah, dibaca ULANG untuk membedakan keduanya lagi
+    dari kenyataan terbaru.
+
+    `reject` mengembalikan stok HANYA bila klaimnya menang — pesanan yang sudah
+    lunas berarti stoknya sudah dipotong, dan menolak tanpa mengembalikan membuat
+    barang yang tak terjual tercatat terjual. Urutannya (klaim dulu, stok
+    kemudian) penting: versi lama mengembalikan stok lebih dulu tanpa syarat,
+    jadi stok kembali walau tulisan statusnya kalah. Pengembalian UANG tidak
+    otomatis (bucket B).
     """
     o = get_order_for_tenant(tenant_id, order_id)
     if o is None:
@@ -299,9 +329,38 @@ def apply_action(tenant_id: int, order_id: int,
     if o["status"] not in _ALLOWED_FROM[action]:
         raise TransitionError(
             f"Pesanan berstatus '{o['status']}' tidak bisa di-{action}.")
+
+    now = _now()
+    with SessionLocal() as s:
+        res = s.execute(
+            update(PublicOrder)
+            .where(PublicOrder.id == order_id,
+                   PublicOrder.tenant_id == tenant_id,
+                   PublicOrder.status.in_(_ALLOWED_FROM[action]))
+            .values(status=_RESULT_STATUS[action], updated_at=now)
+        )
+        s.commit()
+        # `!= 0`, bukan `== 1` (konvensi `mark_paid`; `cancel_by_gateway` masih
+        # `== 1`, dicatat sebagai utang konsistensi di day-15). Driver yang
+        # melaporkan rowcount `-1` ("tak tahu") akan membuat `== 1` menganggap
+        # SETIAP klaim kalah: accept/reject selalu 409 dan stok pesanan yang
+        # ditolak tak pernah kembali — salah, permanen, dan senyap. `!= 0`
+        # menjaga jalur normal tetap benar di driver semacam itu.
+        menang = res.rowcount != 0
+
+    if not menang:
+        # Baris tak bergerak. Baca ulang untuk memisahkan "hilang / tenant lain"
+        # (404) dari "ada tapi statusnya sudah lain" (409) — pembacaan di atas
+        # sudah basi begitu ada penulis lain di antaranya.
+        fresh = get_order_for_tenant(tenant_id, order_id)
+        if fresh is None:
+            return None
+        raise TransitionError(
+            f"Pesanan berstatus '{fresh['status']}' tidak bisa di-{action}.")
+
     if action == "reject":
         restore_stock(order_id)
-    return set_status(order_id, _RESULT_STATUS[action])
+    return get_order(order_id)
 
 
 #: Status yang masih boleh digerakkan gateway ke `cancelled`. Sengaja BUKAN

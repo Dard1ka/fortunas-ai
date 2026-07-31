@@ -210,7 +210,23 @@ async def payment_webhook(request: Request) -> dict:
     elif outcome == "failed":
         # `refund` & `chargeback` juga jatuh ke sini: kalau pesanan sudah pernah
         # lunas, stoknya sudah dipotong → kembalikan (idempoten).
-        order_repo.restore_stock(o["id"])
+        #
+        # KECUALI pesanan yang sudah `completed`: barangnya sudah diserahkan ke
+        # pelanggan, jadi chargeback yang datang belakangan tak boleh menambah
+        # stok yang secara fisik tak pernah kembali. `cancel_by_gateway` memang
+        # menolak menggerakkan STATUS pesanan completed, tapi stok jalan lewat
+        # panggilan terpisah ini dan butuh pagarnya sendiri.
+        #
+        # `partial_refund` DISENGAJA diperlakukan sebagai pembatalan penuh untuk
+        # MVP: `payment._map_status` memetakan setiap status tak dikenal ke
+        # `failed`, jadi refund sebagian mengembalikan stok SELURUH pesanan lalu
+        # membatalkannya. Diterima sadar karena pengembalian UANG di sistem ini
+        # memang manual di luar aplikasi (lihat day-15 §Utang) — UMKM tetap harus
+        # merekonsiliasi nominalnya sendiri, dan membatalkan penuh lebih aman
+        # daripada membiarkan pesanan yang dananya sebagian ditarik tetap
+        # tampak lunas. Refund per-item yang benar adalah scope slice sendiri.
+        if o["status"] != order_repo.STATUS_COMPLETED:
+            order_repo.restore_stock(o["id"])
         order_repo.cancel_by_gateway(o["id"], payment_status=raw)
     else:  # pending
         order_repo.set_pending_by_gateway(o["id"], payment_status=raw)
