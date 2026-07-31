@@ -132,8 +132,16 @@ async def payment_webhook(request: Request) -> dict:
         raise HTTPException(
             status_code=400,
             detail="Webhook nonaktif saat Midtrans tidak dikonfigurasi.")
-    payload = await request.json()
-    result = payment.verify_notification(payload)
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("payload webhook harus objek JSON")
+        result = payment.verify_notification(payload)
+    except (ValueError, AttributeError, UnicodeError) as exc:
+        # Permukaan TANPA AUTH: input sembarang dari internet tak boleh jadi 500.
+        # Termasuk body bukan-JSON, body bukan-objek, dan signature_key yang
+        # memuat lone surrogate (str.encode menolaknya).
+        raise HTTPException(status_code=400, detail="Payload webhook tidak valid.") from exc
     if not result["valid"]:
         raise HTTPException(status_code=403, detail="Signature tidak valid.")
     o = order_repo.get_by_payment_order_id(result["payment_order_id"])

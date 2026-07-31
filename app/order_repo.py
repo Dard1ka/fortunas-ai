@@ -352,11 +352,16 @@ def cancel_by_gateway(order_id: int, *, payment_status: str | None = None) -> di
 
 
 def set_pending_by_gateway(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
-    """Notifikasi `pending` dari gateway. Aturan sama: jangan mundurkan pesanan
-    yang sudah lunas ke `pending_payment`."""
-    o = get_order(order_id)
-    if o is None:
-        return None
-    if o["paid_at"] is not None:
-        return _update(order_id, payment_status=payment_status) if payment_status is not None else o
-    return set_status(order_id, STATUS_PENDING, payment_status=payment_status)
+    """Notifikasi `pending` dari gateway: catat jejaknya, JANGAN gerakkan status.
+
+    Satu-satunya status yang `pending` bisa berarti adalah `pending_payment` —
+    dan itu status awal pesanan. Jadi tak ada transisi sah yang perlu ditulis,
+    sementara MENULISnya justru berbahaya: notifikasi `pending` yang tiba
+    terlambat bisa memundurkan pesanan yang sudah lunas (stoknya sudah
+    terpotong, dan inbox tak lagi menampilkannya karena inbox hanya melihat
+    `paid`/`accepted`), atau menghidupkan ulang pesanan yang sudah dibatalkan
+    gateway.
+    """
+    if payment_status is None:
+        return get_order(order_id)
+    return _update(order_id, payment_status=payment_status)

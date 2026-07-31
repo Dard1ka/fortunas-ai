@@ -216,3 +216,40 @@ def test_webhook_rejects_bad_signature(monkeypatch, tmp_path):
         "order_id": "ORD-1-xx", "status_code": "200", "gross_amount": "1000",
         "signature_key": "café", "transaction_status": "settlement"})
     assert r2.status_code == 403, r2.text
+
+
+def test_webhook_lone_surrogate_signature_returns_400(monkeypatch, tmp_path):
+    """`str.encode()` menolak lone surrogate (mis. U+D800) — payload begini
+    tak boleh pernah mencapai perbandingan signature, jadi 400, bukan 500/403.
+
+    Body dikirim MENTAH (bukan lewat `json=`): httpx sendiri menolak
+    men-serialize objek Python yang sudah memuat karakter surrogate mentah
+    (gagal di sisi klien, sebelum pernah menyentuh jaringan). Yang perlu diuji
+    adalah body kawat yang murni ASCII (`\\ud800` sebagai enam karakter escape
+    JSON) yang, sesudah di-`json.loads()` ulang oleh SERVER, merekonstruksi
+    lone surrogate itu di dalam str Python — persis skenario yang dilaporkan."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    body = (b'{"order_id": "ORD-1-xx", "status_code": "200", '
+            b'"gross_amount": "1000", "signature_key": "\\ud800", '
+            b'"transaction_status": "settlement"}')
+    r = c.post("/public/payment/webhook", content=body,
+               headers={"content-type": "application/json"})
+    assert r.status_code == 400, r.text
+
+
+def test_webhook_malformed_body_returns_400(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    r = c.post("/public/payment/webhook", content=b"{not json")
+    assert r.status_code == 400, r.text
+
+
+def test_webhook_non_object_body_returns_400(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    r = c.post("/public/payment/webhook", json=[1, 2])
+    assert r.status_code == 400, r.text

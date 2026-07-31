@@ -484,3 +484,60 @@ def test_cancel_by_gateway_records_empty_payment_status_after_accept(monkeypatch
     row = order_repo.get_order(o["id"])
     assert row["status"] == order_repo.STATUS_ACCEPTED
     assert row["payment_status"] == "", "payment_status kosong dibuang diam-diam"
+
+
+def test_set_pending_by_gateway_does_not_rewind_paid_order(monkeypatch, tmp_path):
+    """Notifikasi `pending` yang tiba TERLAMBAT (setelah lunas) tak boleh
+    memundurkan status ke `pending_payment` — stoknya sudah terpotong, dan
+    inbox hanya menampilkan `paid`/`accepted`; order jadi tak terlihat kalau
+    status dimundurkan."""
+    import hashlib
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p7@t.com", stock=5)
+    o = _order(c, code, pid, qty=1)
+    _pay(c, o)
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+    r = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "pending"})
+    assert r.status_code == 200, r.text
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_PAID
+    assert row["payment_status"] == "pending"
+
+
+def test_set_pending_by_gateway_does_not_resurrect_cancelled_order(monkeypatch, tmp_path):
+    """Notifikasi `pending` tak boleh menghidupkan ulang pesanan yang sudah
+    dibatalkan gateway (mis. notifikasi `pending` yang datang belakangan,
+    salah urutan, setelah `deny`/`cancel`/`expire` sebelumnya)."""
+    import hashlib
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p8@t.com", stock=5)
+    o = _order(c, code, pid, qty=1)                     # masih pending_payment
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+
+    r_cancel = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "cancel"})
+    assert r_cancel.status_code == 200, r_cancel.text
+    assert order_repo.get_order(o["id"])["status"] == order_repo.STATUS_CANCELLED
+
+    r_pending = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "pending"})
+    assert r_pending.status_code == 200, r_pending.text
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_CANCELLED
+    assert row["payment_status"] == "pending"
