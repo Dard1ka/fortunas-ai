@@ -55,8 +55,12 @@ Pelanggan memesan ke UMKM lewat **KODE UMKM** (mis. `KDS-001`) — **tanpa scan 
   `total`, `status`, `payment_provider/order_id/token/redirect_url/status`, timestamps.
 - Migrasi `009_public_orders.py`.
 - `app/order_repo.py`: `create_order`, `attach_payment`, `get_order`, `get_by_payment_order_id`,
-  `list_orders`, `set_status`, `mark_paid` (potong stok, **idempoten**).
+  `list_orders`, `get_order_for_tenant`, `apply_action`, `mark_paid` (potong stok, **idempoten**),
+  `restore_stock`, `cancel_by_gateway`.
   Status: `pending_payment → paid → accepted/rejected → completed` (juga `expired/cancelled`).
+  **Perubahan status pesanan WAJIB lewat `apply_action`** (compare-and-set: `UPDATE ... WHERE status IN (...)`
+  lalu periksa `rowcount`), **bukan** `set_status`. `set_status` masih ada di modul tapi menulis status **tanpa
+  syarat** — tepat cacat yang CAS ini ganti (lihat day-15 §Utang #4) — dan sudah tak punya pemanggil produksi.
 
 ### 2c — Payment service
 - `app/services/payment.py`:
@@ -128,7 +132,12 @@ Bangun alur publik `/order` (tanpa auth). Urutan layar:
 
 ## 6. Fase 3 & seterusnya (backlog usulan)
 
-- **Inbox pesanan UMKM:** layar di app UMKM untuk lihat/terima/tolak/selesaikan order (`GET` list order + `PATCH` status). Backend `list_orders`/`set_status` sudah siap; tinggal endpoint UMKM (auth tenant) + UI.
+- ~~**Inbox pesanan UMKM**~~ — **SUDAH DIBANGUN di Slice 1 (day-15)**, backend + Flutter. Endpoint-nya sudah ada
+  (auth tenant): `GET /umkm/orders` (tanpa filter → `paid` + `accepted`; `?status=all`; `?status=<x>`) plus tiga
+  endpoint per-aksi `POST /umkm/orders/{id}/accept|reject|complete`. Sengaja **bukan** `PATCH {status}` generik —
+  itu akan membuat klien bisa mengirim `expired`/`cancelled` yang hak sistem. Kalau menambah transisi baru:
+  lewat `order_repo.apply_action` (compare-and-set) + tabel `_ALLOWED_FROM`, **jangan** `set_status` yang
+  menulis tanpa syarat. Lihat `docs/handoff/day-15.md`.
 - **Notifikasi UMKM** saat ada order baru masuk (FCM `device_tokens` sudah ada; lihat `notify_repo.py`).
 - **Order → transaksi BigQuery** saat pesanan `completed` (reuse `checkout_service.persist_basket`) supaya masuk riwayat & analitik UMKM.
 - **Kaitkan order ke loyalty** (poin) bila pelanggan punya akun.

@@ -59,7 +59,8 @@ Lima temuan dari review whole-branch, semuanya disetujui Steven:
    soal docstring `order_repo._update` dibuang — docstring itu sudah menggambarkan pemisahan CAS dengan benar,
    klaimnya tersalin dari catatan era sebelumnya tanpa dicek ulang. Ikut disegarkan: baris-baris yang jadi basi
    **karena perbaikan 1–4 di atas** (daftar penulis CAS, daftar status backfill, §2.4, angka verifikasi).
-   Utang #5 baru ditambahkan (`paid_at` ≠ stok pernah dipotong).
+   Dua utang baru ditambahkan: #5 (`paid_at` ≠ stok pernah dipotong) dan #6 (pagar `completed` di webhook
+   sendiri masih baca-lalu-tulis).
 
 ---
 
@@ -92,10 +93,13 @@ Ditambahkan lewat migrasi `010_public_order_stock_markers.py`. Alasannya murni *
   `paid_at = updated_at` — tanpa ini, order lama yang di-replay webhook-nya akan lolos guard `paid_at is None`
   dan stoknya terpotong ulang. `cancelled` ikut karena pesanan yang lunas lalu di-refund berakhir di status itu;
   konsekuensi & trade-off-nya ditulis di komentar migrasinya.
-- **Keempat** penulis baris pesanan memakai **compare-and-set** (baca-cek-tulis dilipat jadi satu `UPDATE`
-  bersyarat, bukan read-then-write) — ini keputusan eksplisit Steven, diterapkan berulang: `mark_paid`
+- **Keempat penulis STATUS** memakai **compare-and-set** (baca-cek-tulis dilipat jadi satu `UPDATE` bersyarat,
+  bukan read-then-write) — ini keputusan eksplisit Steven, diterapkan berulang: `mark_paid`
   (`WHERE paid_at IS NULL`), `restore_stock` (`WHERE stock_restored_at IS NULL`), `cancel_by_gateway` dan
-  `apply_action` (keduanya `WHERE status IN (...)`). Lihat Utang #4 untuk apa yang dijamin dan apa yang tidak.
+  `apply_action` (keduanya `WHERE status IN (...)`). Klaimnya sengaja dibatasi pada penulis **status**: `_update`
+  masih menulis baris pesanan tanpa syarat untuk `payment_status` mentah dari gateway (di situ tak ada transisi
+  yang bisa tertimpa), dan `set_status` yang menulis status tanpa syarat masih ada di modul walau tak lagi
+  dipanggil produksi. Lihat Utang #4 untuk apa yang dijamin dan apa yang tidak.
 
 ## Keputusan: endpoint per-aksi, bukan `PATCH` generik
 
@@ -178,9 +182,13 @@ kalau sesuatu tercatat di sana sebagai belum teruji atau trade sadar, begitu jug
    Skenario: UMKM menekan Terima tepat saat webhook Midtrans melapor refund/chargeback untuk pesanan yang sama.
    **Yang menjamin sekarang** adalah compare-and-set: `cancel_by_gateway` **dan** `apply_action` (sejak ronde
    perbaikan review akhir) sama-sama menulis lewat satu `UPDATE ... WHERE status IN (...)` lalu memeriksa
-   `rowcount`, jadi penulis yang statusnya sudah bergerak di bawahnya akan kalah klaim dan pulang tanpa efek.
-   Sebelum ronde itu, `apply_action` masih baca-lalu-tulis tanpa syarat — jadi jaminannya memang cuma "bentuk
-   kode", dan `accept` bisa menimpa pembatalan gateway.
+   `rowcount`, jadi penulis yang statusnya sudah bergerak di bawahnya akan kalah klaim dan **tidak menggerakkan
+   status**. Persisnya: `apply_action` yang kalah pulang tanpa efek sama sekali (409), sementara
+   `cancel_by_gateway` yang kalah tetap menulis `payment_status` lewat `_update` (`app/order_repo.py:405-409`,
+   dipin `test_cancel_by_gateway_records_empty_payment_status_after_accept`) — itu DISENGAJA: statusnya wilayah
+   UMKM, tapi jejak audit dari gateway tetap harus tercatat. Sebelum ronde itu, `apply_action` masih
+   baca-lalu-tulis tanpa syarat — jadi jaminannya memang cuma "bentuk kode", dan `accept` bisa menimpa
+   pembatalan gateway.
 
    **Yang sudah dicover test:** dua test deterministik
    (`test_accept_does_not_overwrite_gateway_cancel_landing_mid_window`,
@@ -200,8 +208,9 @@ kalau sesuatu tercatat di sana sebagai belum teruji atau trade sadar, begitu jug
    Sisa inkonsistensi kecil: `cancel_by_gateway` memeriksa `rowcount == 1`, sementara `mark_paid` dan
    `apply_action` memakai `rowcount != 0`. `!= 0` yang dipilih untuk `apply_action` aman terhadap driver yang
    melaporkan `-1` ("tak tahu"); `== 1` di `cancel_by_gateway` akan menganggap setiap klaim kalah di driver
-   semacam itu. Belum diseragamkan — tak ada driver seperti itu yang dipakai hari ini (SQLite & psycopg2
-   keduanya melaporkan angka sesungguhnya).
+   semacam itu. Belum diseragamkan — tak ada driver seperti itu yang dipakai hari ini (SQLite & psycopg keduanya
+   melaporkan angka sesungguhnya; `-1` itu kapabilitas driver, `supports_sane_rowcount`, bukan hasil
+   per-statement, jadi driver yang melaporkannya akan melaporkannya SELALU — bukan cuma kadang-kadang).
 
 5. **`paid_at` cuma berarti "klaim menang", BUKAN "stok pernah dipotong" → `restore_stock` bisa menambah stok
    yang tak pernah diambil.** `restore_stock` menggating pada `paid_at IS NOT NULL`, dan `paid_at` diisi oleh
@@ -218,6 +227,17 @@ kalau sesuatu tercatat di sana sebagai belum teruji atau trade sadar, begitu jug
    penanda itu, bukan pada `paid_at` — plus keputusan produk soal apa yang harus terjadi ketika pembayaran
    masuk tapi stok tak cukup (hari ini: senyap). Keputusan Steven: itu **slice sendiri**, bukan tempelan di
    slice ini.
+
+6. **Pagar `status != completed` di webhook `failed` sendiri masih baca-lalu-tulis.** Gate-nya
+   (`app/api/routes/public.py`, cabang `outcome == "failed"`) membaca `o["status"]` dari
+   `get_by_payment_order_id` di awal handler. Kalau pesanan bergerak `paid` → `accepted` → `completed` di dalam
+   jendela antara pembacaan itu dan gate-nya, stok tetap dikembalikan untuk barang yang sudah diserahkan —
+   persis kasus yang gate ini ada untuk mencegah, cuma lewat celah yang jauh lebih sempit (butuh UMKM menekan
+   Terima **dan** Selesai di dalam satu jendela request webhook).
+   Perbaikan yang benar: pindahkan pagarnya ke DALAM `restore_stock` sebagai bagian dari klaim CAS-nya. Itu
+   butuh allow-list, bukan sekadar `!= completed`, karena `restore_stock` juga dipanggil dari jalur `reject`
+   di `apply_action` — dan di sana statusnya sudah `rejected` saat `restore_stock` jalan. Sengaja TIDAK
+   diperlebar di ronde perbaikan review akhir: yang disetujui adalah pagar di titik webhook.
 
 ### Catatan tambahan (minor, untuk konteks — lihat ledger untuk daftar lengkap)
 - `GET /public/orders/{payment_order_id}` (poll status) tidak punya rate limiter sendiri — risiko PII sudah
