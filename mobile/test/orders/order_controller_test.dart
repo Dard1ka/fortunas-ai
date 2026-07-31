@@ -35,6 +35,7 @@ void main() {
     expect(ok, true);
     expect(api.lastOrderAction, (7, 'accept'));
     expect(c.read(orderControllerProvider).submittingId, isNull);
+    expect(c.read(orderControllerProvider).orders.single.id, 7);
   });
 
   test('reject meneruskan aksi yang benar', () async {
@@ -51,7 +52,9 @@ void main() {
       ..listOrdersResult = const UmkmOrderListResponse()
       ..orderActionError = Exception('gagal');
     final c = _container(api);
-    final ok = await c.read(orderControllerProvider.notifier).complete(3);
+    final f = c.read(orderControllerProvider.notifier).complete(3);
+    expect(c.read(orderControllerProvider).submittingId, 3);
+    final ok = await f;
     expect(ok, false);
     final s = c.read(orderControllerProvider);
     expect(s.errorMessage, isNotNull);
