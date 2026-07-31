@@ -22,13 +22,19 @@ def _h(t: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {t}"}
 
 
-def _setup(c, monkeypatch, tmp_path, *, email, city="Kudus", price=15000, stock=None):
-    """Daftar UMKM + 1 produk. Return (kode_umkm, product_id, token)."""
+def _setup(c, monkeypatch, tmp_path, *, email, city="Kudus", price=15000, stock=None,
+           business_name="Warung Uji"):
+    """Daftar UMKM + 1 produk. Return (kode_umkm, product_id, token).
+
+    `business_name` WAJIB dibedakan saat satu test mendaftarkan DUA UMKM:
+    `POST /auth/register` menurunkan `table_prefix` dari nama bisnis
+    (`_slugify_prefix`) dan menolak prefix yang sudah dipakai dengan 409.
+    """
     from app import product_repo
     monkeypatch.setattr(product_repo, "PRODUCT_IMAGE_DIR", str(tmp_path))
     monkeypatch.setattr(umkm_code, "llm_generate", lambda *a, **k: f'{{"city": "{city}"}}')
     body = c.post("/auth/register", json={
-        "email": email, "password": "rahasia123", "business_name": "Warung Uji",
+        "email": email, "password": "rahasia123", "business_name": business_name,
         "address": f"Jl. Uji No. 1, {city}"}).json()
     tok = body["access_token"]
     data = {"name": "Kopi Susu", "price": str(price)}
@@ -84,89 +90,46 @@ def test_paid_at_filled_after_payment(monkeypatch, tmp_path):
 
 def test_restore_by_ids_adds_stock_back(monkeypatch, tmp_path):
     from app import product_repo
-    from app.db_pg import SessionLocal
-    from app.models import Product
 
     c = _client()
     _, pid, tok = _setup(c, monkeypatch, tmp_path, email="r1@t.com", stock=10)
-
-    # Get tenant_id from product in database
-    with SessionLocal() as s:
-        p = s.get(Product, pid)
-        tenant_id = p.tenant_id
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
 
     product_repo.decrement_by_ids(tenant_id, [{"product_id": pid, "qty": 4}])
     assert product_repo.get_product(tenant_id, pid)["stock"] == 6
 
     out = product_repo.restore_by_ids(tenant_id, [{"product_id": pid, "qty": 4}])
     assert out["ok"] is True
+    assert out["restored"] == [pid]
     assert product_repo.get_product(tenant_id, pid)["stock"] == 10
 
 
 def test_restore_by_ids_skips_untracked_stock(monkeypatch, tmp_path):
     """Produk tanpa pelacakan stok (stock None) tak boleh mendadak jadi angka."""
     from app import product_repo
-    from app.db_pg import SessionLocal
-    from app.models import Product
 
     c = _client()
     _, pid, tok = _setup(c, monkeypatch, tmp_path, email="r2@t.com", stock=None)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
 
-    # Get tenant_id from product in database
-    with SessionLocal() as s:
-        p = s.get(Product, pid)
-        tenant_id = p.tenant_id
-
-    product_repo.restore_by_ids(tenant_id, [{"product_id": pid, "qty": 3}])
+    out = product_repo.restore_by_ids(tenant_id, [{"product_id": pid, "qty": 3}])
+    assert out["ok"] is True
+    assert pid not in out["restored"]
     assert product_repo.get_product(tenant_id, pid)["stock"] is None
 
 
 def test_restore_by_ids_ignores_other_tenant(monkeypatch, tmp_path):
     from app import product_repo
-    from app.db_pg import SessionLocal
-    from app.models import Product, Tenant, TenantUser
 
     c = _client()
-    _, pid_a, tok_a = _setup(c, monkeypatch, tmp_path, email="r3a@t.com", stock=5)
+    _, pid_a, tok_a = _setup(c, monkeypatch, tmp_path, email="r3a@t.com", stock=5,
+                            business_name="Warung A")
+    _, _, tok_b = _setup(c, monkeypatch, tmp_path, email="r3b@t.com", stock=5,
+                        business_name="Warung B")
+    tenant_a = c.get("/auth/me", headers=_h(tok_a)).json()["tenant_id"]
+    tenant_b = c.get("/auth/me", headers=_h(tok_b)).json()["tenant_id"]
 
-    # Get tenant_a from product
-    with SessionLocal() as s:
-        p_a = s.get(Product, pid_a)
-        tenant_a = p_a.tenant_id
-
-        # Manually create a second tenant and product in the database
-        tenant_b_obj = Tenant(
-            name="Tenant B",
-            table_prefix="tb",
-            business_profile={},
-            created_at="2026-01-01T00:00:00",
-        )
-        s.add(tenant_b_obj)
-        s.flush()
-        tenant_b = tenant_b_obj.id
-
-        user_b = TenantUser(
-            tenant_id=tenant_b,
-            email="r3b@t.com",
-            password_hash="hash",
-            role="admin",
-            created_at="2026-01-01T00:00:00",
-        )
-        s.add(user_b)
-        s.flush()
-
-        p_b = Product(
-            tenant_id=tenant_b,
-            name="Kopi B",
-            description="",
-            stock_code="ko-001",
-            image_url="",
-            stock=5,
-            price=15000,
-            created_at="2026-01-01T00:00:00",
-        )
-        s.add(p_b)
-        s.commit()
-
-    product_repo.restore_by_ids(tenant_b, [{"product_id": pid_a, "qty": 3}])
+    out = product_repo.restore_by_ids(tenant_b, [{"product_id": pid_a, "qty": 3}])
+    assert out["ok"] is True
+    assert pid_a not in out["restored"]
     assert product_repo.get_product(tenant_a, pid_a)["stock"] == 5  # tak tersentuh
