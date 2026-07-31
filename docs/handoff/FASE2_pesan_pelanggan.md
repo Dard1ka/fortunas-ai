@@ -69,9 +69,13 @@ Pelanggan memesan ke UMKM lewat **KODE UMKM** (mis. `KDS-001`) — **tanpa scan 
 | Method | Path | Fungsi |
 |---|---|---|
 | POST | `/public/umkm/{code}/orders` | validasi (produk milik UMKM, ada harga, stok cukup) → buat order → inisiasi bayar |
-| GET | `/public/orders/{id}` | poll status pesanan |
-| GET/POST | `/public/orders/{id}/simulate-pay` | mode simulasi: tandai lunas (ditolak bila Midtrans live) |
+| GET | `/public/orders/{payment_order_id}` | poll status pesanan |
+| GET/POST | `/public/orders/{payment_order_id}/simulate-pay` | mode simulasi: tandai lunas (ditolak bila Midtrans live) |
 | POST | `/public/payment/webhook` | notifikasi Midtrans → verifikasi → update status + potong stok |
+
+> ⚠️ **Kunci publik = `payment_order_id`** (string), **bukan** `id` sekuensial platform-wide. `payment_order_id`
+> ikut dikembalikan di respons `POST /public/umkm/{code}/orders` — itu satu-satunya cara pelanggan tahu
+> URL status pesanannya. (Kunci `id` int sempat dipakai, mati sejak Task 5 slice `umkm-order-inbox`.)
 
 ### Test
 - `tests/test_umkm_code_and_public.py` — 7 test Fase 2 (menu harga, order+simulasi-bayar+potong-stok, tolak tanpa harga, stok kurang 409, webhook valid/invalid).
@@ -91,12 +95,12 @@ Bangun alur publik `/order` (tanpa auth). Urutan layar:
 3. **Keranjang / Checkout** → ringkasan item + total, form nama & no. HP (opsional).
 4. **Bayar** → `POST /public/umkm/{code}/orders`:
    - Bila `payment_provider == "midtrans"` → buka `payment_redirect_url` (Snap) **atau** pakai `payment_token` via Snap SDK. Butuh paket **`webview_flutter`** (atau `midtrans_sdk`).
-   - Bila `payment_provider == "simulated"` → cukup panggil `payment_redirect_url` (`/public/orders/{id}/simulate-pay`) untuk demo.
-5. **Status** → poll `GET /public/orders/{id}` sampai `paid` → layar sukses.
+   - Bila `payment_provider == "simulated"` → cukup panggil `payment_redirect_url` (`/public/orders/{payment_order_id}/simulate-pay`) untuk demo.
+5. **Status** → poll `GET /public/orders/{payment_order_id}` sampai `paid` → layar sukses.
 
 **Yang perlu ditambah di kode mobile:**
 - `mobile/lib/api/models.dart`: `PublicUmkm`, `PublicMenuProduct`, `PublicOrder` (mirror JSON backend).
-- `mobile/lib/api/client.dart`: `getPublicUmkm(code)`, `createPublicOrder(code, {name, phone, items})`, `getPublicOrder(id)`.
+- `mobile/lib/api/client.dart`: `getPublicUmkm(code)`, `createPublicOrder(code, {name, phone, items})`, `getPublicOrder(paymentOrderId)`.
   ⚠️ Endpoint publik **tanpa** header Authorization — pastikan interceptor auth tidak memaksa token untuk `/public/*`.
 - Controller keranjang (Riverpod) + screens: `order_code_screen`, `order_menu_screen`, `order_cart_screen`, `order_pay_screen`, `order_status_screen`.
 - Routing di `mobile/lib/app.dart`: rute `/order` (public, di luar shell auth). Entry point: tombol di login screen ("Pesan tanpa akun").
