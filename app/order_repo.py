@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app import product_repo
 from app.db_pg import SessionLocal
@@ -182,47 +182,87 @@ def set_status(order_id: int, status: str, *,
 
 
 def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
-    """Tandai pesanan lunas + potong stok — SEKALI saja.
+    """Tandai pesanan lunas + potong stok — SEKALI saja, termasuk saat bersamaan.
 
     Idempoten lewat `paid_at`, BUKAN lewat status sekarang. Guard lama
     (`status == STATUS_PAID`) bocor begitu UMKM menerima pesanan: status jadi
     `accepted`, lalu notifikasi settlement ulang dari gateway (Midtrans mengirim
     ganda dan bisa di-retrigger manual dari dashboard) lolos guard → stok
     terpotong dua kali DAN status mundur ke `paid`, membatalkan penerimaan UMKM.
+
+    Klaim hak potong stok lewat compare-and-set atomik pada satu UPDATE
+    (`WHERE paid_at IS NULL`), bukan baca-lalu-tulis di sesi terpisah. Baca-lalu-
+    tulis hanya memblokir replay yang terpisah WAKTU: dua notifikasi settlement
+    yang tiba BERSAMAAN bisa sama-sama membaca `paid_at is None` sebelum salah
+    satu sempat menulis, lalu keduanya lolos dan memotong stok dua kali. CAS
+    memblokir keduanya — replay bersamaan maupun terpisah waktu — karena baris
+    hanya bisa dimenangkan oleh SATU `UPDATE` yang benar-benar mengubah baris itu.
+
+    Konsekuensi urutan yang disengaja: sekarang MENANDAI `paid_at` lebih dulu,
+    baru memotong stok (bukan sebaliknya seperti sebelumnya). Kalau proses crash
+    tepat di antara keduanya, pesanan tercatat `paid` tapi stoknya belum
+    terpotong — oversell ringan, dipilih dengan sadar karena order creation
+    sudah pre-check stok dan satu pesanan oversold jauh lebih ringan daripada
+    stok yang diam-diam terpotong dua kali. CAS TIDAK menutup window crash ini;
+    yang dijaminnya hanya bahwa `decrement_by_ids` dipanggil oleh paling banyak
+    satu pemanggil per pesanan.
     """
+    now = _now()
     with SessionLocal() as s:
+        # Klaim hak potong stok secara atomik: hanya SATU pemanggil bisa menang,
+        # bahkan kalau dua notifikasi gateway tiba bersamaan.
+        res = s.execute(
+            update(PublicOrder)
+            .where(PublicOrder.id == order_id, PublicOrder.paid_at.is_(None))
+            .values(paid_at=now, updated_at=now)
+        )
+        s.commit()
         o = s.get(PublicOrder, order_id)
         if o is None:
             return None
-        if o.paid_at is not None:  # pernah lunas → tanpa efek apa pun
-            return _to_dict(o)
+        if res.rowcount == 0:      # kalah balapan, atau memang pernah lunas
+            return _to_dict(o)     # tanpa efek: tak potong stok, tak ubah status
         tenant_id = o.tenant_id
         items = list(o.items or [])
-    # Potong stok di luar sesi baca di atas (product_repo punya sesi sendiri).
+    # Potong stok di luar sesi klaim di atas (product_repo punya sesi sendiri).
     product_repo.decrement_by_ids(
         tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
-    fields: dict[str, Any] = {"status": STATUS_PAID, "paid_at": _now()}
+    fields: dict[str, Any] = {"status": STATUS_PAID}
     if payment_status is not None:
         fields["payment_status"] = payment_status
     return _update(order_id, **fields)
 
 
 def restore_stock(order_id: int) -> bool:
-    """Kembalikan stok pesanan yang PERNAH lunas. Idempoten via `stock_restored_at`.
+    """Kembalikan stok pesanan yang PERNAH lunas. Idempoten via `stock_restored_at`,
+    diklaim dengan compare-and-set atomik yang sama seperti `mark_paid` — dua
+    panggilan `restore_stock` yang tiba bersamaan (mis. reject dobel-klik +
+    proses retry) tak bisa sama-sama menang dan mengembalikan stok dua kali.
 
     Return True hanya bila stok benar-benar dikembalikan pada pemanggilan ini.
     False bila pesanan tak ada, belum pernah lunas (stok belum dipotong), atau
-    stoknya sudah dikembalikan.
+    stoknya sudah dikembalikan — ketiganya sama-sama tampak sebagai `rowcount
+    == 0` dari sudut pandang UPDATE ini, jadi tak dibedakan di sini.
     """
+    now = _now()
     with SessionLocal() as s:
-        o = s.get(PublicOrder, order_id)
-        if o is None or o.paid_at is None or o.stock_restored_at is not None:
+        # Klaim hak kembalikan stok secara atomik, cermin dari mark_paid.
+        res = s.execute(
+            update(PublicOrder)
+            .where(PublicOrder.id == order_id,
+                   PublicOrder.paid_at.isnot(None),
+                   PublicOrder.stock_restored_at.is_(None))
+            .values(stock_restored_at=now, updated_at=now)
+        )
+        s.commit()
+        if res.rowcount == 0:  # tak ada / belum lunas / sudah dikembalikan
             return False
+        o = s.get(PublicOrder, order_id)
         tenant_id = o.tenant_id
         items = list(o.items or [])
     product_repo.restore_by_ids(
         tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
-    return _update(order_id, stock_restored_at=_now()) is not None
+    return True
 
 
 def apply_action(tenant_id: int, order_id: int,
