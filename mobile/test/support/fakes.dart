@@ -133,6 +133,7 @@ class FakeApi extends FortunasApi {
   ProductItem? setStockResult;
   Object? setStockError;
   int? lastCreateStock;
+  int? lastCreatePrice;
   (int, int?)? lastSetStock;
 
   @override
@@ -146,10 +147,12 @@ class FakeApi extends FortunasApi {
     required List<int> imageBytes,
     required String imageFilename,
     int? stock,
+    int? price,
     int? categoryId,
     CancelToken? cancelToken,
   }) async {
     lastCreateStock = stock;
+    lastCreatePrice = price;
     lastCreateCategoryIdOnProduct = categoryId;
     return createProductResult!;
   }
