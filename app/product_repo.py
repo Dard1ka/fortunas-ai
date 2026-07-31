@@ -281,6 +281,36 @@ def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, A
     return report
 
 
+def restore_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Kembalikan stok berdasarkan product_id — kebalikan `decrement_by_ids`.
+
+    Dipakai saat pesanan yang SUDAH LUNAS ditolak UMKM atau dananya dikembalikan
+    (refund/chargeback): stok sudah dipotong saat lunas, jadi harus dinaikkan lagi
+    supaya barang yang tak terjual tidak tercatat terjual.
+
+    items: list[{"product_id": int, "qty": int}]. Item lintas-tenant / non-katalog /
+    tak-dilacak (`stock is None`) dilewati — aturan sama dengan decrement.
+    Tak punya kondisi gagal: menaikkan stok tak bisa "kurang", jadi tak perlu
+    rollback bersyarat seperti `decrement_by_ids`.
+    """
+    restored: list[int] = []
+    with SessionLocal() as s:
+        for it in items:
+            pid = int(it["product_id"])
+            qty = int(it["qty"])
+            p = s.get(Product, pid)
+            if p is None or p.tenant_id != tenant_id or p.stock is None:
+                continue  # non-katalog / lintas-tenant / tak-dilacak
+            s.execute(
+                update(Product)
+                .where(Product.id == pid)
+                .values(stock=Product.stock + qty)
+            )
+            restored.append(pid)
+        s.commit()
+    return {"ok": True, "restored": restored}
+
+
 def list_products(tenant_id: int) -> list[dict[str, Any]]:
     with SessionLocal() as s:
         rows = s.scalars(
