@@ -478,7 +478,6 @@ class PublicOrderCreateRequest(BaseModel):
 
 class PublicOrderResponse(BaseModel):
     id: int
-    tenant_id: int
     code: str = ""
     customer_name: str = ""
     customer_phone: str = ""
@@ -488,6 +487,11 @@ class PublicOrderResponse(BaseModel):
     payment_provider: str | None = None
     payment_token: str | None = None
     payment_redirect_url: str | None = None
+    # Capability token milik pelanggan untuk memantau pesanannya sendiri. Wajib
+    # dikembalikan di sini: setelah kunci publik pindah dari id berurutan, ini
+    # satu-satunya cara pelanggan tahu URL status pesanannya. `tenant_id` dibuang —
+    # identifier internal tak perlu bocor ke permukaan tanpa auth.
+    payment_order_id: str | None = None
     created_at: str = ""
     updated_at: str = ""
 

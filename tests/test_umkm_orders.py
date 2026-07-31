@@ -347,3 +347,112 @@ def test_inbox_reject_returns_stock(monkeypatch, tmp_path):
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "rejected"
     assert c.get(f"/public/umkm/{code}").json()["products"][0]["stock"] == 5
+
+
+# ── Task 5: hardening jalur publik ───────────────────────────────
+
+def test_public_order_lookup_uses_unguessable_key(monkeypatch, tmp_path):
+    """PII pelanggan tak boleh bisa dipanen dengan menghitung id 1,2,3,…"""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="p1@t.com", stock=5)
+    o = _order(c, code, pid)
+    poid = o["payment_order_id"]
+
+    assert c.get(f"/public/orders/{poid}").status_code == 200
+    # id berurutan tak lagi jadi kunci publik
+    assert c.get(f"/public/orders/{o['id']}").status_code == 404
+
+
+def test_simulate_pay_also_keyed_by_payment_order_id(monkeypatch, tmp_path):
+    """simulate-pay punya cacat enumerasi yang sama: dengan id berurutan siapa pun
+    bisa menandai pesanan orang lain lunas di mode simulasi."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="p2@t.com", stock=5)
+    o = _order(c, code, pid)
+    poid = o["payment_order_id"]                       # ikut di respons create
+    assert poid == order_repo.get_order(o["id"])["payment_order_id"]
+    assert o["payment_redirect_url"] == f"/public/orders/{poid}/simulate-pay"
+    assert c.post(o["payment_redirect_url"]).json()["status"] == "paid"
+    # jalur id berurutan tak lagi ada
+    assert c.post(f"/public/orders/{o['id']}/simulate-pay").status_code == 404
+
+
+def test_public_responses_hide_tenant_id(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="p3@t.com", stock=5)
+    assert "tenant_id" not in c.get(f"/public/umkm/{code}").json()
+    o = _order(c, code, pid)
+    assert "tenant_id" not in o
+    assert o["payment_order_id"], "pelanggan butuh token ini untuk memantau status"
+
+
+def test_webhook_rejected_when_midtrans_not_configured(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")   # simulasi
+    c = _client()
+    r = c.post("/public/payment/webhook", json={"order_id": "ORD-1-abcd"})
+    assert r.status_code == 400, r.text
+
+
+def test_webhook_refund_restores_stock(monkeypatch, tmp_path):
+    """`refund`/`chargeback` dipetakan ke outcome `failed`; pesanan yang sudah
+    lunas harus mengembalikan stok, bukan hanya berubah status."""
+    import hashlib
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p4@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+    r = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "refund"})
+    assert r.status_code == 200, r.text
+
+    assert order_repo.get_order(o["id"])["status"] == order_repo.STATUS_CANCELLED
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 5
+
+
+def test_webhook_refund_after_accept_keeps_accepted_status(monkeypatch, tmp_path):
+    """TEMUAN Task 3: refund yang tiba SETELAH UMKM menerima pesanan tidak boleh
+    membatalkan penerimaan itu diam-diam. Status harus tetap `accepted`, stok
+    tetap kembali ke angka semula, dan `payment_status` mentah tetap tercatat."""
+    import hashlib
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="p5@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    accepted = order_repo.apply_action(tenant_id, o["id"], "accept")
+    assert accepted["status"] == order_repo.STATUS_ACCEPTED
+
+    poid = order_repo.get_order(o["id"])["payment_order_id"]
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")  # "live"
+    sig = hashlib.sha512(f"{poid}200{o['total']}SERVERKEY".encode()).hexdigest()
+    r = c.post("/public/payment/webhook", json={
+        "order_id": poid, "status_code": "200", "gross_amount": str(o["total"]),
+        "signature_key": sig, "transaction_status": "refund"})
+    assert r.status_code == 200, r.text
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_ACCEPTED, "refund membatalkan penerimaan UMKM"
+    assert row["payment_status"] == "refund"
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 5

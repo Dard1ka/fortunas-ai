@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import os
 from typing import Any
 
@@ -55,8 +56,9 @@ def create_charge(order: dict[str, Any]) -> dict[str, Any]:
         return {
             "provider": "simulated",
             "token": None,
-            # Endpoint ini (routes) menandai pesanan lunas saat dibuka.
-            "redirect_url": f"/public/orders/{order['id']}/simulate-pay",
+            # Kunci = payment_order_id (bukan id berurutan): endpoint publik tak
+            # boleh bisa dienumerasi. Endpoint ini menandai pesanan lunas saat dibuka.
+            "redirect_url": f"/public/orders/{payment_order_id}/simulate-pay",
         }
 
     items = order.get("items") or []
@@ -130,7 +132,7 @@ def verify_notification(payload: dict[str, Any]) -> dict[str, Any]:
     expected = hashlib.sha512(
         f"{order_id}{status_code}{gross_amount}{_server_key()}".encode()
     ).hexdigest()
-    valid = bool(signature) and signature == expected
+    valid = bool(signature) and hmac.compare_digest(signature, expected)
     return {
         "valid": valid,
         "payment_order_id": order_id,

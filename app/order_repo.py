@@ -158,9 +158,10 @@ def get_order_for_tenant(tenant_id: int, order_id: int) -> dict[str, Any] | None
 def _update(order_id: int, **fields: Any) -> dict[str, Any] | None:
     """Terapkan perubahan field ke satu pesanan + stempel updated_at.
 
-    Satu-satunya tempat yang tahu cara menulis baris pesanan, supaya
-    set_status/mark_paid/restore_stock tidak mengencerkan aturannya
-    masing-masing lalu menyimpang.
+    `mark_paid` dan `restore_stock` pindah ke compare-and-set atomik sendiri
+    (satu `UPDATE` per fungsi) dan tak lagi lewat sini. Sekarang ini cuma
+    dipakai oleh `set_status` (dan `apply_action` lewat `set_status`), plus
+    tulis `payment_status` mentah dari gateway saat status tak digerakkan.
     """
     with SessionLocal() as s:
         o = s.get(PublicOrder, order_id)
@@ -301,3 +302,41 @@ def apply_action(tenant_id: int, order_id: int,
     if action == "reject":
         restore_stock(order_id)
     return set_status(order_id, _RESULT_STATUS[action])
+
+
+#: Status yang masih boleh digerakkan gateway ke `cancelled`. Sengaja BUKAN
+#: sekadar "belum pernah lunas" (`paid_at is None`): `paid_at` tetap terisi
+#: selamanya begitu `mark_paid` pernah menang, baik pesanan baru `paid` maupun
+#: sudah `accepted` — keduanya sama-sama "paid_at is not None". Yang membedakan
+#: adalah STATUS sekarang: refund pada pesanan yang masih `paid` (UMKM belum
+#: bersikap) wajar dibatalkan; refund pada pesanan yang sudah `accepted`/
+#: `rejected`/`completed` (UMKM SUDAH bersikap) tidak boleh menghapus sikap itu.
+_GATEWAY_CANCELLABLE: set[str] = {STATUS_PENDING, STATUS_PAID}
+
+
+def cancel_by_gateway(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
+    """Gateway membatalkan pesanan (deny/cancel/expire/refund/chargeback).
+
+    Status hanya boleh digerakkan gateway selama UMKM BELUM bersikap
+    (`pending_payment` atau `paid`). Begitu UMKM menerima/menolak/menyelesaikan
+    pesanan, status jadi wilayah UMKM — refund yang datang belakangan tak boleh
+    menghapus keputusan itu. Stok tetap dikembalikan terpisah lewat
+    `restore_stock` (idempoten), terlepas dari apakah status ikut berubah.
+    """
+    o = get_order(order_id)
+    if o is None:
+        return None
+    if o["status"] not in _GATEWAY_CANCELLABLE:   # UMKM sudah bersikap → jangan sentuh status
+        return _update(order_id, payment_status=payment_status) if payment_status else o
+    return set_status(order_id, STATUS_CANCELLED, payment_status=payment_status)
+
+
+def set_pending_by_gateway(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
+    """Notifikasi `pending` dari gateway. Aturan sama: jangan mundurkan pesanan
+    yang sudah lunas ke `pending_payment`."""
+    o = get_order(order_id)
+    if o is None:
+        return None
+    if o["paid_at"] is not None:
+        return _update(order_id, payment_status=payment_status) if payment_status else o
+    return set_status(order_id, STATUS_PENDING, payment_status=payment_status)

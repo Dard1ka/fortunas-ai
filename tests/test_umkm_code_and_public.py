@@ -138,11 +138,11 @@ def test_create_order_and_simulate_pay_decrements_stock(monkeypatch, tmp_path):
     assert o["payment_redirect_url"].endswith("/simulate-pay")
 
     # bayar (simulasi) → lunas + stok berkurang 2 (3 → 1)
-    pay = c.post(f"/public/orders/{o['id']}/simulate-pay")
+    pay = c.post(o["payment_redirect_url"])
     assert pay.status_code == 200, pay.text
     assert pay.json()["status"] == "paid"
 
-    got = c.get(f"/public/orders/{o['id']}").json()
+    got = c.get(f"/public/orders/{o['payment_order_id']}").json()
     assert got["status"] == "paid"
     menu = c.get(f"/public/umkm/{code}").json()
     assert menu["products"][0]["stock"] == 1
@@ -198,7 +198,7 @@ def test_webhook_marks_paid_with_valid_signature(monkeypatch, tmp_path):
         "order_id": poid, "status_code": status_code, "gross_amount": gross,
         "signature_key": sig, "transaction_status": "settlement"})
     assert wh.status_code == 200, wh.text
-    assert c.get(f"/public/orders/{o['id']}").json()["status"] == "paid"
+    assert c.get(f"/public/orders/{poid}").json()["status"] == "paid"
 
 
 def test_webhook_rejects_bad_signature(monkeypatch, tmp_path):
