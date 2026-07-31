@@ -133,3 +133,118 @@ def test_restore_by_ids_ignores_other_tenant(monkeypatch, tmp_path):
     assert out["ok"] is True
     assert pid_a not in out["restored"]
     assert product_repo.get_product(tenant_a, pid_a)["stock"] == 5  # tak tersentuh
+
+
+# ── Task 3: repo — idempotensi, isolasi tenant, transisi ─────────
+
+def _webhook_replay(c, order_id: int):
+    """Tiru webhook settlement ULANG (Midtrans mengirim ganda / bisa di-retrigger)."""
+    order_repo.mark_paid(order_id, payment_status="settlement")
+
+
+def test_mark_paid_is_idempotent_after_accept(monkeypatch, tmp_path):
+    """REGRESI: notifikasi settlement ulang setelah UMKM menerima pesanan tidak
+    boleh memotong stok dua kali maupun memundurkan status ke `paid`."""
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="idem@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    accepted = order_repo.apply_action(tenant_id, o["id"], "accept")
+    assert accepted["status"] == order_repo.STATUS_ACCEPTED
+
+    _webhook_replay(c, o["id"])
+
+    row = order_repo.get_order(o["id"])
+    assert row["status"] == order_repo.STATUS_ACCEPTED, "status mundur ke paid"
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3, "stok terpotong 2x"
+
+
+def test_get_order_for_tenant_blocks_other_tenant(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code_a, pid_a, tok_a = _setup(c, monkeypatch, tmp_path, email="t3a@t.com", stock=5,
+                                  business_name="Warung A")
+    _, _, tok_b = _setup(c, monkeypatch, tmp_path, email="t3b@t.com", stock=5,
+                         business_name="Warung B")
+    tenant_a = c.get("/auth/me", headers=_h(tok_a)).json()["tenant_id"]
+    tenant_b = c.get("/auth/me", headers=_h(tok_b)).json()["tenant_id"]
+
+    o = _order(c, code_a, pid_a)
+    assert order_repo.get_order_for_tenant(tenant_a, o["id"]) is not None
+    assert order_repo.get_order_for_tenant(tenant_b, o["id"]) is None
+
+
+def test_list_orders_filters_by_statuses(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="t3l@t.com", stock=9)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+
+    belum = _order(c, code, pid)                  # pending_payment
+    lunas = _order(c, code, pid)
+    _pay(c, lunas)                                # paid
+
+    semua = order_repo.list_orders(tenant_id)
+    assert {r["id"] for r in semua} == {belum["id"], lunas["id"]}
+    hanya_lunas = order_repo.list_orders(tenant_id, [order_repo.STATUS_PAID])
+    assert [r["id"] for r in hanya_lunas] == [lunas["id"]]
+
+
+def test_reject_restores_stock_once(monkeypatch, tmp_path):
+    from app import product_repo
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="t3r@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 3
+
+    order_repo.apply_action(tenant_id, o["id"], "reject")
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 5
+
+    # restore_stock idempoten — panggilan kedua tak menaikkan lagi
+    assert order_repo.restore_stock(o["id"]) is False
+    assert product_repo.get_product(tenant_id, pid)["stock"] == 5
+
+
+def test_illegal_transitions_raise(monkeypatch, tmp_path):
+    import pytest
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="t3x@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+
+    o = _order(c, code, pid)                       # masih pending_payment
+    with pytest.raises(order_repo.TransitionError):
+        order_repo.apply_action(tenant_id, o["id"], "accept")
+
+    _pay(c, o)
+    with pytest.raises(order_repo.TransitionError):
+        order_repo.apply_action(tenant_id, o["id"], "complete")   # belum accepted
+
+    order_repo.apply_action(tenant_id, o["id"], "accept")
+    with pytest.raises(order_repo.TransitionError):
+        order_repo.apply_action(tenant_id, o["id"], "accept")     # dua kali
+
+    done = order_repo.apply_action(tenant_id, o["id"], "complete")
+    assert done["status"] == order_repo.STATUS_COMPLETED
+
+
+def test_apply_action_returns_none_for_missing_order(monkeypatch, tmp_path):
+    c = _client()
+    _, _, tok = _setup(c, monkeypatch, tmp_path, email="t3n@t.com", stock=5)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    assert order_repo.apply_action(tenant_id, 999999, "accept") is None

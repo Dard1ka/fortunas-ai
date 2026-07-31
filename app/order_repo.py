@@ -27,6 +27,24 @@ STATUS_EXPIRED = "expired"
 STATUS_CANCELLED = "cancelled"
 
 
+class TransitionError(Exception):
+    """Aksi UMKM tak sah dari status pesanan sekarang (route → 409)."""
+
+
+# Aksi UMKM → himpunan status sumber yang sah. SATU sumber kebenaran: ketiga
+# endpoint di routes/orders.py memvalidasi lewat tabel ini.
+_ALLOWED_FROM: dict[str, set[str]] = {
+    "accept": {STATUS_PAID},
+    "reject": {STATUS_PAID},
+    "complete": {STATUS_ACCEPTED},
+}
+_RESULT_STATUS: dict[str, str] = {
+    "accept": STATUS_ACCEPTED,
+    "reject": STATUS_REJECTED,
+    "complete": STATUS_COMPLETED,
+}
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -107,13 +125,34 @@ def get_by_payment_order_id(payment_order_id: str) -> dict[str, Any] | None:
         return _to_dict(o) if o else None
 
 
-def list_orders(tenant_id: int, status: str | None = None) -> list[dict[str, Any]]:
+def list_orders(tenant_id: int,
+                statuses: list[str] | None = None) -> list[dict[str, Any]]:
+    """Pesanan milik tenant, terbaru dulu. `statuses=None` → semua status.
+
+    Menerima DAFTAR status (bukan satu) karena inbox default menampilkan dua
+    status sekaligus: `paid` (perlu diterima) + `accepted` (perlu diselesaikan).
+    """
     with SessionLocal() as s:
         q = select(PublicOrder).where(PublicOrder.tenant_id == tenant_id)
-        if status is not None:
-            q = q.where(PublicOrder.status == status)
+        if statuses:
+            q = q.where(PublicOrder.status.in_(statuses))
         rows = s.scalars(q.order_by(PublicOrder.id.desc())).all()
         return [_to_dict(o) for o in rows]
+
+
+def get_order_for_tenant(tenant_id: int, order_id: int) -> dict[str, Any] | None:
+    """Ambil pesanan milik tenant. None bila tak ada ATAU milik tenant lain.
+
+    `get_order` biasa tak kenal tenant karena dipakai jalur publik. Route UMKM
+    WAJIB lewat sini: tanpa penyaringan tenant, UMKM A bisa menerima/menolak
+    pesanan UMKM B hanya dengan menebak id. Route membalas 404 (bukan 403) untuk
+    keduanya — 403 akan mengakui bahwa pesanan itu ada.
+    """
+    with SessionLocal() as s:
+        o = s.get(PublicOrder, order_id)
+        if o is None or o.tenant_id != tenant_id:
+            return None
+        return _to_dict(o)
 
 
 def _update(order_id: int, **fields: Any) -> dict[str, Any] | None:
@@ -143,15 +182,19 @@ def set_status(order_id: int, status: str, *,
 
 
 def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
-    """Tandai pesanan lunas + potong stok (idempoten: pesanan yang sudah paid
-    tidak dipotong dua kali). Menulis `paid_at` sebagai penanda "stok sudah
-    dipotong" (Slice 1); guard idempotensi berbasis `paid_at` sendiri menyusul
-    di Task 3. Return order dict, atau None bila tak ada."""
+    """Tandai pesanan lunas + potong stok — SEKALI saja.
+
+    Idempoten lewat `paid_at`, BUKAN lewat status sekarang. Guard lama
+    (`status == STATUS_PAID`) bocor begitu UMKM menerima pesanan: status jadi
+    `accepted`, lalu notifikasi settlement ulang dari gateway (Midtrans mengirim
+    ganda dan bisa di-retrigger manual dari dashboard) lolos guard → stok
+    terpotong dua kali DAN status mundur ke `paid`, membatalkan penerimaan UMKM.
+    """
     with SessionLocal() as s:
         o = s.get(PublicOrder, order_id)
         if o is None:
             return None
-        if o.status == STATUS_PAID:  # idempoten — webhook bisa terkirim ganda
+        if o.paid_at is not None:  # pernah lunas → tanpa efek apa pun
             return _to_dict(o)
         tenant_id = o.tenant_id
         items = list(o.items or [])
@@ -162,3 +205,43 @@ def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, 
     if payment_status is not None:
         fields["payment_status"] = payment_status
     return _update(order_id, **fields)
+
+
+def restore_stock(order_id: int) -> bool:
+    """Kembalikan stok pesanan yang PERNAH lunas. Idempoten via `stock_restored_at`.
+
+    Return True hanya bila stok benar-benar dikembalikan pada pemanggilan ini.
+    False bila pesanan tak ada, belum pernah lunas (stok belum dipotong), atau
+    stoknya sudah dikembalikan.
+    """
+    with SessionLocal() as s:
+        o = s.get(PublicOrder, order_id)
+        if o is None or o.paid_at is None or o.stock_restored_at is not None:
+            return False
+        tenant_id = o.tenant_id
+        items = list(o.items or [])
+    product_repo.restore_by_ids(
+        tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
+    return _update(order_id, stock_restored_at=_now()) is not None
+
+
+def apply_action(tenant_id: int, order_id: int,
+                 action: str) -> dict[str, Any] | None:
+    """Jalankan aksi UMKM (`accept` | `reject` | `complete`) dengan validasi transisi.
+
+    Return order terbaru. None bila pesanan tak ada / bukan milik tenant.
+    Raise `TransitionError` bila status sekarang tak mengizinkan aksi itu.
+
+    `reject` mengembalikan stok lebih dulu (idempoten) — pesanan yang sudah lunas
+    berarti stoknya sudah dipotong; menolak tanpa mengembalikan membuat barang yang
+    tak terjual tercatat terjual. Pengembalian UANG tidak otomatis (bucket B).
+    """
+    o = get_order_for_tenant(tenant_id, order_id)
+    if o is None:
+        return None
+    if o["status"] not in _ALLOWED_FROM[action]:
+        raise TransitionError(
+            f"Pesanan berstatus '{o['status']}' tidak bisa di-{action}.")
+    if action == "reject":
+        restore_stock(order_id)
+    return set_status(order_id, _RESULT_STATUS[action])
