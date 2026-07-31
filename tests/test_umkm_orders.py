@@ -559,6 +559,65 @@ def test_public_order_rate_limited(monkeypatch, tmp_path):
     assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 429
 
 
+def test_public_order_rate_limit_recovers_after_window(monkeypatch, tmp_path):
+    """Baris `now - t < _ORDER_RATE_WINDOW` di `_rate_limit_order` tak dites
+    di test manapun sebelum ini: hapus filter jendela itu dan limiter diam-diam
+    jadi jatah SEUMUR HIDUP 10 order per IP, tapi 264/264 test tetap hijau
+    (review Task 6, finding #2) — tak ada test lain yang mendekati limitnya,
+    apalagi menunggu jendelanya lewat. Tanpa sleep/patch clock: seed ember
+    dengan hit yang SUDAH basi (lebih tua dari jendela), lalu pastikan order
+    berikutnya tetap lolos."""
+    import time
+    from app.api.routes import public as public_routes
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="rlw@t.com", stock=None)
+    body = {"items": [{"product_id": pid, "qty": 1}]}
+    stale = time.monotonic() - public_routes._ORDER_RATE_WINDOW - 1
+    public_routes._order_hits["testclient"] = [stale] * public_routes._ORDER_RATE_LIMIT
+    assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 201
+
+
+def test_public_order_rate_limit_is_per_ip(monkeypatch, tmp_path):
+    """Baris `ip = request.client.host ...` juga tak dites: kalau regresi
+    menjadikan limiter satu ember GLOBAL (bukan per-IP), 264/264 test tetap
+    hijau karena `TestClient` selalu memakai host `testclient` — tak ada dua
+    IP nyata yang berbeda di suite ini untuk menampakkan bocornya (review Task
+    6, finding #2). Tak bisa dites lewat dua `TestClient` sungguhan (host-nya
+    sama), jadi seed kunci IP LAIN sampai penuh, lalu pastikan `testclient`
+    sendiri tetap lolos — kalau ember-nya global, ini akan gagal dengan 429."""
+    from app.api.routes import public as public_routes
+    from app.services import payment
+    import time
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="rlip@t.com", stock=None)
+    body = {"items": [{"product_id": pid, "qty": 1}]}
+    now = time.monotonic()
+    public_routes._order_hits["1.2.3.4"] = [now] * public_routes._ORDER_RATE_LIMIT
+    assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 201
+
+
+def test_public_order_rate_limit_sweeps_stale_ips(monkeypatch, tmp_path):
+    """`_ORDER_HITS_SWEEP_THRESHOLD` ada supaya `_order_hits` tak numpuk tanpa
+    batas kalau IP anonim mampir sekali lalu tak pernah balik (review Task 6,
+    finding #1). Isi dict basi melebihi threshold, lalu buat satu order —
+    entri basi itu harus tersapu, hanya IP yang barusan lolos yang tersisa."""
+    from app.api.routes import public as public_routes
+    from app.services import payment
+    import time
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="rlsweep@t.com", stock=None)
+    body = {"items": [{"product_id": pid, "qty": 1}]}
+    stale = time.monotonic() - public_routes._ORDER_RATE_WINDOW - 1
+    for i in range(public_routes._ORDER_HITS_SWEEP_THRESHOLD + 1):
+        public_routes._order_hits[f"1.2.3.{i}"] = [stale]
+    assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 201
+    assert list(public_routes._order_hits.keys()) == ["testclient"]
+
+
 def test_payment_order_id_entropi_128_bit(monkeypatch, tmp_path):
     """`payment_order_id` kini SATU-SATUNYA autentikator untuk customer_name +
     customer_phone di jalur tanpa auth (Task 5), jadi bagian acaknya harus 128 bit."""

@@ -19,9 +19,32 @@ router = APIRouter(tags=["public"])
 # JUJUR SOAL BATASNYA: in-process → hitungan per worker uvicorn dan hilang saat
 # restart. Ini bukan kontrol abuse sungguhan, cukup untuk MVP. Kalau butuh
 # serius, tempatnya di reverse-proxy (nginx `limit_req`) saat VPS ditata.
+# Batas KETIGA (review Task 6): kunci per-IP tak dibuang otomatis begitu
+# jendelanya lewat — pruning di bawah cuma jalan saat IP yang SAMA memesan
+# lagi, jadi IP yang mampir sekali lalu tak pernah balik numpuk selamanya dan
+# dict ini tumbuh terus mengikuti jumlah IP anonim yang pernah singgah. Sapuan
+# oportunistik (`_sweep_stale_order_hits`) menahan itu: begitu dict melewati
+# `_ORDER_HITS_SWEEP_THRESHOLD`, kunci basi dibuang. Masih in-process (bukan
+# proses/timer terpisah), jadi tetap sejalan dengan batas di atas.
 _ORDER_RATE_LIMIT = 10        # order per IP per jendela
 _ORDER_RATE_WINDOW = 60.0     # detik
+_ORDER_HITS_SWEEP_THRESHOLD = 500  # sapu kunci basi begitu dict selebar ini
 _order_hits: dict[str, list[float]] = {}
+
+
+def _sweep_stale_order_hits(now: float) -> None:
+    """Buang kunci IP yang seluruh riwayat hit-nya sudah di luar jendela.
+
+    Dipanggil oportunistik dari `_rate_limit_order` (bukan lewat proses/timer
+    terpisah — lihat komentar batas limiter di atas), jadi biayanya cuma satu
+    scan dict setiap kali populasinya melewati threshold, bukan tiap request.
+    """
+    for ip in list(_order_hits.keys()):
+        hits = [t for t in _order_hits[ip] if now - t < _ORDER_RATE_WINDOW]
+        if hits:
+            _order_hits[ip] = hits
+        else:
+            _order_hits.pop(ip, None)
 
 
 def _rate_limit_order(request: Request) -> None:
@@ -34,6 +57,8 @@ def _rate_limit_order(request: Request) -> None:
             detail="Terlalu banyak pesanan dari perangkat ini. Coba lagi sebentar.")
     hits.append(now)
     _order_hits[ip] = hits
+    if len(_order_hits) > _ORDER_HITS_SWEEP_THRESHOLD:
+        _sweep_stale_order_hits(now)
 
 
 @router.get("/public/umkm/{code}")
