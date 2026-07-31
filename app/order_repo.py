@@ -46,6 +46,8 @@ def _to_dict(o: PublicOrder) -> dict[str, Any]:
         "payment_token": o.payment_token,
         "payment_redirect_url": o.payment_redirect_url,
         "payment_status": o.payment_status,
+        "paid_at": o.paid_at,
+        "stock_restored_at": o.stock_restored_at,
         "created_at": o.created_at or "",
         "updated_at": o.updated_at or "",
     }
@@ -130,7 +132,9 @@ def set_status(order_id: int, status: str, *,
 
 def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
     """Tandai pesanan lunas + potong stok (idempoten: pesanan yang sudah paid
-    tidak dipotong dua kali). Return order dict, atau None bila tak ada."""
+    tidak dipotong dua kali). Menulis `paid_at` sebagai penanda "stok sudah
+    dipotong" (Slice 1); guard idempotensi berbasis `paid_at` sendiri menyusul
+    di Task 3. Return order dict, atau None bila tak ada."""
     with SessionLocal() as s:
         o = s.get(PublicOrder, order_id)
         if o is None:
@@ -142,4 +146,15 @@ def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, 
     # Potong stok di luar sesi baca di atas (product_repo punya sesi sendiri).
     product_repo.decrement_by_ids(
         tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
-    return set_status(order_id, STATUS_PAID, payment_status=payment_status)
+    now = _now()
+    with SessionLocal() as s:
+        o = s.get(PublicOrder, order_id)
+        if o is None:
+            return None
+        o.status = STATUS_PAID
+        if payment_status is not None:
+            o.payment_status = payment_status
+        o.paid_at = now
+        o.updated_at = now
+        s.commit()
+        return _to_dict(o)
