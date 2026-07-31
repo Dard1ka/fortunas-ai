@@ -196,4 +196,35 @@ class FakeApi extends FortunasApi {
     lastSetProductCategory = (productId, categoryId);
     return setProductCategoryResult!;
   }
+
+  UmkmOrderListResponse? listOrdersResult;
+  UmkmOrder? orderActionResult;
+  Object? orderActionError;
+  String? lastListOrdersStatus;
+  (int, String)? lastOrderAction;
+
+  @override
+  Future<UmkmOrderListResponse> listOrders(
+      {String? status, CancelToken? cancelToken}) async {
+    lastListOrdersStatus = status;
+    return listOrdersResult ?? const UmkmOrderListResponse();
+  }
+
+  @override
+  Future<UmkmOrder> acceptOrder(int orderId, {CancelToken? cancelToken}) =>
+      _fakeAction(orderId, 'accept');
+
+  @override
+  Future<UmkmOrder> rejectOrder(int orderId, {CancelToken? cancelToken}) =>
+      _fakeAction(orderId, 'reject');
+
+  @override
+  Future<UmkmOrder> completeOrder(int orderId, {CancelToken? cancelToken}) =>
+      _fakeAction(orderId, 'complete');
+
+  Future<UmkmOrder> _fakeAction(int orderId, String action) async {
+    lastOrderAction = (orderId, action);
+    if (orderActionError != null) throw orderActionError!;
+    return orderActionResult ?? UmkmOrder(id: orderId, status: action);
+  }
 }

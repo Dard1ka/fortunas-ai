@@ -1046,6 +1046,100 @@ class CategoryListResponse {
       );
 }
 
+// ── Inbox pesanan publik (sisi UMKM) ──
+
+class UmkmOrderItem {
+  final int? productId;
+  final String name;
+  final int qty;
+  final int unitPrice;
+  final int subtotal;
+
+  const UmkmOrderItem({
+    this.productId,
+    this.name = '',
+    this.qty = 0,
+    this.unitPrice = 0,
+    this.subtotal = 0,
+  });
+
+  factory UmkmOrderItem.fromJson(Map<String, dynamic> j) => UmkmOrderItem(
+        productId: (j['product_id'] as num?)?.toInt(),
+        name: j['name']?.toString() ?? '',
+        qty: (j['qty'] as num?)?.toInt() ?? 0,
+        unitPrice: (j['unit_price'] as num?)?.toInt() ?? 0,
+        subtotal: (j['subtotal'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class UmkmOrder {
+  final int id;
+  final String code;
+  final String customerName;
+  final String customerPhone;
+  final List<UmkmOrderItem> items;
+  final int total;
+  final String status;
+
+  /// Status mentah dari gateway pembayaran. WAJIB dibawa: kalau refund datang
+  /// setelah UMKM menerima pesanan, backend sengaja MEMBEKUKAN `status` di
+  /// `accepted` supaya keputusan UMKM tak terhapus diam-diam — jadi satu-satunya
+  /// jejak bahwa dananya sudah dikembalikan ada di sini. Tanpa field ini, UMKM
+  /// menyiapkan pesanan yang uangnya sudah tidak ada.
+  final String? paymentStatus;
+  final String? paidAt;
+  final String createdAt;
+
+  const UmkmOrder({
+    required this.id,
+    this.code = '',
+    this.customerName = '',
+    this.customerPhone = '',
+    this.items = const [],
+    this.total = 0,
+    this.status = 'pending_payment',
+    this.paymentStatus,
+    this.paidAt,
+    this.createdAt = '',
+  });
+
+  /// True bila gateway melaporkan dana sudah kembali ke pelanggan.
+  bool get isRefunded {
+    final s = (paymentStatus ?? '').toLowerCase();
+    return s == 'refund' || s == 'partial_refund' || s == 'chargeback';
+  }
+
+  factory UmkmOrder.fromJson(Map<String, dynamic> j) => UmkmOrder(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        code: j['code']?.toString() ?? '',
+        customerName: j['customer_name']?.toString() ?? '',
+        customerPhone: j['customer_phone']?.toString() ?? '',
+        items: ((j['items'] as List?) ?? const [])
+            .map((e) => UmkmOrderItem.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        status: j['status']?.toString() ?? 'pending_payment',
+        paymentStatus: j['payment_status']?.toString(),
+        paidAt: j['paid_at']?.toString(),
+        createdAt: j['created_at']?.toString() ?? '',
+      );
+}
+
+class UmkmOrderListResponse {
+  final List<UmkmOrder> orders;
+  final int count;
+
+  const UmkmOrderListResponse({this.orders = const [], this.count = 0});
+
+  factory UmkmOrderListResponse.fromJson(Map<String, dynamic> j) =>
+      UmkmOrderListResponse(
+        orders: ((j['orders'] as List?) ?? const [])
+            .map((e) => UmkmOrder.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+        count: (j['count'] as num?)?.toInt() ?? 0,
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

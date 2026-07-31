@@ -255,6 +255,34 @@ class FortunasApi {
     final r = await _dio.put('/umkm/dpa', data: req.toJson());
     return DpaPayload.fromJson((r.data as Map).cast<String, dynamic>());
   }
+
+  // ── Inbox pesanan publik (sisi UMKM) ──
+  /// status null → backend mengembalikan yang butuh tindakan (paid + accepted).
+  /// 'all' → semua status.
+  Future<UmkmOrderListResponse> listOrders(
+      {String? status, CancelToken? cancelToken}) async {
+    final r = await _dio.get('/umkm/orders',
+        queryParameters: status == null ? null : {'status': status},
+        cancelToken: cancelToken);
+    return UmkmOrderListResponse.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  Future<UmkmOrder> acceptOrder(int orderId, {CancelToken? cancelToken}) =>
+      _orderAction(orderId, 'accept', cancelToken);
+
+  /// Menolak pesanan lunas: stok dikembalikan otomatis, UANG tidak (manual).
+  Future<UmkmOrder> rejectOrder(int orderId, {CancelToken? cancelToken}) =>
+      _orderAction(orderId, 'reject', cancelToken);
+
+  Future<UmkmOrder> completeOrder(int orderId, {CancelToken? cancelToken}) =>
+      _orderAction(orderId, 'complete', cancelToken);
+
+  Future<UmkmOrder> _orderAction(
+      int orderId, String action, CancelToken? cancelToken) async {
+    final r = await _dio.post('/umkm/orders/$orderId/$action',
+        cancelToken: cancelToken);
+    return UmkmOrder.fromJson((r.data as Map).cast<String, dynamic>());
+  }
 }
 
 /// Singleton Riverpod provider for the API client.
