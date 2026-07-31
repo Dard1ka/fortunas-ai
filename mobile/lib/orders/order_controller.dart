@@ -81,3 +81,11 @@ class OrderController extends AutoDisposeNotifier<OrderInboxState> {
 final orderControllerProvider =
     NotifierProvider.autoDispose<OrderController, OrderInboxState>(
         OrderController.new);
+
+/// Jumlah pesanan yang menunggu diterima (status `paid`) — untuk badge di home.
+/// Sengaja `FutureProvider` sekali-jalan, bukan polling: penyegaran terjadi saat
+/// home dibangun ulang / di-refresh. Notifikasi push butuh Firebase (ditunda).
+final pendingOrderCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final resp = await ref.read(apiProvider).listOrders(status: 'paid');
+  return resp.count;
+});
