@@ -198,39 +198,55 @@ def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, 
     memblokir keduanya — replay bersamaan maupun terpisah waktu — karena baris
     hanya bisa dimenangkan oleh SATU `UPDATE` yang benar-benar mengubah baris itu.
 
-    Konsekuensi urutan yang disengaja: sekarang MENANDAI `paid_at` lebih dulu,
-    baru memotong stok (bukan sebaliknya seperti sebelumnya). Kalau proses crash
-    tepat di antara keduanya, pesanan tercatat `paid` tapi stoknya belum
-    terpotong — oversell ringan, dipilih dengan sadar karena order creation
-    sudah pre-check stok dan satu pesanan oversold jauh lebih ringan daripada
-    stok yang diam-diam terpotong dua kali. CAS TIDAK menutup window crash ini;
-    yang dijaminnya hanya bahwa `decrement_by_ids` dipanggil oleh paling banyak
-    satu pemanggil per pesanan.
+    `status` (dan `payment_status`) ditulis DALAM SATU UPDATE yang sama dengan
+    `paid_at`, bukan lewat panggilan `_update` terpisah setelahnya. Ini
+    disengaja: klaim `paid_at` adalah klaim PERMANEN — replay berikutnya yang
+    kalah (`rowcount == 0`) tidak pernah mencoba lagi. Kalau status ditulis
+    belakangan dan proses crash di antara klaim dan tulis-status, pesanan
+    akan macet permanen di `pending_payment` walau pelanggan sudah bayar:
+    replay Midtrans berikutnya kalah klaim (baris sudah `paid_at` terisi) dan
+    pulang tanpa efek, tanpa pernah menulis status maupun memotong stok —
+    tak kelihatan di inbox (yang cuma daftar `paid` + `accepted`), tanpa
+    galat di mana pun. Menyatukan tulis-status ke klaim menutup celah itu:
+    begitu klaim menang, `status` sudah `paid` seketika itu juga.
+
+    Konsekuensi urutan yang TERSISA (disengaja): klaim (`paid_at` + `status`)
+    lebih dulu, baru memotong stok. Kalau proses crash tepat di antara
+    keduanya, pesanan tercatat `paid` tapi stoknya belum terpotong — oversell
+    ringan, dipilih dengan sadar karena order creation sudah pre-check stok
+    dan satu pesanan oversold jauh lebih ringan daripada stok yang diam-diam
+    terpotong dua kali ATAU pesanan macet permanen. CAS TIDAK menutup window
+    oversell-saat-crash ini; yang dijaminnya hanya bahwa `decrement_by_ids`
+    dipanggil oleh paling banyak satu pemanggil per pesanan, DAN bahwa klaim
+    yang menang selalu langsung terlihat sebagai `paid` walau proses mati
+    sebelum sempat memotong stok.
     """
     now = _now()
+    claim: dict[str, Any] = {"paid_at": now, "updated_at": now, "status": STATUS_PAID}
+    if payment_status is not None:
+        claim["payment_status"] = payment_status
     with SessionLocal() as s:
-        # Klaim hak potong stok secara atomik: hanya SATU pemanggil bisa menang,
-        # bahkan kalau dua notifikasi gateway tiba bersamaan.
+        # Klaim hak potong stok DAN status lunas secara atomik: hanya SATU
+        # pemanggil bisa menang, bahkan kalau dua notifikasi gateway tiba
+        # bersamaan — dan begitu menang, status sudah `paid` seketika (lihat
+        # docstring di atas soal kenapa status tak boleh ditulis belakangan).
         res = s.execute(
             update(PublicOrder)
             .where(PublicOrder.id == order_id, PublicOrder.paid_at.is_(None))
-            .values(paid_at=now, updated_at=now)
+            .values(**claim)
         )
         s.commit()
         o = s.get(PublicOrder, order_id)
         if o is None:
             return None
         if res.rowcount == 0:      # kalah balapan, atau memang pernah lunas
-            return _to_dict(o)     # tanpa efek: tak potong stok, tak ubah status
+            return _to_dict(o)     # tanpa efek apa pun
         tenant_id = o.tenant_id
         items = list(o.items or [])
     # Potong stok di luar sesi klaim di atas (product_repo punya sesi sendiri).
     product_repo.decrement_by_ids(
         tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
-    fields: dict[str, Any] = {"status": STATUS_PAID}
-    if payment_status is not None:
-        fields["payment_status"] = payment_status
-    return _update(order_id, **fields)
+    return get_order(order_id)
 
 
 def restore_stock(order_id: int) -> bool:
