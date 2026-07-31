@@ -29,6 +29,10 @@ const _paid = UmkmOrder(
   items: [UmkmOrderItem(name: 'Kopi Susu', qty: 2, unitPrice: 15000, subtotal: 30000)],
 );
 const _accepted = UmkmOrder(id: 8, customerName: 'Siti', total: 5000, status: 'accepted');
+const _acceptedRefunded = UmkmOrder(
+  id: 9, customerName: 'Wati', total: 20000, status: 'accepted',
+  paymentStatus: 'refund',
+);
 
 void main() {
   testWidgets('pesanan lunas menampilkan tombol Terima & Tolak', (tester) async {
@@ -78,6 +82,20 @@ void main() {
     await tester.tap(find.text('Tolak Pesanan'));
     await tester.pumpAndSettle();
     expect(api.lastOrderAction, (7, 'reject'));
+  });
+
+  testWidgets(
+      'order accepted dengan refund menampilkan peringatan, tanpa refund tidak',
+      (tester) async {
+    final api = FakeApi()
+      ..listOrdersResult = const UmkmOrderListResponse(
+          orders: [_accepted, _acceptedRefunded], count: 2);
+    await _pump(tester, api);
+
+    expect(find.byKey(const Key('orders_refunded_9')), findsOneWidget,
+        reason: 'order 9 payment_status=refund → wajib tampil peringatan');
+    expect(find.byKey(const Key('orders_refunded_8')), findsNothing,
+        reason: 'order 8 tak pernah refund → tak boleh ada peringatan');
   });
 
   testWidgets('empty state saat tak ada pesanan', (tester) async {
