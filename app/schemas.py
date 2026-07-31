@@ -559,3 +559,36 @@ class CustomerProductStatItem(BaseModel):
 
 class CustomerProductHistoryResponse(BaseModel):
     items: list[CustomerProductStatItem] = Field(default_factory=list)
+
+
+# ── Inbox pesanan publik (sisi UMKM) ──────────────────────────────
+
+class UmkmOrderItem(BaseModel):
+    product_id: int | None = None
+    name: str = ""
+    qty: int = 0
+    unit_price: int = 0
+    subtotal: int = 0
+
+
+class UmkmOrder(BaseModel):
+    """Pesanan seperti dilihat PEMILIK UMKM. Sengaja tidak memuat
+    `payment_order_id` (itu capability token milik pelanggan untuk memantau
+    status) maupun `tenant_id` (identifier internal)."""
+    id: int
+    code: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    items: list[UmkmOrderItem] = Field(default_factory=list)
+    total: int = 0
+    status: str = "pending_payment"
+    payment_status: str | None = None
+    paid_at: str | None = None
+    stock_restored_at: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class UmkmOrderListResponse(BaseModel):
+    orders: list[UmkmOrder] = Field(default_factory=list)
+    count: int = 0

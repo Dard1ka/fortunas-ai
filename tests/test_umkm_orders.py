@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import order_repo
-from app.api.routes import auth, products, public
+from app.api.routes import auth, orders, products, public
 from app.services import umkm_code
 
 _PNG = b"\x89PNG\r\n\x1a\nfake"
@@ -13,7 +13,7 @@ _PNG = b"\x89PNG\r\n\x1a\nfake"
 
 def _client() -> TestClient:
     app = FastAPI()
-    for r in (auth.router, products.router, public.router):
+    for r in (auth.router, products.router, public.router, orders.router):
         app.include_router(r)
     return TestClient(app)
 
@@ -248,3 +248,102 @@ def test_apply_action_returns_none_for_missing_order(monkeypatch, tmp_path):
     _, _, tok = _setup(c, monkeypatch, tmp_path, email="t3n@t.com", stock=5)
     tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
     assert order_repo.apply_action(tenant_id, 999999, "accept") is None
+
+
+# ── Task 4: route inbox ──────────────────────────────────────────
+
+def test_inbox_hides_unpaid_by_default(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="i1@t.com", stock=9)
+    _order(c, code, pid)                       # pending_payment → disembunyikan
+    lunas = _order(c, code, pid)
+    _pay(c, lunas)
+
+    r = c.get("/umkm/orders", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["count"] == 1
+    assert body["orders"][0]["id"] == lunas["id"]
+    assert body["orders"][0]["status"] == "paid"
+    assert body["orders"][0]["items"][0]["unit_price"] == 15000
+    assert body["orders"][0]["paid_at"] is not None
+
+
+def test_inbox_status_filter_and_all(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="i2@t.com", stock=9)
+    belum = _order(c, code, pid)
+
+    r = c.get("/umkm/orders?status=pending_payment", headers=_h(tok))
+    assert [o["id"] for o in r.json()["orders"]] == [belum["id"]]
+
+    r = c.get("/umkm/orders?status=all", headers=_h(tok))
+    assert r.json()["count"] == 1
+
+
+def test_inbox_action_flow_paid_accept_complete(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="i3@t.com", stock=9)
+    o = _order(c, code, pid)
+    _pay(c, o)
+
+    r = c.post(f"/umkm/orders/{o['id']}/accept", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "accepted"
+
+    r = c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok))
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed"
+
+
+def test_inbox_illegal_transition_409(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="i4@t.com", stock=9)
+    o = _order(c, code, pid)                   # belum dibayar
+    r = c.post(f"/umkm/orders/{o['id']}/accept", headers=_h(tok))
+    assert r.status_code == 409, r.text
+
+
+def test_inbox_other_tenant_gets_404_not_403(monkeypatch, tmp_path):
+    """404, bukan 403 — 403 mengakui pesanan itu ada."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code_a, pid_a, _ = _setup(c, monkeypatch, tmp_path, email="i5a@t.com", stock=9,
+                              business_name="Warung A")
+    _, _, tok_b = _setup(c, monkeypatch, tmp_path, email="i5b@t.com", stock=9,
+                         business_name="Warung B")
+    o = _order(c, code_a, pid_a)
+    _pay(c, o)
+
+    assert c.get("/umkm/orders", headers=_h(tok_b)).json()["count"] == 0
+    r = c.post(f"/umkm/orders/{o['id']}/accept", headers=_h(tok_b))
+    assert r.status_code == 404, r.text
+
+
+def test_inbox_requires_auth(monkeypatch, tmp_path):
+    c = _client()
+    assert c.get("/umkm/orders").status_code in (401, 403)
+
+
+def test_inbox_reject_returns_stock(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email="i6@t.com", stock=5)
+    o = _order(c, code, pid, qty=2)
+    _pay(c, o)
+    assert c.get(f"/public/umkm/{code}").json()["products"][0]["stock"] == 3
+
+    r = c.post(f"/umkm/orders/{o['id']}/reject", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "rejected"
+    assert c.get(f"/public/umkm/{code}").json()["products"][0]["stock"] == 5
