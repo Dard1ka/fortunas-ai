@@ -116,18 +116,30 @@ def list_orders(tenant_id: int, status: str | None = None) -> list[dict[str, Any
         return [_to_dict(o) for o in rows]
 
 
-def set_status(order_id: int, status: str, *,
-               payment_status: str | None = None) -> dict[str, Any] | None:
+def _update(order_id: int, **fields: Any) -> dict[str, Any] | None:
+    """Terapkan perubahan field ke satu pesanan + stempel updated_at.
+
+    Satu-satunya tempat yang tahu cara menulis baris pesanan, supaya
+    set_status/mark_paid/restore_stock tidak mengencerkan aturannya
+    masing-masing lalu menyimpang.
+    """
     with SessionLocal() as s:
         o = s.get(PublicOrder, order_id)
         if o is None:
             return None
-        o.status = status
-        if payment_status is not None:
-            o.payment_status = payment_status
+        for k, v in fields.items():
+            setattr(o, k, v)
         o.updated_at = _now()
         s.commit()
         return _to_dict(o)
+
+
+def set_status(order_id: int, status: str, *,
+               payment_status: str | None = None) -> dict[str, Any] | None:
+    fields: dict[str, Any] = {"status": status}
+    if payment_status is not None:
+        fields["payment_status"] = payment_status
+    return _update(order_id, **fields)
 
 
 def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, Any] | None:
@@ -146,15 +158,7 @@ def mark_paid(order_id: int, *, payment_status: str | None = None) -> dict[str, 
     # Potong stok di luar sesi baca di atas (product_repo punya sesi sendiri).
     product_repo.decrement_by_ids(
         tenant_id, [{"product_id": it["product_id"], "qty": it["qty"]} for it in items])
-    now = _now()
-    with SessionLocal() as s:
-        o = s.get(PublicOrder, order_id)
-        if o is None:
-            return None
-        o.status = STATUS_PAID
-        if payment_status is not None:
-            o.payment_status = payment_status
-        o.paid_at = now
-        o.updated_at = now
-        s.commit()
-        return _to_dict(o)
+    fields: dict[str, Any] = {"status": STATUS_PAID, "paid_at": _now()}
+    if payment_status is not None:
+        fields["payment_status"] = payment_status
+    return _update(order_id, **fields)
