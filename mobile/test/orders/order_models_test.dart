@@ -31,6 +31,12 @@ void main() {
     expect(o.items, isEmpty);
     expect(o.total, 0);
     expect(o.paidAt, isNull);
+    expect(o.status, 'pending_payment');
+    expect(o.paymentStatus, isNull);
+    expect(o.code, '');
+    expect(o.customerName, '');
+    expect(o.customerPhone, '');
+    expect(o.createdAt, '');
   });
 
   test('UmkmOrderListResponse.fromJson membaca count', () {
@@ -40,5 +46,35 @@ void main() {
     });
     expect(r.count, 2);
     expect(r.orders.length, 2);
+  });
+
+  group('UmkmOrder.isRefunded', () {
+    test('true untuk refund', () {
+      expect(const UmkmOrder(id: 1, paymentStatus: 'refund').isRefunded, isTrue);
+    });
+
+    test('true untuk REFUND (case-insensitive)', () {
+      expect(const UmkmOrder(id: 1, paymentStatus: 'REFUND').isRefunded, isTrue);
+    });
+
+    test('true untuk partial_refund', () {
+      expect(
+          const UmkmOrder(id: 1, paymentStatus: 'partial_refund').isRefunded,
+          isTrue);
+    });
+
+    test('true untuk chargeback', () {
+      expect(
+          const UmkmOrder(id: 1, paymentStatus: 'chargeback').isRefunded,
+          isTrue);
+    });
+
+    test('false untuk paymentStatus null', () {
+      expect(const UmkmOrder(id: 1).isRefunded, isFalse);
+    });
+
+    test('false untuk paid', () {
+      expect(const UmkmOrder(id: 1, paymentStatus: 'paid').isRefunded, isFalse);
+    });
   });
 }

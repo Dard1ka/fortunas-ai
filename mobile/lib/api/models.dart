@@ -1114,6 +1114,10 @@ class UmkmOrder {
         code: j['code']?.toString() ?? '',
         customerName: j['customer_name']?.toString() ?? '',
         customerPhone: j['customer_phone']?.toString() ?? '',
+        // Sengaja pakai cast langsung, BUKAN `.whereType` seperti kelas lain di
+        // file ini: item non-Map yang lolos di sini akan membuat `total`
+        // pesanan tak sinkron dengan jumlah baris yang tampil ke UMKM — lebih
+        // baik gagal keras (error) daripada nota yang diam-diam pincang.
         items: ((j['items'] as List?) ?? const [])
             .map((e) => UmkmOrderItem.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
@@ -1133,6 +1137,12 @@ class UmkmOrderListResponse {
 
   factory UmkmOrderListResponse.fromJson(Map<String, dynamic> j) =>
       UmkmOrderListResponse(
+        // Sengaja pakai cast langsung, BUKAN `.whereType` seperti kelas lain di
+        // file ini: `.whereType` akan diam-diam membuang pesanan yang bukan
+        // Map — artinya satu pesanan LUNAS bisa hilang dari inbox UMKM tanpa
+        // jejak error. Backend kami sudah divalidasi Pydantic, jadi elemen
+        // rusak hanya mungkin muncul lewat regresi backend — dan untuk itu
+        // kami mau gagal keras (error terlihat), bukan lubang senyap.
         orders: ((j['orders'] as List?) ?? const [])
             .map((e) => UmkmOrder.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
