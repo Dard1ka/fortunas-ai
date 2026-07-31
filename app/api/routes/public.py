@@ -5,6 +5,8 @@ menu (produk bergambar). Tidak perlu scan QR. Checkout pelanggan menyusul di Fas
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app import db, order_repo, product_repo
@@ -12,6 +14,57 @@ from app.schemas import PublicOrderCreateRequest, PublicOrderResponse
 from app.services import payment
 
 router = APIRouter(tags=["public"])
+
+# Pengganjal spam untuk endpoint order publik (tanpa auth).
+# JUJUR SOAL BATASNYA: in-process → hitungan per worker uvicorn dan hilang saat
+# restart. Ini bukan kontrol abuse sungguhan, cukup untuk MVP. Kalau butuh
+# serius, tempatnya di reverse-proxy (nginx `limit_req`) saat VPS ditata.
+# Batas KETIGA (review Task 6): kunci per-IP tak dibuang otomatis begitu
+# jendelanya lewat — pruning di bawah cuma jalan saat IP yang SAMA memesan
+# lagi, jadi IP yang mampir sekali lalu tak pernah balik numpuk selamanya dan
+# dict ini tumbuh terus mengikuti jumlah IP anonim yang pernah singgah. Sapuan
+# oportunistik (`_sweep_stale_order_hits`) menahan itu: begitu dict melewati
+# `_ORDER_HITS_SWEEP_THRESHOLD`, kunci basi dibuang. Masih in-process (bukan
+# proses/timer terpisah), jadi tetap sejalan dengan batas di atas.
+_ORDER_RATE_LIMIT = 10        # order per IP per jendela
+_ORDER_RATE_WINDOW = 60.0     # detik
+_ORDER_HITS_SWEEP_THRESHOLD = 500  # sapu kunci basi begitu dict selebar ini
+_order_hits: dict[str, list[float]] = {}
+
+
+def _sweep_stale_order_hits(now: float) -> None:
+    """Buang kunci IP yang seluruh riwayat hit-nya sudah di luar jendela.
+
+    Dipanggil oportunistik dari `_rate_limit_order` (bukan lewat proses/timer
+    terpisah — lihat komentar batas limiter di atas), jadi biayanya cuma satu
+    scan dict setiap kali populasinya melewati threshold, bukan tiap request.
+    """
+    for ip in list(_order_hits.keys()):
+        # `.get`, bukan subscript: `create_public_order` sync → Starlette
+        # menjalankannya di threadpool anyio tanpa lock, jadi kunci ini bisa
+        # sudah di-pop thread lain di antara snapshot di atas dan baris ini.
+        hits_raw = _order_hits.get(ip)
+        if not hits_raw:
+            continue
+        hits = [t for t in hits_raw if now - t < _ORDER_RATE_WINDOW]
+        if hits:
+            _order_hits[ip] = hits
+        else:
+            _order_hits.pop(ip, None)
+
+
+def _rate_limit_order(request: Request) -> None:
+    ip = request.client.host if request.client else "?"
+    now = time.monotonic()
+    hits = [t for t in _order_hits.get(ip, []) if now - t < _ORDER_RATE_WINDOW]
+    if len(hits) >= _ORDER_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="Terlalu banyak pesanan dari perangkat ini. Coba lagi sebentar.")
+    hits.append(now)
+    _order_hits[ip] = hits
+    if len(_order_hits) > _ORDER_HITS_SWEEP_THRESHOLD:
+        _sweep_stale_order_hits(now)
 
 
 @router.get("/public/umkm/{code}")
@@ -22,7 +75,6 @@ def get_umkm_by_code(code: str) -> dict:
     bp = tenant.get("business_profile") or {}
     products = product_repo.list_products(tenant["id"])
     return {
-        "tenant_id": tenant["id"],
         "code": bp.get("code", ""),
         "name": tenant["name"],
         "city": bp.get("city", ""),
@@ -45,20 +97,23 @@ def get_umkm_by_code(code: str) -> dict:
 
 def _order_out(o: dict) -> PublicOrderResponse:
     return PublicOrderResponse(
-        id=o["id"], tenant_id=o["tenant_id"], code=o["code"],
+        id=o["id"], code=o["code"],
         customer_name=o["customer_name"], customer_phone=o["customer_phone"],
         items=o["items"], total=o["total"], status=o["status"],
         payment_provider=o["payment_provider"], payment_token=o["payment_token"],
         payment_redirect_url=o["payment_redirect_url"],
+        payment_order_id=o["payment_order_id"],
         created_at=o["created_at"], updated_at=o["updated_at"],
     )
 
 
 @router.post("/public/umkm/{code}/orders", response_model=PublicOrderResponse,
              status_code=201)
-def create_public_order(code: str, req: PublicOrderCreateRequest) -> PublicOrderResponse:
+def create_public_order(code: str, req: PublicOrderCreateRequest,
+                        request: Request) -> PublicOrderResponse:
     """Pelanggan membuat pesanan lewat kode UMKM → buat order pending_payment +
     inisiasi pembayaran. Validasi: produk milik UMKM, punya harga, stok cukup."""
+    _rate_limit_order(request)
     tenant = db.get_tenant_by_code(code)
     if tenant is None:
         raise HTTPException(status_code=404, detail="UMKM dengan kode itu tidak ditemukan.")
@@ -96,34 +151,53 @@ def create_public_order(code: str, req: PublicOrderCreateRequest) -> PublicOrder
     return _order_out(order)
 
 
-@router.get("/public/orders/{order_id}", response_model=PublicOrderResponse)
-def get_public_order(order_id: int) -> PublicOrderResponse:
-    o = order_repo.get_order(order_id)
+@router.get("/public/orders/{payment_order_id}", response_model=PublicOrderResponse)
+def get_public_order(payment_order_id: str) -> PublicOrderResponse:
+    """Pantau status pesanan. Kuncinya `payment_order_id` (`ORD-{id}-{32 hex}`,
+    128 bit acak — lihat `order_repo.create_order`), BUKAN id berurutan: respons
+    memuat nama & nomor HP pelanggan, jadi kunci yang bisa dienumerasi akan
+    membocorkan PII seluruh UMKM (UU 27/2022 PDP)."""
+    o = order_repo.get_by_payment_order_id(payment_order_id)
     if o is None:
         raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan.")
     return _order_out(o)
 
 
-@router.api_route("/public/orders/{order_id}/simulate-pay", methods=["GET", "POST"])
-def simulate_pay(order_id: int) -> dict:
+@router.api_route("/public/orders/{payment_order_id}/simulate-pay",
+                  methods=["GET", "POST"])
+def simulate_pay(payment_order_id: str) -> dict:
     """Mode simulasi (tanpa Midtrans): tandai pesanan lunas. Untuk demo/testing.
     Ditolak bila Midtrans live agar tidak jadi celah bypass pembayaran."""
     if payment.is_live():
         raise HTTPException(status_code=400,
                             detail="Simulasi dinonaktifkan saat Midtrans aktif.")
-    o = order_repo.get_order(order_id)
+    o = order_repo.get_by_payment_order_id(payment_order_id)
     if o is None:
         raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan.")
-    o = order_repo.mark_paid(order_id, payment_status="simulated_settlement")
-    return {"ok": True, "status": o["status"], "order_id": order_id}
+    o = order_repo.mark_paid(o["id"], payment_status="simulated_settlement")
+    return {"ok": True, "status": o["status"], "order_id": o["id"]}
 
 
 @router.post("/public/payment/webhook")
 async def payment_webhook(request: Request) -> dict:
     """Notifikasi pembayaran dari Midtrans. Verifikasi signature, lalu update
-    status pesanan (potong stok saat lunas)."""
-    payload = await request.json()
-    result = payment.verify_notification(payload)
+    status pesanan (potong stok saat lunas, kembalikan stok saat gagal/refund)."""
+    # Cermin dari guard di simulate_pay: tanpa server key, `expected` dihitung
+    # dengan komponen rahasia KOSONG → siapa pun bisa memalsukan notifikasi lunas.
+    if not payment.is_live():
+        raise HTTPException(
+            status_code=400,
+            detail="Webhook nonaktif saat Midtrans tidak dikonfigurasi.")
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("payload webhook harus objek JSON")
+        result = payment.verify_notification(payload)
+    except (ValueError, AttributeError, UnicodeError) as exc:
+        # Permukaan TANPA AUTH: input sembarang dari internet tak boleh jadi 500.
+        # Termasuk body bukan-JSON, body bukan-objek, dan signature_key yang
+        # memuat lone surrogate (str.encode menolaknya).
+        raise HTTPException(status_code=400, detail="Payload webhook tidak valid.") from exc
     if not result["valid"]:
         raise HTTPException(status_code=403, detail="Signature tidak valid.")
     o = order_repo.get_by_payment_order_id(result["payment_order_id"])
@@ -134,7 +208,26 @@ async def payment_webhook(request: Request) -> dict:
     if outcome == "paid":
         order_repo.mark_paid(o["id"], payment_status=raw)
     elif outcome == "failed":
-        order_repo.set_status(o["id"], order_repo.STATUS_CANCELLED, payment_status=raw)
+        # `refund` & `chargeback` juga jatuh ke sini: kalau pesanan sudah pernah
+        # lunas, stoknya sudah dipotong → kembalikan (idempoten).
+        #
+        # KECUALI pesanan yang sudah `completed`: barangnya sudah diserahkan ke
+        # pelanggan, jadi chargeback yang datang belakangan tak boleh menambah
+        # stok yang secara fisik tak pernah kembali. `cancel_by_gateway` memang
+        # menolak menggerakkan STATUS pesanan completed, tapi stok jalan lewat
+        # panggilan terpisah ini dan butuh pagarnya sendiri.
+        #
+        # `partial_refund` DISENGAJA diperlakukan sebagai pembatalan penuh untuk
+        # MVP: `payment._map_status` memetakan setiap status tak dikenal ke
+        # `failed`, jadi refund sebagian mengembalikan stok SELURUH pesanan lalu
+        # membatalkannya. Diterima sadar karena pengembalian UANG di sistem ini
+        # memang manual di luar aplikasi (lihat day-15 §Utang) — UMKM tetap harus
+        # merekonsiliasi nominalnya sendiri, dan membatalkan penuh lebih aman
+        # daripada membiarkan pesanan yang dananya sebagian ditarik tetap
+        # tampak lunas. Refund per-item yang benar adalah scope slice sendiri.
+        if o["status"] != order_repo.STATUS_COMPLETED:
+            order_repo.restore_stock(o["id"])
+        order_repo.cancel_by_gateway(o["id"], payment_status=raw)
     else:  # pending
-        order_repo.set_status(o["id"], order_repo.STATUS_PENDING, payment_status=raw)
+        order_repo.set_pending_by_gateway(o["id"], payment_status=raw)
     return {"ok": True}

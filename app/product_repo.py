@@ -249,6 +249,20 @@ def get_product(tenant_id: int, product_id: int) -> dict[str, Any] | None:
         return _product_to_dict(p)
 
 
+def _resolve_tracked_product(s, tenant_id: int, pid: int):
+    """Product milik tenant yang stoknya DILACAK, atau None.
+
+    Satu tempat untuk aturan keabsahan item stok: non-katalog / lintas-tenant /
+    tak-dilacak (`stock is None`) dilewati. `decrement_by_ids` dan
+    `restore_by_ids` WAJIB sepakat soal aturan ini — kalau salah satu berubah
+    sendiri, stok bisa dipotong tapi tak bisa dikembalikan.
+    """
+    p = s.get(Product, pid)
+    if p is None or p.tenant_id != tenant_id or p.stock is None:
+        return None
+    return p
+
+
 def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
     """Potong stok berdasarkan product_id (untuk fulfilment pesanan self-order).
 
@@ -261,9 +275,9 @@ def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, A
         for it in items:
             pid = int(it["product_id"])
             qty = int(it["qty"])
-            p = s.get(Product, pid)
-            if p is None or p.tenant_id != tenant_id or p.stock is None:
-                continue  # non-katalog / lintas-tenant / tak-dilacak
+            p = _resolve_tracked_product(s, tenant_id, pid)
+            if p is None:
+                continue
             res = s.execute(
                 update(Product)
                 .where(Product.id == pid, Product.stock >= qty)
@@ -279,6 +293,36 @@ def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, A
             return report
         s.commit()
     return report
+
+
+def restore_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Kembalikan stok berdasarkan product_id — kebalikan `decrement_by_ids`.
+
+    Dipakai saat pesanan yang SUDAH LUNAS ditolak UMKM atau dananya dikembalikan
+    (refund/chargeback): stok sudah dipotong saat lunas, jadi harus dinaikkan lagi
+    supaya barang yang tak terjual tidak tercatat terjual.
+
+    items: list[{"product_id": int, "qty": int}]. Item lintas-tenant / non-katalog /
+    tak-dilacak (`stock is None`) dilewati — aturan sama dengan decrement.
+    Tak punya kondisi gagal: menaikkan stok tak bisa "kurang", jadi tak perlu
+    rollback bersyarat seperti `decrement_by_ids`.
+    """
+    restored: list[int] = []
+    with SessionLocal() as s:
+        for it in items:
+            pid = int(it["product_id"])
+            qty = int(it["qty"])
+            p = _resolve_tracked_product(s, tenant_id, pid)
+            if p is None:
+                continue
+            s.execute(
+                update(Product)
+                .where(Product.id == pid)
+                .values(stock=Product.stock + qty)
+            )
+            restored.append(pid)
+        s.commit()
+    return {"ok": True, "restored": restored}
 
 
 def list_products(tenant_id: int) -> list[dict[str, Any]]:

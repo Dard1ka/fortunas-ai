@@ -478,7 +478,6 @@ class PublicOrderCreateRequest(BaseModel):
 
 class PublicOrderResponse(BaseModel):
     id: int
-    tenant_id: int
     code: str = ""
     customer_name: str = ""
     customer_phone: str = ""
@@ -488,6 +487,11 @@ class PublicOrderResponse(BaseModel):
     payment_provider: str | None = None
     payment_token: str | None = None
     payment_redirect_url: str | None = None
+    # Capability token milik pelanggan untuk memantau pesanannya sendiri. Wajib
+    # dikembalikan di sini: setelah kunci publik pindah dari id berurutan, ini
+    # satu-satunya cara pelanggan tahu URL status pesanannya. `tenant_id` dibuang —
+    # identifier internal tak perlu bocor ke permukaan tanpa auth.
+    payment_order_id: str | None = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -559,3 +563,36 @@ class CustomerProductStatItem(BaseModel):
 
 class CustomerProductHistoryResponse(BaseModel):
     items: list[CustomerProductStatItem] = Field(default_factory=list)
+
+
+# ── Inbox pesanan publik (sisi UMKM) ──────────────────────────────
+
+class UmkmOrderItem(BaseModel):
+    product_id: int | None = None
+    name: str = ""
+    qty: int = 0
+    unit_price: int = 0
+    subtotal: int = 0
+
+
+class UmkmOrder(BaseModel):
+    """Pesanan seperti dilihat PEMILIK UMKM. Sengaja tidak memuat
+    `payment_order_id` (itu capability token milik pelanggan untuk memantau
+    status) maupun `tenant_id` (identifier internal)."""
+    id: int
+    code: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    items: list[UmkmOrderItem] = Field(default_factory=list)
+    total: int = 0
+    status: str = "pending_payment"
+    payment_status: str | None = None
+    paid_at: str | None = None
+    stock_restored_at: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class UmkmOrderListResponse(BaseModel):
+    orders: list[UmkmOrder] = Field(default_factory=list)
+    count: int = 0

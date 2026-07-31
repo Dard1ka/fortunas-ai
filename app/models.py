@@ -242,5 +242,10 @@ class PublicOrder(Base):
     payment_token = Column(Text, nullable=True)         # Snap token
     payment_redirect_url = Column(Text, nullable=True)  # Snap redirect URL
     payment_status = Column(Text, nullable=True)        # status mentah dari gateway
+    # Penanda idempotensi stok (Slice 1). paid_at = pernah lunas → stok SUDAH
+    # dipotong; jangan potong ulang & jangan mundurkan status saat webhook
+    # gateway terkirim ganda. stock_restored_at = stok sudah dikembalikan.
+    paid_at = Column(Text, nullable=True)
+    stock_restored_at = Column(Text, nullable=True)
     created_at = Column(Text, nullable=True)
     updated_at = Column(Text, nullable=True)

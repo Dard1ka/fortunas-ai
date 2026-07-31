@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import os
 from typing import Any
 
@@ -55,8 +56,9 @@ def create_charge(order: dict[str, Any]) -> dict[str, Any]:
         return {
             "provider": "simulated",
             "token": None,
-            # Endpoint ini (routes) menandai pesanan lunas saat dibuka.
-            "redirect_url": f"/public/orders/{order['id']}/simulate-pay",
+            # Kunci = payment_order_id (bukan id berurutan): endpoint publik tak
+            # boleh bisa dienumerasi. Endpoint ini menandai pesanan lunas saat dibuka.
+            "redirect_url": f"/public/orders/{payment_order_id}/simulate-pay",
         }
 
     items = order.get("items") or []
@@ -130,7 +132,11 @@ def verify_notification(payload: dict[str, Any]) -> dict[str, Any]:
     expected = hashlib.sha512(
         f"{order_id}{status_code}{gross_amount}{_server_key()}".encode()
     ).hexdigest()
-    valid = bool(signature) and signature == expected
+    # `.encode()` dulu: hmac.compare_digest menolak str dengan karakter non-ASCII
+    # (TypeError), dan `signature` datang mentah dari JSON penyerang. Tanpa ini,
+    # webhook tanpa-auth bisa dijatuhkan jadi 500 dengan payload sekadar
+    # `signature_key: "café"` — regresi dari `==` lama yang cuma balas False/403.
+    valid = bool(signature) and hmac.compare_digest(signature.encode(), expected.encode())
     return {
         "valid": valid,
         "payment_order_id": order_id,

@@ -138,11 +138,11 @@ def test_create_order_and_simulate_pay_decrements_stock(monkeypatch, tmp_path):
     assert o["payment_redirect_url"].endswith("/simulate-pay")
 
     # bayar (simulasi) → lunas + stok berkurang 2 (3 → 1)
-    pay = c.post(f"/public/orders/{o['id']}/simulate-pay")
+    pay = c.post(o["payment_redirect_url"])
     assert pay.status_code == 200, pay.text
     assert pay.json()["status"] == "paid"
 
-    got = c.get(f"/public/orders/{o['id']}").json()
+    got = c.get(f"/public/orders/{o['payment_order_id']}").json()
     assert got["status"] == "paid"
     menu = c.get(f"/public/umkm/{code}").json()
     assert menu["products"][0]["stock"] == 1
@@ -198,7 +198,7 @@ def test_webhook_marks_paid_with_valid_signature(monkeypatch, tmp_path):
         "order_id": poid, "status_code": status_code, "gross_amount": gross,
         "signature_key": sig, "transaction_status": "settlement"})
     assert wh.status_code == 200, wh.text
-    assert c.get(f"/public/orders/{o['id']}").json()["status"] == "paid"
+    assert c.get(f"/public/orders/{poid}").json()["status"] == "paid"
 
 
 def test_webhook_rejects_bad_signature(monkeypatch, tmp_path):
@@ -209,3 +209,47 @@ def test_webhook_rejects_bad_signature(monkeypatch, tmp_path):
         "order_id": "ORD-1-xx", "status_code": "200", "gross_amount": "1000",
         "signature_key": "wrong", "transaction_status": "settlement"})
     assert r.status_code == 403
+
+    # non-ASCII signature_key tak boleh menabrak hmac.compare_digest jadi 500 —
+    # penyerang yang tak berwenang harus tetap dibalas 403, bukan traceback.
+    r2 = c.post("/public/payment/webhook", json={
+        "order_id": "ORD-1-xx", "status_code": "200", "gross_amount": "1000",
+        "signature_key": "café", "transaction_status": "settlement"})
+    assert r2.status_code == 403, r2.text
+
+
+def test_webhook_lone_surrogate_signature_returns_400(monkeypatch, tmp_path):
+    """`str.encode()` menolak lone surrogate (mis. U+D800) — payload begini
+    tak boleh pernah mencapai perbandingan signature, jadi 400, bukan 500/403.
+
+    Body dikirim MENTAH (bukan lewat `json=`): httpx sendiri menolak
+    men-serialize objek Python yang sudah memuat karakter surrogate mentah
+    (gagal di sisi klien, sebelum pernah menyentuh jaringan). Yang perlu diuji
+    adalah body kawat yang murni ASCII (`\\ud800` sebagai enam karakter escape
+    JSON) yang, sesudah di-`json.loads()` ulang oleh SERVER, merekonstruksi
+    lone surrogate itu di dalam str Python — persis skenario yang dilaporkan."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    body = (b'{"order_id": "ORD-1-xx", "status_code": "200", '
+            b'"gross_amount": "1000", "signature_key": "\\ud800", '
+            b'"transaction_status": "settlement"}')
+    r = c.post("/public/payment/webhook", content=body,
+               headers={"content-type": "application/json"})
+    assert r.status_code == 400, r.text
+
+
+def test_webhook_malformed_body_returns_400(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    r = c.post("/public/payment/webhook", content=b"{not json")
+    assert r.status_code == 400, r.text
+
+
+def test_webhook_non_object_body_returns_400(monkeypatch, tmp_path):
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "SERVERKEY")
+    c = _client()
+    r = c.post("/public/payment/webhook", json=[1, 2])
+    assert r.status_code == 400, r.text
