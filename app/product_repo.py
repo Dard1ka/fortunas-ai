@@ -249,6 +249,20 @@ def get_product(tenant_id: int, product_id: int) -> dict[str, Any] | None:
         return _product_to_dict(p)
 
 
+def _resolve_tracked_product(s, tenant_id: int, pid: int):
+    """Product milik tenant yang stoknya DILACAK, atau None.
+
+    Satu tempat untuk aturan keabsahan item stok: non-katalog / lintas-tenant /
+    tak-dilacak (`stock is None`) dilewati. `decrement_by_ids` dan
+    `restore_by_ids` WAJIB sepakat soal aturan ini — kalau salah satu berubah
+    sendiri, stok bisa dipotong tapi tak bisa dikembalikan.
+    """
+    p = s.get(Product, pid)
+    if p is None or p.tenant_id != tenant_id or p.stock is None:
+        return None
+    return p
+
+
 def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
     """Potong stok berdasarkan product_id (untuk fulfilment pesanan self-order).
 
@@ -261,9 +275,9 @@ def decrement_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, A
         for it in items:
             pid = int(it["product_id"])
             qty = int(it["qty"])
-            p = s.get(Product, pid)
-            if p is None or p.tenant_id != tenant_id or p.stock is None:
-                continue  # non-katalog / lintas-tenant / tak-dilacak
+            p = _resolve_tracked_product(s, tenant_id, pid)
+            if p is None:
+                continue
             res = s.execute(
                 update(Product)
                 .where(Product.id == pid, Product.stock >= qty)
@@ -298,9 +312,9 @@ def restore_by_ids(tenant_id: int, items: list[dict[str, Any]]) -> dict[str, Any
         for it in items:
             pid = int(it["product_id"])
             qty = int(it["qty"])
-            p = s.get(Product, pid)
-            if p is None or p.tenant_id != tenant_id or p.stock is None:
-                continue  # non-katalog / lintas-tenant / tak-dilacak
+            p = _resolve_tracked_product(s, tenant_id, pid)
+            if p is None:
+                continue
             s.execute(
                 update(Product)
                 .where(Product.id == pid)
