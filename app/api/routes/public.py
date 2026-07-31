@@ -40,7 +40,13 @@ def _sweep_stale_order_hits(now: float) -> None:
     scan dict setiap kali populasinya melewati threshold, bukan tiap request.
     """
     for ip in list(_order_hits.keys()):
-        hits = [t for t in _order_hits[ip] if now - t < _ORDER_RATE_WINDOW]
+        # `.get`, bukan subscript: `create_public_order` sync → Starlette
+        # menjalankannya di threadpool anyio tanpa lock, jadi kunci ini bisa
+        # sudah di-pop thread lain di antara snapshot di atas dan baris ini.
+        hits_raw = _order_hits.get(ip)
+        if not hits_raw:
+            continue
+        hits = [t for t in hits_raw if now - t < _ORDER_RATE_WINDOW]
         if hits:
             _order_hits[ip] = hits
         else:

@@ -618,6 +618,44 @@ def test_public_order_rate_limit_sweeps_stale_ips(monkeypatch, tmp_path):
     assert list(public_routes._order_hits.keys()) == ["testclient"]
 
 
+def test_sweep_survives_key_removed_during_iteration(monkeypatch):
+    """Review Task 6 (ronde 2): `_sweep_stale_order_hits` mengambil snapshot
+    kunci (`list(_order_hits.keys())`) lalu belakangan mengakses
+    `_order_hits[ip]`. `create_public_order` adalah `def` sync, jadi Starlette
+    menjalankannya di threadpool anyio TANPA lock — begitu dict melewati
+    threshold, sweep jalan bersamaan di banyak thread, dan thread A bisa
+    men-pop kunci yang masih ada di snapshot thread B sebelum B sempat
+    mengaksesnya, membuat subscript polos KeyError → 500 di endpoint order
+    publik tanpa auth. Simulasikan race itu SECARA DETERMINISTIK (tanpa
+    thread sungguhan): dict tiruan yang menghapus kuncinya sendiri persis
+    setelah snapshot diambil, meniru thread lain yang menang duluan men-pop
+    kunci yang sama tepat di titik rawan itu."""
+    from app.api.routes import public as public_routes
+    import time
+
+    now = time.monotonic()
+    stale = now - public_routes._ORDER_RATE_WINDOW - 1
+
+    class _RaceDict(dict):
+        """Menghapus `_victim` dari diri sendiri begitu snapshot kunci
+        diambil — meniru thread lain yang men-pop kunci itu tepat di antara
+        snapshot sweep dan akses per-kunci berikutnya."""
+        _victim = "race-ip"
+
+        def keys(self):
+            snapshot = list(super().keys())
+            self.pop(self._victim, None)
+            return snapshot
+
+    race_dict = _RaceDict({"race-ip": [stale], "other-ip": [stale]})
+    monkeypatch.setattr(public_routes, "_order_hits", race_dict)
+
+    public_routes._sweep_stale_order_hits(now)  # tak boleh KeyError
+
+    assert "race-ip" not in race_dict
+    assert "other-ip" not in race_dict
+
+
 def test_payment_order_id_entropi_128_bit(monkeypatch, tmp_path):
     """`payment_order_id` kini SATU-SATUNYA autentikator untuk customer_name +
     customer_phone di jalur tanpa auth (Task 5), jadi bagian acaknya harus 128 bit."""
