@@ -557,3 +557,20 @@ def test_public_order_rate_limited(monkeypatch, tmp_path):
     for i in range(public_routes._ORDER_RATE_LIMIT):
         assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 201, i
     assert c.post(f"/public/umkm/{code}/orders", json=body).status_code == 429
+
+
+def test_payment_order_id_entropi_128_bit(monkeypatch, tmp_path):
+    """`payment_order_id` kini SATU-SATUNYA autentikator untuk customer_name +
+    customer_phone di jalur tanpa auth (Task 5), jadi bagian acaknya harus 128 bit."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    c = _client()
+    code, pid, _ = _setup(c, monkeypatch, tmp_path, email="ent@t.com", stock=None)
+    body = {"items": [{"product_id": pid, "qty": 1}]}
+    ids = [c.post(f"/public/umkm/{code}/orders", json=body).json()["payment_order_id"]
+           for _ in range(2)]
+    assert ids[0] != ids[1]
+    for poid in ids:
+        acak = poid.rsplit("-", 1)[1]
+        assert len(acak) == 32, poid
+        int(acak, 16)          # harus hex murni

@@ -122,9 +122,10 @@ def create_public_order(code: str, req: PublicOrderCreateRequest,
 
 @router.get("/public/orders/{payment_order_id}", response_model=PublicOrderResponse)
 def get_public_order(payment_order_id: str) -> PublicOrderResponse:
-    """Pantau status pesanan. Kuncinya `payment_order_id` (`ORD-{id}-{8 hex}`),
-    BUKAN id berurutan: respons memuat nama & nomor HP pelanggan, jadi kunci yang
-    bisa dienumerasi akan membocorkan PII seluruh UMKM (UU 27/2022 PDP)."""
+    """Pantau status pesanan. Kuncinya `payment_order_id` (`ORD-{id}-{32 hex}`,
+    128 bit acak — lihat `order_repo.create_order`), BUKAN id berurutan: respons
+    memuat nama & nomor HP pelanggan, jadi kunci yang bisa dienumerasi akan
+    membocorkan PII seluruh UMKM (UU 27/2022 PDP)."""
     o = order_repo.get_by_payment_order_id(payment_order_id)
     if o is None:
         raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan.")

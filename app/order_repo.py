@@ -91,7 +91,7 @@ def create_order(tenant_id: int, *, code: str, customer_name: str,
         )
         s.add(o)
         s.flush()  # dapatkan o.id sebelum menyusun payment_order_id
-        o.payment_order_id = f"ORD-{o.id}-{secrets.token_hex(4)}"
+        o.payment_order_id = f"ORD-{o.id}-{secrets.token_hex(16)}"
         s.commit()
         return _to_dict(o)
 
