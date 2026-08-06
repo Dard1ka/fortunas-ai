@@ -2,7 +2,9 @@
 
 **Dev slice ini:** Go Steven Sanjaya (rotasi via agen, estafet Task 1–11; Task 12 = handoff)
 **Tanggal:** 2026-08-06
-**Branch:** `feat/pwa-responsive-shell` (dari `main` @ `135253b`) — 17 commit fitur (HEAD `04f99e4`)
+**Branch:** `feat/pwa-responsive-shell` (dari `main` @ `135253b`) — **24 commit** di atas `135253b`
+(dokumen ini ada di commit terakhirnya; `git rev-list --count 135253b..HEAD` untuk verifikasi,
+`git log --oneline 135253b..HEAD` untuk daftarnya)
 **PR:** belum dibuka — push, rebase, dan `gh pr create` **sengaja tidak dilakukan** di Task 12.
 Developer lain sedang mengedit `mobile/lib/app.dart` secara paralel dan **belum push**, jadi
 `origin/main` masih di `135253b` — tidak ada apa pun untuk di-rebase ke atasnya. Keputusan
@@ -26,12 +28,18 @@ push/PR dipegang controller/tim, di luar scope task ini.
 - **Token store untuk web** — `flutter_secure_storage` (native-only, gagal di browser) diganti
   jalur `localStorage` untuk platform web; native (Android/iOS) tetap `flutter_secure_storage`.
 - **nginx + runbook HTTPS** (`deploy/nginx-fortunas.conf`, `deploy/DEPLOY.md`) — same-origin
-  proxy `/api/` (strip prefix) dan `/media/` (tidak strip), cache header no-cache untuk
-  `flutter_service_worker.js`/`manifest.json`/`index.html`, `listen 443 ssl http2;`, langkah
-  certbot lengkap.
+  proxy `/api/` (strip prefix) dan `/media/` (tidak strip), `listen 443 ssl http2;`, langkah
+  certbot lengkap. Cache header: **no-cache untuk seluruh rantai boot** —
+  `index.html`, `manifest.json`, `flutter_service_worker.js`, `flutter_bootstrap.js`, dan
+  `main.dart.js` — karena **Flutter web tidak meng-hash nama file apa pun**; sisa aset
+  `expires 1h` (bukan 30d). Ditambah HSTS di blok 443, dan `/api/docs`, `/api/redoc`,
+  `/api/openapi.json` dikembalikan 404 (backend tidak diubah). Detail rasional ada di
+  komentar config-nya.
 - **CI menggerbang `flutter build web`** — job mobile di `.github/workflows/ci.yml` sekarang
-  `flutter pub get` → `flutter analyze --no-fatal-infos` → `flutter test` → `flutter build web --release`,
-  semua dengan `working-directory: mobile`. Job backend (ruff + pytest, deps minimal
+  `flutter pub get` → `flutter analyze --no-fatal-infos` → `flutter test` →
+  `flutter build web --release --no-web-resources-cdn`, semua dengan
+  `working-directory: mobile`. Flag `--no-web-resources-cdn` **wajib dan harus sama dengan
+  runbook deploy** (lihat §Payload). Job backend (ruff + pytest, deps minimal
   tanpa torch/chromadb) byte-identik, tidak tersentuh.
 - **Font Inter disubset ke Latin** — lihat §Payload di bawah.
 
@@ -91,9 +99,15 @@ push/PR dipegang controller/tim, di luar scope task ini.
 ## Konvensi paling penting untuk dev berikutnya
 
 **Kalau menambah route baru: bungkus dengan `PhoneFrame` seperti route lain, dan itu otomatis
-mendapat perilaku responsif.** `PhoneFrame` membaca lokasi route lewat `GoRouter.maybeOf(context)`
-dan mendelegasikan ke `AdaptiveShell`, yang memutuskan compact/medium/expanded dari lebar
-viewport — tidak ada logika tambahan yang perlu ditulis di layar itu sendiri.
+mendapat perilaku responsif.** `PhoneFrame` membaca lokasi route lewat
+`GoRouterState.of(context)` dan mendelegasikan ke `AdaptiveShell`, yang memutuskan
+compact/medium/expanded dari lebar viewport — tidak ada logika tambahan yang perlu ditulis di
+layar itu sendiri. **Call-site-mu tidak perlu `const`.** `GoRouterState.of` bersifat
+*per-route*, jadi PhoneFrame selalu membingkai route-nya sendiri walau route lain sedang
+di-`push` di atasnya. (Sebelum ronde fix final, lokasi dibaca dari `GoRouter.state` yang
+adalah **puncak stack** — itu hanya tidak terlihat karena semua call-site kebetulan `const`;
+route pertama yang membawa nilai runtime akan menyusut jadi kolom HP 430px. Dipaku sekarang
+oleh grup test "stack dua-dalam" di `mobile/test/ui/phone_frame_route_test.dart`.)
 
 **Route customer WAJIB berprefiks `/customer/`.** Keputusan phone-only vs adaptif diturunkan
 dari *path* route lewat `isPhoneOnlyRoute()` (lihat `mobile/lib/ui/adaptive_shell.dart`), bukan
@@ -129,15 +143,65 @@ tampilan terasa seperti kode lama padahal build baru sudah ada, serve dari **por
 
 Diukur dengan .NET `GZipStream` pada `CompressionLevel.Optimal` terhadap artefak
 `build/web` — bukan estimasi, bukan `gzip -9` command-line (beda encoder, angka bisa sedikit
-berbeda).
+berbeda). Metode identik dengan pengukuran baseline, supaya angkanya sebanding.
 
-| | Sebelum | Sesudah |
+### ⚠ Angka 3,24 MB yang tercatat sebelumnya UNDER-COUNT — sudah diukur ulang
+
+Angka lama diukur dari build `flutter build web --release` **tanpa**
+`--no-web-resources-cdn`. Build seperti itu memancarkan `flutter_bootstrap.js` yang
+`buildConfig`-nya berisi `engineRevision` tanpa `useLocalCanvasKit`, sehingga loader
+mengambil CanvasKit dari `https://www.gstatic.com/flutter-canvaskit/<rev>/canvaskit.js`
+**saat runtime**. Jadi 2,03 MB gzip `canvaskit.wasm` dihitung sebagai payload origin
+padahal tidak pernah diminta dari origin ini — dan sekaligus berarti **cold load offline
+tidak bisa boot sama sekali** (`flutter_service_worker.js` hanya meng-cache resource
+same-origin), yang membatalkan klaim PWA offline. Angka lama juga melewatkan dua file yang
+benar-benar diunduh: `canvaskit.js` (0,026 MB, wajib untuk memuat wasm-nya) dan
+`MaterialIcons-Regular.otf` (0,007 MB, font bundel yang ikut dimuat).
+
+Build sekarang memakai `--no-web-resources-cdn` di **dua** tempat yang harus sama:
+`.github/workflows/ci.yml` (gate CI) dan `deploy/DEPLOY.md` (runbook). Konsekuensinya
+CanvasKit **benar-benar** jadi payload origin — jadi angka honest-nya **naik**, dan itu
+angka yang benar. Sebagai gantinya: aplikasi kini **boot offline** (setelah minimal satu
+kali load online yang berhasil — request pertama tetap butuh jaringan, dan resource
+non-CORE di-cache saat pertama diminta), tidak ada script pihak ketiga yang disuntik saat
+runtime, dan IP tiap UMKM tidak lagi ikut terkirim ke Google di setiap cold load.
+
+### Critical path cold load, semuanya dari origin sendiri (Chrome/Edge)
+
+| Artefak | gzip |
+|---|---|
+| `main.dart.js` | 0,928 MB |
+| `canvaskit/chromium/canvaskit.wasm` | 2,032 MB |
+| `canvaskit/chromium/canvaskit.js` | 0,026 MB |
+| `assets/assets/fonts/Inter.ttf` | 0,131 MB |
+| `assets/assets/fonts/JetBrainsMono.ttf` | 0,087 MB |
+| `assets/assets/fonts/SpaceGrotesk.ttf` | 0,061 MB |
+| `assets/fonts/MaterialIcons-Regular.otf` | 0,007 MB |
+| `flutter_bootstrap.js` + `index.html` + AssetManifest/FontManifest | 0,004 MB |
+| **Total** | **3,28 MB** (3.434.581 byte) |
+
+Varian CanvasKit yang diunduh tergantung browser: Chromium (Chrome/Edge) memakai
+`canvaskit/chromium/` (tabel di atas), Firefox/Safari memakai `canvaskit/` penuh —
+2,693 MB gzip alih-alih 2,032 MB, sehingga totalnya **3,94 MB**. `flutter.js` ikut
+dipancarkan tapi **tidak** diunduh: `index.html` hanya memuat `flutter_bootstrap.js`, yang
+sudah membawa loader-nya inline.
+
+| | Sebelum subset font | Sesudah subset font |
 |---|---|---|
-| Critical path (gzip) | 3,58 MB | 3,24 MB |
+| Critical path (gzip, angka lama yang under-count) | 3,58 MB | 3,24 MB |
+| Critical path (gzip, honest — semua dari origin, Chrome/Edge) | — | **3,28 MB** |
 | Inter raw | 856 KB | 274 KB |
 | Inter gzip | 448 KB | 134 KB |
 
-Target DoD ≤3,25 MB gzip **tercapai** (3,24 MB).
+Penghematan subset font **0,32 MB gzip tetap nyata** — ia tidak bergantung pada CanvasKit
+datang dari mana. Yang berubah cuma total yang jadi pembanding.
+
+Target DoD ≤3,25 MB gzip: **TIDAK tercapai pada angka honest** (3,28 MB, lewat 0,03 MB).
+Angka 3,24 MB yang sebelumnya dilaporkan "tercapai" bersandar pada CanvasKit yang
+di-serve CDN — jadi target itu sesungguhnya belum pernah terlampaui. Jalur penurunan
+terbesar yang masih terbuka adalah `--wasm`/skwasm (≈0,45–0,58 MB gzip), yang ditunda
+dengan alasan terpisah di §"Apa yang SENGAJA TIDAK berubah". Ini keputusan tim, bukan
+sesuatu yang boleh ditutup dengan mengubah cara mengukur.
 
 Font `JetBrainsMono.ttf` dan `SpaceGrotesk.ttf` **tidak** disubset — sudah cukup kecil (89 KB
 dan 62 KB gzip) sehingga risiko regresi coverage tidak sepadan dengan penghematannya.
@@ -201,6 +265,11 @@ Ditulis apa adanya sesuai ledger (`.superpowers/sdd/2026-08-06-pwa-responsive-sh
    Hasilnya: rail extended (dengan label teks) berdampingan dengan kolom konten lebar medium,
    bukan expanded (840px). Bukan bug fungsional (tidak ada crash, tidak ada konten terpotong),
    tapi kombinasi tier rail vs tier konten tidak selalu selaras di pita sempit ini.
+   Pita ini **mencakup lebar iPad landscape**, jadi bukan pita teoretis.
+   **Review whole-branch final sengaja menunda ini ke SETELAH merge:** perbaikan yang bersih
+   mengalirkan tier dari builder `ShellRoute` ke dalam `AdaptiveShell`, dan itu perubahan
+   `app.dart` yang lebih besar daripada yang bijak dilakukan selama edit dev lain di file yang
+   sama belum di-push. Ambil ini sebagai follow-up pertama begitu file itu bebas.
 
 4. **`kExpandedGutter` (48.0) tidak pernah terjangkau secara aritmetika** — di tier expanded,
    lebar konten (840) selalu menang atas gutter sebagai constraint pembatas untuk lebar viewport
@@ -217,9 +286,12 @@ Ditulis apa adanya sesuai ledger (`.superpowers/sdd/2026-08-06-pwa-responsive-sh
 ### Catatan tambahan (minor, untuk konteks — lihat ledger untuk daftar lengkap)
 
 - Sejumlah minor kosmetik/dokumentasi dari Task 1–3 (urutan import, dartdoc yang merujuk simbol
-  yang baru lahir di task berikutnya, komentar `adaptive_shell.dart` yang salah soal alasan
-  `Scaffold` tidak kolaps) — semua tercatat di ledger, tidak diulang di sini karena tidak
-  memengaruhi perilaku.
+  yang baru lahir di task berikutnya) — tercatat di ledger, tidak diulang di sini karena tidak
+  memengaruhi perilaku. Komentar `adaptive_shell.dart` yang salah soal alasan `Scaffold` tidak
+  kolaps **sudah dikoreksi** di ronde fix final: `Scaffold` justru kebal (ia memakai
+  `constraints.biggest`); yang benar-benar kolaps tanpa `height: constraints.maxHeight` adalah
+  child yang tidak greedy, mis. `Column(mainAxisSize: min)` — persis yang didemokan test di
+  `adaptive_shell_test.dart`.
 - `kMediaBaseUrl` sisi native menurunkan ulang `String.fromEnvironment` sendiri, tidak
   mendelegasikan ke `kApiBaseUrl` — provably setara, cuma DRY kosmetik.
 
@@ -264,15 +336,41 @@ bukan dikerjakan di task ini.
   bisa jalan.
 - **Konfigurasi nginx dan runbook certbot dinalar dari semantik yang terdokumentasi, bukan
   dieksekusi** — tidak ada nginx atau certbot di sandbox dev ini. Sanity-check di bootstrap VPS
-  nyata pertama tetap diperlukan.
+  nyata pertama tetap diperlukan. Ini termasuk blok baru dari ronde fix final (no-cache rantai
+  boot, HSTS, 404 untuk `/api/docs`): `nginx -t` **belum pernah** dijalankan terhadap file ini.
+- **Klaim "boot offline" belum diuji di browser.** Ia dinalar dari (a) `_flutter.buildConfig`
+  hasil build sekarang yang berisi `"useLocalCanvasKit":true` — diverifikasi langsung di
+  `build/web/flutter_bootstrap.js`, bukan diasumsikan — dan (b) source
+  `build/web/flutter_service_worker.js`: `CORE` (main.dart.js, index.html,
+  flutter_bootstrap.js, AssetManifest, FontManifest) diambil saat `install` dengan
+  `{'cache':'reload'}`, sedangkan resource non-CORE (termasuk `canvaskit/*` dan font) di-cache
+  **saat pertama diminta** — `downloadOffline()` ada tapi hanya jalan kalau app mengirim pesan
+  `'downloadOffline'`, dan loader Flutter tidak melakukannya. Artinya: load pertama tetap butuh
+  jaringan; offline baru berfungsi dari load berikutnya. Butuh uji DevTools → Network → Offline
+  di VPS ber-HTTPS untuk mengonfirmasi.
 
 ---
 
 ## Files yang diubah (Task 12 saja)
 
 - `docs/handoff/day-16.md` — dokumen ini (baru).
+- `frontend/README.md` — baru, menandai app React sebagai arsip/rujukan desain (memenuhi
+  syarat spec §6; lihat §"Apa yang SENGAJA TIDAK berubah" → `frontend/` React).
 
-Task 1–11 (kode fitur, fix round, dan tooling) sudah di-commit sebelumnya di 17 commit HEAD
-`04f99e4` — lihat `git log --oneline 135253b..HEAD` untuk daftar commit dan
-`.superpowers/sdd/2026-08-06-pwa-responsive-shell/progress.md` untuk detail per-task, tiap
-ronde fix, dan setiap temuan review.
+Task 1–11 (kode fitur, fix round, dan tooling) plus ronde fix final pasca-review
+whole-branch sudah di-commit sebelumnya — lihat `git log --oneline 135253b..HEAD` untuk
+daftar commit dan `.superpowers/sdd/2026-08-06-pwa-responsive-shell/progress.md` untuk detail
+per-task, tiap ronde fix, dan setiap temuan review. Ronde fix final tercatat terpisah di
+`.superpowers/sdd/2026-08-06-pwa-responsive-shell/final-fix-wave-report.md`.
+
+---
+
+## ⚠ Catatan demo APK: `flutter_secure_storage` 9.x → 10.x
+
+Task 6 (`d74b792`) menaikkan `flutter_secure_storage` dari `^9.2.2` ke `^10.3.1`. Token yang
+pernah ditulis oleh build APK **lama** bisa jadi **tidak terbaca** oleh build baru (10.x
+mengubah cara enkripsi/keystore di sisi Android). Gejalanya: APK demo terbuka langsung di
+`/login` walau sebelumnya sudah login. **Bisa dipulihkan dengan satu kali login ulang** —
+bukan kerusakan data — tapi lebih baik didokumentasikan sekarang daripada di-debug 10 menit
+sebelum presentasi juri. Kalau demo memakai APK yang di-install ulang di atas versi lama,
+siapkan kredensial login untuk dipakai sekali.
