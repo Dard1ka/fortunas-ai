@@ -132,3 +132,64 @@ Mobile App  ──HTTP──►  nginx :80 (VPS)  ──►  uvicorn :8000 (syst
                                                ├─► Gemini API (LLM)
                                                └─► SQLite app/data/fortunas.db (akun & tenant)
 ```
+
+---
+
+## Deploy PWA (kanal rilis)
+
+PWA dan API berada di **satu origin**. nginx menyajikan file statis di `/` dan
+mem-proxy API di `/api/` — backend tidak diubah.
+
+### 1. Domain + HTTPS (⛔ WAJIB, kerjakan lebih dulu)
+
+Tanpa HTTPS: service worker tidak teregistrasi, tidak ada prompt install, dan
+**mikrofon diblokir sehingga fitur voice mati**. Ini bukan penyempurnaan —
+tanpa ini PWA tidak layak dipakai.
+
+```bash
+# 1. Arahkan domain ke IP VPS (DuckDNS gratis, atau A record di registrar)
+#    contoh: fortunas.duckdns.org → <IP VPS>
+
+# 2. Ganti placeholder di config (4 kemunculan)
+sudo sed -i 's/FORTUNAS_DOMAIN/fortunas.duckdns.org/g' \
+  /etc/nginx/sites-available/fortunas
+
+# 3. Terbitkan sertifikat
+sudo mkdir -p /var/www/certbot
+sudo certbot --nginx -d fortunas.duckdns.org
+
+# 4. Uji perpanjangan otomatis
+sudo certbot renew --dry-run
+```
+
+> **Jebakan bootstrap pertama kali:** `deploy/nginx-fortunas.conf` sudah
+> berisi blok `listen 443 ssl` yang menunjuk ke sertifikat Let's Encrypt.
+> Kalau sertifikat itu **belum pernah diterbitkan**, `nginx -t` / reload apa
+> pun (termasuk yang dicoba internal oleh certbot) akan gagal dengan
+> `cannot load certificate ... No such file or directory` — nginx tidak
+> bisa memuat config yang menunjuk sertifikat kosong. Kalau `certbot --nginx`
+> gagal karena ini, terbitkan sertifikat dulu tanpa nginx aktif:
+> `sudo systemctl stop nginx && sudo certbot certonly --standalone -d fortunas.duckdns.org && sudo systemctl start nginx`
+> — setelah file sertifikat ada, reload nginx dengan config penuh di atas
+> akan berhasil, dan `certbot --nginx`/`certbot renew` berikutnya berjalan normal.
+
+### 2. Build & unggah PWA
+
+```bash
+cd mobile
+flutter build web --release
+sudo mkdir -p /var/www/fortunas
+rsync -av --delete build/web/ <user>@<vps>:/var/www/fortunas/
+```
+
+`build/web` berisi `.symbols` (~3,8 MB) yang tidak pernah diserve dan kedua varian
+canvaskit. Boleh dibiarkan; nginx hanya mengirim yang diminta browser.
+
+### 3. Verifikasi setelah deploy
+
+- `https://<domain>/` memuat aplikasi; tab bertuliskan **Fortunas AI**
+- DevTools → Application → Service Workers: `activated`
+- DevTools → Application → Manifest: nol peringatan installability
+- Tekan tombol mic → browser meminta izin mikrofon (**bukti secure context bekerja**)
+- Login berhasil (membuktikan proxy `/api/` benar)
+- Gambar produk tampil (membuktikan proxy `/media/` benar)
