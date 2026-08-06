@@ -80,6 +80,14 @@ class _RailFab extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             key: const Key('rail_voice_fab'),
+            // Eksplisit, seperti _MicFab di bottom_nav.dart, supaya ukuran
+            // FAB tidak diam-diam bergantung pada Row.mainAxisSize/
+            // Column.crossAxisAlignment ancestor. Nilai 52 adalah target;
+            // hasil render sesungguhnya masih dipangkas ke 50.5 oleh inset
+            // border kanan rail (nav_rail.dart:41, lebar 1.5) yang otomatis
+            // jadi padding lewat BoxDecoration.padding — lihat
+            // nav_rail_test.dart untuk detail.
+            width: extended ? null : 52,
             height: 52,
             decoration: BoxDecoration(
               color: FortunasColors.violet,
