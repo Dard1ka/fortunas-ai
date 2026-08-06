@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fortunas_ai/app.dart';
+import 'package:fortunas_ai/theme/tokens.dart';
 import 'package:fortunas_ai/ui/adaptive_shell.dart';
 import 'package:go_router/go_router.dart';
 
@@ -41,6 +42,26 @@ void main() {
 
   testWidgets('route customer di 1440 tetap dikurung 430', (tester) async {
     expect(await _widthAt(tester, '/customer/qr'), kPhoneOnlyFrameWidth);
+  });
+
+  testWidgets(
+      'route UMKM di 1440 mengecat backdrop FortunasColors.bg di luar kolom framed',
+      (tester) async {
+    // Bug yang ditemukan review: jalur adaptif AdaptiveShell sengaja tidak
+    // punya backdrop (lihat adaptive_shell_test.dart, "tidak punya
+    // backdrop"). Itu benar untuk shell tab UMKM (Scaffold luarnya sendiri
+    // yang mengecat), tapi untuk 9 route yang lewat PhoneFrame langsung
+    // (/splash, /login, /register, /voice, /dpa, /checkout, /products,
+    // /orders, /scan) tidak ada apa pun lagi yang mengecat gutter di luar
+    // kolom 840px. PhoneFrame sendiri harus jadi yang mengecatnya.
+    await _widthAt(tester, '/products');
+    final backdrop = tester.widget<ColoredBox>(
+      find.ancestor(
+        of: find.byKey(const Key('probe')),
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(backdrop.color, FortunasColors.bg);
   });
 
   testWidgets('PhoneFrame tanpa router tidak crash — anggap UMKM',

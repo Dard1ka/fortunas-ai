@@ -36,14 +36,17 @@ import 'ui/bottom_nav.dart';
 import 'ui/nav_rail.dart';
 import 'voice/voice_flow.dart';
 
-/// Lebar kolom phone-only. Dipertahankan sebagai alias publik supaya pemakai
-/// lama tidak putus; nilainya kini hidup di `ui/adaptive_shell.dart`.
+/// Lebar kolom phone-only. Dipertahankan sebagai alias publik — bukan karena
+/// ada pemakai lama yang diketahui (repo ini nol; cek sendiri kalau ragu),
+/// tapi untuk jaga-jaga kalau ada konsumen yang belum di-push oleh developer
+/// lain yang sedang mengedit file ini secara paralel. Nilainya kini hidup di
+/// `ui/adaptive_shell.dart`.
 const double kPhoneFrameWidth = kPhoneOnlyFrameWidth;
 
 /// Membingkai konten route sesuai viewport.
 ///
-/// **Nama ini sengaja dipertahankan.** Ia dipanggil 21 kali oleh route builder
-/// di bawah, dan dengan mempertahankannya setiap route baru — termasuk yang
+/// **Nama ini sengaja dipertahankan.** Ia dipanggil oleh route builder di
+/// bawah, dan dengan mempertahankannya setiap route baru — termasuk yang
 /// ditambahkan dev lain — otomatis mendapat perilaku responsif tanpa perlu
 /// tahu apa pun soal shell.
 ///
@@ -60,12 +63,31 @@ class PhoneFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // maybeOf: PhoneFrame bisa dirender di luar router (mis. dalam test);
-    // lokasi kosong diperlakukan sebagai route UMKM.
+    // maybeOf: pembacaan NON-REAKTIF — InheritedGoRouter.updateShouldNotify
+    // selalu false (go_router router.dart:261-263 malah mendokumentasikan
+    // "will not cause rebuild if the state has changed"). Ini aman di sini
+    // HANYA karena setiap PhoneFrame dibangun ulang oleh builder route-nya
+    // sendiri setiap kali GoRouter merender halaman baru — JANGAN pernah
+    // mengangkat PhoneFrame ke atas Navigator (mis. ke MaterialApp.builder):
+    // ia akan dibangun sekali saja dan lokasinya tidak akan pernah ter-update.
+    //
+    // PhoneFrame bisa dirender di luar router (mis. dalam test); lokasi
+    // kosong diperlakukan sebagai route UMKM.
     final location = GoRouter.maybeOf(context)?.state.uri.path ?? '';
-    return AdaptiveShell(
-      phoneOnly: isPhoneOnlyRoute(location),
-      child: child,
+    // ColoredBox: mengecat gutter di luar kolom framed. Tanpa ini, region di
+    // luar kolom 840/720/430px itu tidak dilukis siapa pun — MaterialApp
+    // tidak menyisipkan surface root, jadi di mobile region itu clear ke
+    // hitam, di web ke warna halaman host. Aman di ketiga cabang
+    // AdaptiveShell: compact mengembalikan child penuh (menutupi box ini
+    // seluruhnya); phone-only melukis kPhoneOnlyBackdrop di atasnya; shell
+    // tab UMKM tidak lewat PhoneFrame sama sekali (Scaffold-nya sendiri
+    // sudah mengecat token yang sama).
+    return ColoredBox(
+      color: FortunasColors.bg,
+      child: AdaptiveShell(
+        phoneOnly: isPhoneOnlyRoute(location),
+        child: child,
+      ),
     );
   }
 }
