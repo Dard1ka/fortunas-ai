@@ -26,7 +26,7 @@ jobs:
         run: python -m pytest tests/ -v
 
   mobile:
-    name: Mobile (flutter analyze)
+    name: Mobile (analyze + test + build web)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,4 +44,9 @@ jobs:
         working-directory: mobile
       - name: Test
         run: flutter test
+        working-directory: mobile
+      # Kanal rilis = PWA. Tanpa gate ini, regresi khusus web (mis. plugin
+      # yang tidak mendukung web) lolos diam-diam sampai deploy.
+      - name: Build web (PWA release)
+        run: flutter build web --release
         working-directory: mobile
