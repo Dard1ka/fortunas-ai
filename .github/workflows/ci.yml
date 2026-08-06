@@ -47,6 +47,16 @@ jobs:
         working-directory: mobile
       # Kanal rilis = PWA. Tanpa gate ini, regresi khusus web (mis. plugin
       # yang tidak mendukung web) lolos diam-diam sampai deploy.
+      #
+      # --no-web-resources-cdn: WAJIB, dan harus sama dengan perintah build di
+      # deploy/DEPLOY.md. Tanpa flag ini `flutter_bootstrap.js` memancarkan
+      # buildConfig ber-`engineRevision` tanpa `useLocalCanvasKit`, sehingga
+      # loader mengambil CanvasKit dari https://www.gstatic.com/flutter-canvaskit/
+      # saat runtime. Akibatnya: cold load offline tidak bisa boot (service
+      # worker hanya meng-cache same-origin), ada script pihak ketiga yang
+      # disuntik meski index.html bersih, dan IP tiap UMKM terkirim ke Google.
+      # Gate CI harus mem-build persis apa yang dideploy, kalau tidak gate ini
+      # menghijaukan artefak yang berbeda dari yang dipakai produksi.
       - name: Build web (PWA release)
-        run: flutter build web --release
+        run: flutter build web --release --no-web-resources-cdn
         working-directory: mobile
