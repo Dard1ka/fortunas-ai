@@ -3,21 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../theme/tokens.dart';
 import 'icon_set.dart';
-
-class _NavSpec {
-  final String id;
-  final String label;
-  final String icon;
-  final String path;
-  final bool primary;
-  const _NavSpec({
-    required this.id,
-    required this.label,
-    required this.icon,
-    required this.path,
-    this.primary = false,
-  });
-}
+import 'nav_spec.dart';
 
 /// 5-slot pill bar with the violet mic FAB raised in the middle.
 /// React equivalent: frontend/src/ui/BottomNav.jsx
@@ -25,13 +11,7 @@ class FortunasBottomNav extends StatelessWidget {
   final String currentLocation;
   const FortunasBottomNav({super.key, required this.currentLocation});
 
-  static const _items = <_NavSpec>[
-    _NavSpec(id: 'home',     label: 'Tanya',    icon: 'chat',    path: '/'),
-    _NavSpec(id: 'briefing', label: 'Briefing', icon: 'chart',   path: '/briefing'),
-    _NavSpec(id: 'voice',    label: 'Voice',    icon: 'mic',     path: '/voice', primary: true),
-    _NavSpec(id: 'history',  label: 'Riwayat',  icon: 'history', path: '/history'),
-    _NavSpec(id: 'me',       label: 'Saya',     icon: 'user',    path: '/me'),
-  ];
+  static const _items = kUmkmNavItems;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +47,7 @@ class FortunasBottomNav extends StatelessWidget {
                     ? _MicFab(onTap: () => context.push(item.path))
                     : _NavItem(
                         item: item,
-                        active: _isActive(item.path),
+                        active: navItemIsActive(item.path, currentLocation),
                         onTap: () => context.go(item.path),
                       ),
               ),
@@ -76,17 +56,10 @@ class FortunasBottomNav extends StatelessWidget {
       ),
     );
   }
-
-  bool _isActive(String path) {
-    if (path == '/' && (currentLocation == '/' || currentLocation.startsWith('/result'))) {
-      return true;
-    }
-    return currentLocation == path;
-  }
 }
 
 class _NavItem extends StatelessWidget {
-  final _NavSpec item;
+  final NavSpec item;
   final bool active;
   final VoidCallback onTap;
 
