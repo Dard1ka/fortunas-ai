@@ -14,6 +14,8 @@ import 'package:fortunas_ai/api/models.dart';
 import 'package:fortunas_ai/app.dart';
 import 'package:fortunas_ai/auth/auth_controller.dart';
 import 'package:fortunas_ai/auth/auth_state.dart';
+import 'package:fortunas_ai/screens/home_screen.dart';
+import 'package:fortunas_ai/ui/adaptive_shell.dart';
 import 'package:fortunas_ai/ui/bottom_nav.dart';
 import 'package:fortunas_ai/ui/nav_rail.dart';
 
@@ -51,11 +53,32 @@ Future<void> _pumpUmkmShell(WidgetTester tester, Size size) async {
 
 void main() {
   testWidgets(
-      'shell UMKM di viewport lebar (1440) pakai FortunasNavRail, bukan bottom nav',
+      'shell UMKM di viewport lebar (1440) pakai FortunasNavRail extended dan konten 840',
       (tester) async {
     await _pumpUmkmShell(tester, const Size(1440, 900));
     expect(find.byType(FortunasNavRail), findsOneWidget);
     expect(find.byType(FortunasBottomNav), findsNothing);
+    // Pin `extended: tier == ShellTier.expanded` — di 1440 (expanded) rail
+    // harus lebar 200 (ikon + label), bukan 76 (ikon saja).
+    expect(tester.getSize(find.byKey(const Key('nav_rail'))).width,
+        kNavRailExtendedWidth);
+    // Pin `AdaptiveShell(phoneOnly: false, ...)` — kalau ini diam-diam jadi
+    // true, konten jadi strip 430 di samping rail 200 pada viewport 1440,
+    // persis kegagalan yang dilarang requirement utama.
+    expect(
+        tester.getSize(find.byType(HomeScreen)).width, kExpandedContentWidth);
+  });
+
+  testWidgets(
+      'shell UMKM di viewport medium (600, ambang bawah) pakai rail ikon-saja (76), tidak extended',
+      (tester) async {
+    await _pumpUmkmShell(tester, const Size(600, 900));
+    expect(find.byType(FortunasNavRail), findsOneWidget);
+    expect(find.byType(FortunasBottomNav), findsNothing);
+    // Pin sisi lain dari `extended: tier == ShellTier.expanded` — di 600
+    // (medium, persis di ambang bawahnya) rail harus TETAP 76, bukan 200.
+    expect(
+        tester.getSize(find.byKey(const Key('nav_rail'))).width, kNavRailWidth);
   });
 
   testWidgets(
