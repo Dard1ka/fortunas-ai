@@ -86,6 +86,16 @@ curl http://127.0.0.1:8000/health      # {"status":"ok",...}
 ```
 
 ## 7. nginx + firewall
+
+> ⛔ **VPS baru / sertifikat belum pernah diterbitkan:** `deploy/nginx-fortunas.conf`
+> sekarang berisi blok `listen 443 ssl` yang menunjuk sertifikat Let's
+> Encrypt. Kalau sertifikat itu **belum ada**, `nginx -t` di bawah akan
+> GAGAL (`cannot load certificate ... No such file or directory`) dan
+> `&& systemctl reload nginx` tidak akan jalan. **Baca "Deploy PWA § 1.
+> Domain + HTTPS" (jauh di bawah) dulu — termasuk fallback
+> `certbot certonly --standalone`nya — sebelum menjalankan blok ini**, atau
+> terbitkan sertifikatnya lebih dulu baru lanjut ke sini.
+
 ```bash
 cp deploy/nginx-fortunas.conf /etc/nginx/sites-available/fortunas
 ln -s /etc/nginx/sites-available/fortunas /etc/nginx/sites-enabled/
@@ -99,6 +109,19 @@ ufw --force enable
 > Cek juga firewall/security group di panel Biznet: port 22 & 80 harus terbuka.
 
 ## 8. Tes dari luar
+
+> ⚠️ **Perintah di bawah ini untuk config LAMA (backend-only, IP+HTTP).**
+> Sejak `nginx-fortunas.conf` dipindah ke skema same-origin (lihat "Deploy
+> PWA" di bawah), port 80 sudah tidak mem-proxy apa pun langsung — ia
+> hanya melayani tantangan ACME certbot dan redirect 301 ke HTTPS, jadi
+> `curl http://IP_VPS/health` di bawah akan dapat redirect, bukan respons
+> backend. Kalau nginx sudah dipasang dengan config baru (Step 7) tapi
+> domain/HTTPS ("Deploy PWA § 1") belum jalan, uji backend langsung dari
+> SSH ke VPS: `curl http://127.0.0.1:8000/health` (lewat systemd, bukan
+> nginx — sama seperti Step 6). Setelah domain + HTTPS aktif, ulangi tes
+> dari luar dengan prefiks `/api/` di atas HTTPS, mis.
+> `curl https://<domain>/api/health`.
+
 Dari laptop:
 ```bash
 curl http://IP_VPS/health
@@ -110,6 +133,14 @@ curl -X POST http://IP_VPS/auth/register -H "Content-Type: application/json" \
 Swagger UI: `http://IP_VPS/docs`
 
 ## 9. HTTPS nanti (saat punya domain)
+
+> ⚠️ **Sudah digantikan oleh "Deploy PWA § 1. Domain + HTTPS"** (di bawah,
+> setelah diagram arsitektur). `nginx-fortunas.conf` sekarang memakai
+> skema same-origin — satu domain untuk PWA + API (placeholder
+> `FORTUNAS_DOMAIN`, di-`sed` sekali), BUKAN subdomain `api.*` terpisah
+> seperti langkah 3-4 di bawah. Langkah 1-4 ini peninggalan era
+> backend-only/IP — referensi historis saja, jangan diikuti untuk deploy PWA.
+
 1. Arahkan domain (A record) ke IP_VPS.
 2. Edit `server_name` di nginx ke domain.
 3. `apt install certbot python3-certbot-nginx && certbot --nginx -d api.domainmu.com`
@@ -125,12 +156,20 @@ Swagger UI: `http://IP_VPS/docs`
 ---
 
 ## Ringkasan arsitektur produksi
+
+> Diagram di bawah sudah versi same-origin (pasca Task 9). nginx :80 cuma
+> redirect ke HTTPS + ACME challenge; API tidak lagi diproxy langsung di
+> root seperti sebelumnya — lihat "Deploy PWA" untuk detail & runbooknya.
+
 ```
-Mobile App  ──HTTP──►  nginx :80 (VPS)  ──►  uvicorn :8000 (systemd, 2 workers)
-                                               │
-                                               ├─► BigQuery (data per-tenant: {prefix}_transactions/_customers)
-                                               ├─► Gemini API (LLM)
-                                               └─► SQLite app/data/fortunas.db (akun & tenant)
+Browser (PWA)  ──HTTPS:443──►  nginx (VPS)  ─┬─ /            → PWA statis (/var/www/fortunas)
+                                              ├─ /api/  ──(strip prefix)──► uvicorn :8000 (systemd, 2 workers)
+                                              └─ /media/ (tanpa strip) ────►      │
+                                                                                   ├─► BigQuery (data per-tenant: {prefix}_transactions/_customers)
+                                                                                   ├─► Gemini API (LLM)
+                                                                                   └─► SQLite app/data/fortunas.db (akun & tenant)
+
+nginx :80  ──►  redirect 301 ke HTTPS (kecuali /.well-known/acme-challenge/ untuk certbot)
 ```
 
 ---
@@ -155,6 +194,8 @@ sudo sed -i 's/FORTUNAS_DOMAIN/fortunas.duckdns.org/g' \
   /etc/nginx/sites-available/fortunas
 
 # 3. Terbitkan sertifikat
+# (mkdir di bawah untuk fallback webroot mode; --nginx tidak memakainya,
+#  tapi murah untuk disiapkan sekarang — lihat komentar di nginx-fortunas.conf)
 sudo mkdir -p /var/www/certbot
 sudo certbot --nginx -d fortunas.duckdns.org
 
