@@ -59,6 +59,32 @@ push/PR dipegang controller/tim, di luar scope task ini.
 - **`android/` dan `ios/`** — tetap ada, tidak dihapus. `flutter build apk` masih harus bisa
   jalan untuk demo juri, jadi kedua folder platform native ini dipertahankan meski kanal rilis
   utama sekarang PWA.
+- **`--wasm`/skwasm (jalur render WasmGC)** — DITUNDA, tapi alasannya **bukan lagi dependency**.
+  `flutter_secure_storage` (dulu `^9.2.2`, ter-resolve ke `9.2.4`) memakai `dart:html`/`package:js`
+  yang gagal kompilasi WasmGC; Task 6 (`d74b792`) menaikkannya ke `^10.3.1` untuk alasan lain
+  (web token store di §"Apa yang berubah"), dan itu **sekaligus** menghilangkan `js` dari
+  dependency tree — jalur `--wasm` sekarang **terbuka secara teknis**, cuma belum dicoba siapa
+  pun. Tetap ditunda atas dasar risiko-vs-hasil dari spec
+  (`brainstorming/specs/2026-08-06-pwa-responsive-shell-design.md` §5, di folder induk `Fortunas/`):
+  penghematan hanya ≈0,45–0,58 MB gzip di browser yang mendukung WasmGC (Chrome/Edge 119+,
+  Firefox 120+, **Safari 18.2+** — banyak iPhone UMKM masih di bawah versi itu dan otomatis
+  fallback ke jalur JS/CanvasKit lama), Flutter sendiri masih memberi peringatan
+  *"WebAssembly compilation is new. Understand the details before deploying to production"*,
+  waktu build CI terukur naik dari 41,7 detik ke 117,9 detik, dan render engine yang berbeda
+  berarti **seluruh 22 layar (13 UMKM + 9 customer) wajib diverifikasi ulang di browser** sebelum
+  aman dipakai produksi.
+- **Semantics accessibility** — belum disentuh sama sekali di branch ini. CanvasKit merender
+  seluruh app sebagai satu `<canvas>`; snapshot accessibility halaman hanya menghasilkan tombol
+  "Enable accessibility" tanpa elemen semantik lain di baliknya. Relevan kalau naskah paper
+  menyinggung aksesibilitas, tapi eksplisit di luar cakupan branch ini (spec §6).
+- **`frontend/` React** — dipertahankan sebagai arsip/rujukan desain, **tidak dihapus**
+  (`git diff --name-only 135253b HEAD | grep '^frontend/'` kosong — nol file di bawah `frontend/`
+  tersentuh branch ini). Spec §6 mensyaratkan folder ini "ditandai arsip di README-nya" — status
+  itu **belum terpenuhi sebelum revisi handoff ini** (tidak ada `frontend/README.md` sebelumnya).
+  Ditutup sekarang lewat `frontend/README.md` (baru): app ini bukan client yang di-ship (client
+  yang di-ship = Flutter di `mobile/`, rilis PWA), disimpan karena 6 layar + voice flow Web Speech
+  API-nya (`frontend/src/voice/useSpeechRecognition.js`) masih rujukan desain untuk 13 layar UMKM,
+  dan tidak dibangun/dites/di-gate CI.
 
 ---
 
@@ -164,7 +190,7 @@ Ditulis apa adanya sesuai ledger (`.superpowers/sdd/2026-08-06-pwa-responsive-sh
    `bottomNavigationBar`/`extendBody`) padahal bisa disatukan jadi satu `Scaffold` dengan field
    kondisional. Ditahan demi diff minimality selagi edit dev lain di file yang sama belum di-push.
 
-3. **Ketidakcocokan tier di rentang viewport 1024–1224px** — dikonfirmasi lewat pembacaan kode
+3. **Ketidakcocokan tier di rentang viewport 1024–1223px** — dikonfirmasi lewat pembacaan kode
    (`app.dart:126` + `adaptive_shell.dart:29-33`), bukan cuma disalin dari catatan: tier untuk
    memutuskan rail *extended* dihitung dari **lebar viewport penuh** (`shellTierFor(constraints.maxWidth)`
    di `ShellRoute` builder, sebelum rail memakan tempat), sedangkan `AdaptiveShell` di dalam
