@@ -149,6 +149,45 @@ void main() {
               'GoRouterState.of(context)');
     });
 
+    // `GoRouterState.of` melempar GoError kalau tidak ada GoRouterState untuk
+    // route di atas context-nya, dan go_router mendokumentasikan bahwa ia TIDAK
+    // boleh dipanggil selama `ShellRoute.pageBuilder` (`state.dart:96-100`).
+    // Shell customer di `app.dart` justru menaruh PhoneFrame DI DALAM
+    // `ShellRoute.builder` — satu-satunya tempat PhoneFrame membungkus shell,
+    // bukan dibungkus route biasa. Kalau posisi itu tidak didukung, 5 layar
+    // customer crash sekaligus. Bentuknya ditiru di sini supaya jalur itu
+    // benar-benar dieksekusi, bukan cuma dinalar dari dokumentasi.
+    testWidgets('PhoneFrame di dalam ShellRoute.builder membaca lokasi anaknya',
+        (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(1440, 900);
+      addTearDown(tester.view.reset);
+      final router = GoRouter(
+        initialLocation: '/customer/home',
+        routes: [
+          ShellRoute(
+            builder: (context, state, child) => PhoneFrame(
+              child: Scaffold(body: child, bottomNavigationBar: const SizedBox(height: 56)),
+            ),
+            routes: [
+              GoRoute(
+                path: '/customer/home',
+                builder: (_, __) =>
+                    const SizedBox.expand(key: Key('shell_probe')),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      // 430, bukan 840: berarti lokasi yang terbaca `/customer/home` (bukan
+      // string kosong yang akan dianggap UMKM), dan tidak ada GoError.
+      expect(tester.getSize(find.byKey(const Key('shell_probe'))).width,
+          kPhoneOnlyFrameWidth);
+    });
+
     testWidgets('route customer yang di-push tetap dikurung 430',
         (tester) async {
       tester.view.devicePixelRatio = 1.0;
