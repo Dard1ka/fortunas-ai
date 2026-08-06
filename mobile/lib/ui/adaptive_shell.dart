@@ -62,8 +62,18 @@ bool isPhoneOnlyRoute(String location) => location.startsWith('/customer/');
 /// - `phoneOnly: false` — adaptif: `compact` identik lebar penuh; `medium` dan
 ///   `expanded` mengurung konten pada lebar baca dengan gutter terjamin.
 ///
-/// Tinggi selalu dipaku ke `constraints.maxHeight`: tanpa itu `Scaffold` di
-/// dalamnya kolaps dan bottom nav mengambang di tengah layar.
+/// Tinggi selalu dipaku ke `constraints.maxHeight`. Yang diselamatkan baris itu
+/// adalah child yang **tidak greedy** — mis. `Column(mainAxisSize: min)`: tanpa
+/// tinggi eksplisit, `Center` di `_framed` hanya memberi constraint tinggi yang
+/// loose, child menyusut ke tinggi isinya sendiri, lalu dipusatkan di tengah
+/// viewport.
+///
+/// **`Scaffold` justru kebal** dan bukan alasan baris itu ada: ia menentukan
+/// ukurannya sendiri dari `constraints.biggest`, jadi ia mengisi tinggi maksimum
+/// yang tersedia entah constraint yang masuk tight atau loose. Terverifikasi
+/// dua arah di `test/ui/adaptive_shell_test.dart` — test `Scaffold` di sana
+/// tetap hijau kalau baris ini dihapus, test `Column(mainAxisSize: min)` di
+/// bawahnya tidak.
 class AdaptiveShell extends StatelessWidget {
   final Widget child;
   final bool phoneOnly;

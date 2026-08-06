@@ -54,26 +54,53 @@ const double kPhoneFrameWidth = kPhoneOnlyFrameWidth;
 /// [isPhoneOnlyRoute]), sehingga tidak ada satu baris route pun yang perlu
 /// diedit. Logika layout-nya sendiri ada di [AdaptiveShell].
 ///
-/// Ditempatkan DI DALAM route builder (bukan `MaterialApp.builder`) supaya
-/// constraint yang masuk sudah bounded — kalau tidak, `Scaffold` kolaps dan
-/// bottom nav mengambang di tengah.
+/// Ditempatkan DI DALAM route builder (bukan `MaterialApp.builder`) untuk dua
+/// alasan yang keduanya keras:
+/// 1. Constraint yang masuk sudah bounded, sehingga [AdaptiveShell] bisa memaku
+///    tinggi ke `constraints.maxHeight` — tanpa itu child yang **tidak greedy**
+///    (mis. `Column(mainAxisSize: min)`) menyusut ke tinggi isinya dan
+///    dipusatkan di tengah viewport. (`Scaffold` sendiri kebal: ia memakai
+///    `constraints.biggest`. Lihat catatan di `ui/adaptive_shell.dart`.)
+/// 2. `GoRouterState.of(context)` di [build] butuh `ModalRoute` route ini di
+///    atas context-nya. Di `MaterialApp.builder` — di atas Navigator — ia
+///    melempar `GoError`, bukan diam-diam salah.
 class PhoneFrame extends StatelessWidget {
   final Widget child;
   const PhoneFrame({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    // maybeOf: pembacaan NON-REAKTIF — InheritedGoRouter.updateShouldNotify
-    // selalu false (go_router router.dart:261-263 malah mendokumentasikan
-    // "will not cause rebuild if the state has changed"). Ini aman di sini
-    // HANYA karena setiap PhoneFrame dibangun ulang oleh builder route-nya
-    // sendiri setiap kali GoRouter merender halaman baru — JANGAN pernah
-    // mengangkat PhoneFrame ke atas Navigator (mis. ke MaterialApp.builder):
-    // ia akan dibangun sekali saja dan lokasinya tidak akan pernah ter-update.
+    // Lokasi dibaca lewat `GoRouterState.of(context)`, BUKAN
+    // `GoRouter.of(context).state`. Bedanya menentukan benar/salah, bukan gaya:
     //
-    // PhoneFrame bisa dirender di luar router (mis. dalam test); lokasi
-    // kosong diperlakukan sebagai route UMKM.
-    final location = GoRouter.maybeOf(context)?.state.uri.path ?? '';
+    // - `GoRouter.state` (go_router 14.8.1 `router.dart:257-264`) adalah
+    //   **puncak stack** — "the state of the route that was last used in either
+    //   GoRouter.go or GoRouter.push". Setiap PhoneFrame yang sedang berada
+    //   DI BAWAH route lain yang di-push akan ikut membaca lokasi route paling
+    //   atas, bukan lokasinya sendiri.
+    // - `GoRouterState.of(context)` (`state.dart:118`) adalah **per-route** dan
+    //   reaktif: ia menelusuri ModalRoute di atas `context` lalu mengambil state
+    //   yang terdaftar untuk Page route ITU (`builder.dart:219`), jadi tiap
+    //   PhoneFrame membingkai route-nya sendiri.
+    //
+    // Kenapa ini penting: `login_screen.dart` melakukan
+    // `context.push('/customer/login')` dari layar login UMKM, jadi stack
+    // dua-dalam lintas-audiens (UMKM di bawah, customer di atas) memang terjadi
+    // di app ini. Dengan pembacaan puncak-stack, layar UMKM di bawahnya ikut
+    // menyusut ke kolom HP 430px begitu ia dibangun ulang — terukur 840→430
+    // pada saat animasi push (lihat `phone_frame_route_test.dart`, grup
+    // "stack dua-dalam"). Hari ini itu hanya tidak terlihat karena SEMUA
+    // call-site UMKM `const` dan Flutter tidak membangun ulang widget const;
+    // route yang membawa nilai runtime (`state.extra`, path/query param) TIDAK
+    // BISA `const`, dan route seperti itulah yang paling mungkin ditambahkan
+    // berikutnya. Jadi jangan bersandar pada const — bersandar pada baris ini.
+    //
+    // `maybeOf` dipakai murni sebagai penjaga null: `GoRouterState.of` MELEMPAR
+    // GoError kalau tidak ada router di atas context, dan PhoneFrame memang
+    // bisa dirender di luar router (mis. dalam widget test). Lokasi kosong
+    // diperlakukan sebagai route UMKM.
+    final router = GoRouter.maybeOf(context);
+    final location = router == null ? '' : GoRouterState.of(context).uri.path;
     // ColoredBox: mengecat gutter di luar kolom framed. Tanpa ini, region di
     // luar kolom 840/720/430px itu tidak dilukis siapa pun — MaterialApp
     // tidak menyisipkan surface root, jadi di mobile region itu clear ke
