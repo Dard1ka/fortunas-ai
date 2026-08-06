@@ -5,17 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../api/client.dart';
 import '../api/models.dart';
 import '../products/category_controller.dart';
 import '../products/product_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/screen_header.dart';
-
-/// Base URL backend — cermin dari api/client.dart (dipakai untuk URL gambar).
-const _apiBase = String.fromEnvironment(
-  'FORTUNAS_API',
-  defaultValue: 'http://127.0.0.1:8000',
-);
 
 /// Kelola produk UMKM: daftar barang + tambah barang (gambar WAJIB).
 /// Kode barang di-generate backend (2 huruf awal + urut, mis. ko-001).
@@ -358,7 +353,8 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imgUrl = product.imageUrl.isEmpty ? null : '$_apiBase${product.imageUrl}';
+    final joined = joinMediaUrl(kMediaBaseUrl, product.imageUrl);
+    final imgUrl = joined.isEmpty ? null : joined;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
