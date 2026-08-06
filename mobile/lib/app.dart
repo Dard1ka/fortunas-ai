@@ -31,43 +31,41 @@ import 'screens/register_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/tokens.dart';
+import 'ui/adaptive_shell.dart';
 import 'ui/bottom_nav.dart';
+import 'ui/nav_rail.dart';
 import 'voice/voice_flow.dart';
 
-/// Phone-width used to frame the mobile UI on wide viewports.
-const double kPhoneFrameWidth = 430.0;
+/// Lebar kolom phone-only. Dipertahankan sebagai alias publik supaya pemakai
+/// lama tidak putus; nilainya kini hidup di `ui/adaptive_shell.dart`.
+const double kPhoneFrameWidth = kPhoneOnlyFrameWidth;
 
-/// Frames its [child] in a centered phone-width column on wide viewports
-/// (web / desktop / tablet) so the mobile UI matches the design mockup
-/// instead of stretching edge-to-edge.
+/// Membingkai konten route sesuai viewport.
 ///
-/// Placed INSIDE route builders (not MaterialApp.builder) so the incoming
-/// constraints are tight/bounded — guaranteeing the child fills the full
-/// viewport height (otherwise the Scaffold collapses and the bottom nav
-/// floats in the middle).
+/// **Nama ini sengaja dipertahankan.** Ia dipanggil 21 kali oleh route builder
+/// di bawah, dan dengan mempertahankannya setiap route baru — termasuk yang
+/// ditambahkan dev lain — otomatis mendapat perilaku responsif tanpa perlu
+/// tahu apa pun soal shell.
+///
+/// Keputusan phone-vs-adaptif diturunkan dari **path route** (lihat
+/// [isPhoneOnlyRoute]), sehingga tidak ada satu baris route pun yang perlu
+/// diedit. Logika layout-nya sendiri ada di [AdaptiveShell].
+///
+/// Ditempatkan DI DALAM route builder (bukan `MaterialApp.builder`) supaya
+/// constraint yang masuk sudah bounded — kalau tidak, `Scaffold` kolaps dan
+/// bottom nav mengambang di tengah.
 class PhoneFrame extends StatelessWidget {
   final Widget child;
   const PhoneFrame({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        // Real phone (narrow): render full-screen, no frame.
-        if (constraints.maxWidth <= kPhoneFrameWidth) return child;
-
-        // Wide viewport: center a phone-width column at full viewport height.
-        return ColoredBox(
-          color: const Color(0xFFE9E4D8), // backdrop around the phone frame
-          child: Center(
-            child: SizedBox(
-              width: kPhoneFrameWidth,
-              height: constraints.maxHeight,
-              child: ClipRect(child: child),
-            ),
-          ),
-        );
-      },
+    // maybeOf: PhoneFrame bisa dirender di luar router (mis. dalam test);
+    // lokasi kosong diperlakukan sebagai route UMKM.
+    final location = GoRouter.maybeOf(context)?.state.uri.path ?? '';
+    return AdaptiveShell(
+      phoneOnly: isPhoneOnlyRoute(location),
+      child: child,
     );
   }
 }
@@ -99,16 +97,39 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       ShellRoute(
         builder: (context, state, child) {
-          // Wrap every primary tab in a Scaffold that owns the bottom nav.
-          // VoiceFlow does NOT use this shell — it's a top-level route below.
+          // Tab utama UMKM. Compact → bottom nav (persis seperti sebelumnya);
+          // viewport lebar → rail kiri + konten dibatasi lebar baca.
           final location = state.uri.path;
-          return PhoneFrame(
-            child: Scaffold(
-              backgroundColor: FortunasColors.bg,
-              extendBody: true,
-              body: SafeArea(bottom: false, child: child),
-              bottomNavigationBar: FortunasBottomNav(currentLocation: location),
-            ),
+          return LayoutBuilder(
+            builder: (ctx, constraints) {
+              final tier = shellTierFor(constraints.maxWidth);
+              if (tier == ShellTier.compact) {
+                return Scaffold(
+                  backgroundColor: FortunasColors.bg,
+                  extendBody: true,
+                  body: SafeArea(bottom: false, child: child),
+                  bottomNavigationBar:
+                      FortunasBottomNav(currentLocation: location),
+                );
+              }
+              return Scaffold(
+                backgroundColor: FortunasColors.bg,
+                body: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      FortunasNavRail(
+                        currentLocation: location,
+                        extended: tier == ShellTier.expanded,
+                      ),
+                      Expanded(
+                        child: AdaptiveShell(phoneOnly: false, child: child),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
         routes: [
