@@ -18,6 +18,8 @@ export default function HistoryScreen() {
   const [voiceTx] = useState(readVoiceHistory);
   const [briefings, setBriefings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [serverTx, setServerTx] = useState([]);
+  const [txLoading, setTxLoading] = useState(true);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -27,6 +29,14 @@ export default function HistoryScreen() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    // Riwayat transaksi tersimpan di BigQuery per-tenant (paritas layar
+    // Riwayat Flutter) — empty-safe saat BQ belum aktif.
+    api.umkmTransactions(200, ctrl.signal)
+      .then((data) => {
+        setServerTx(data?.transactions || []);
+        setTxLoading(false);
+      })
+      .catch(() => setTxLoading(false));
     return () => ctrl.abort();
   }, []);
 
@@ -42,6 +52,57 @@ export default function HistoryScreen() {
         <p style={{ color: 'var(--ink-3)', fontSize: 12.5, lineHeight: 1.5 }}>
           Transaksi voice + briefing harian yang tersimpan.
         </p>
+      </div>
+
+      {/* Transaksi tersimpan (BigQuery per-tenant) */}
+      <div style={{ padding: '0 18px 18px' }}>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            fontWeight: 600,
+            color: 'var(--ink-3)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: 10,
+          }}
+        >
+          Transaksi tersimpan ({serverTx.length})
+        </div>
+        {txLoading ? (
+          <EmptyHint>Memuat transaksi dari server…</EmptyHint>
+        ) : serverTx.length === 0 ? (
+          <EmptyHint>Belum ada transaksi tersimpan di server. Transaksi dari Kasir/voice akan muncul di sini.</EmptyHint>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {serverTx.slice(0, 20).map((tx) => (
+              <div
+                key={tx.invoice}
+                style={{
+                  background: 'var(--surface)',
+                  border: '1.5px solid var(--ink)',
+                  borderRadius: 14,
+                  padding: '12px 14px',
+                  boxShadow: '2px 2px 0 var(--ink)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13.5 }}>
+                    {tx.items?.length
+                      ? `${tx.items[0].product}${tx.items.length > 1 ? ` +${tx.items.length - 1} item` : ''}`
+                      : tx.invoice}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--violet)' }}>
+                    {rupiah(tx.total)}
+                  </span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--ink-3)', marginTop: 4 }}>
+                  {tx.invoice}{tx.customer ? ` · ${tx.customer}` : ''}{tx.invoice_date ? ` · ${tx.invoice_date}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Voice transactions */}

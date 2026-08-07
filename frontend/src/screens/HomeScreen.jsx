@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api/client.js';
 import useSpeechRecognition from '../voice/useSpeechRecognition.js';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
 import Pill from '../ui/Pill.jsx';
@@ -16,7 +17,21 @@ const EXAMPLE_QUESTIONS = [
 export default function HomeScreen({ onVoice }) {
   const [tab, setTab] = useState('tanya');
   const [text, setText] = useState('');
+  const [chips, setChips] = useState(EXAMPLE_QUESTIONS);
   const navigate = useNavigate();
+
+  // Chip contoh dari registry analisis (11 intent) — label dipakai langsung
+  // sebagai query tap-to-ask. Gagal fetch → chip default tetap tampil.
+  useEffect(() => {
+    const ctrl = new AbortController();
+    api.analyses(ctrl.signal)
+      .then((list) => {
+        const labels = (list || []).filter((a) => a.enabled).map((a) => a.label);
+        if (labels.length) setChips(labels.slice(0, 6));
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, []);
 
   // Voice-untuk-bertanya: dikte pertanyaan ke kotak input (BEDA dari mic bawah
   // yang membuka flow tambah transaksi). Tap mic → ngomong → tap lagi untuk stop.
@@ -214,7 +229,7 @@ export default function HomeScreen({ onVoice }) {
           Contoh pertanyaan
         </div>
         <div style={{ display: 'grid', gap: 8 }}>
-          {EXAMPLE_QUESTIONS.map((q) => (
+          {chips.map((q) => (
             <ExampleChip key={q} onClick={() => submit(q)}>{q}</ExampleChip>
           ))}
         </div>

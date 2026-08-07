@@ -74,15 +74,19 @@ async function request(path, { method = 'GET', body, signal, trackLatency = fals
 
 export const api = {
   health:       (signal)              => request('/health', { signal, auth: false }),
+  analyses:     (signal)              => request('/analyses', { signal, auth: false }),
   // ── Auth ──
   register:     (payload, signal)     => request('/auth/register', { method: 'POST', body: payload, signal, auth: false }),
   login:        (payload, signal)     => request('/auth/login', { method: 'POST', body: payload, signal, auth: false }),
   me:           (signal)              => request('/auth/me', { signal }),
+  updateAddress: (address, signal)    =>
+    request('/umkm/address', { method: 'PUT', body: { address }, signal }),
   // ── Data (butuh token) ──
   ask:          (question, signal)    =>
     request('/ask', { method: 'POST', body: { question }, signal, trackLatency: true }),
   briefing:     (signal)              => request('/briefing', { signal, trackLatency: true }),
   reportDaily:  (signal)              => request('/report/daily', { signal }),
+  umkmTransactions: (limit = 200, signal) => request(`/umkm/transactions?limit=${limit}`, { signal }),
   reportRun:    (signal)              => request('/report/daily/run', { method: 'POST', signal, trackLatency: true }),
   voiceParse:   (transcript, signal)  =>
     request('/voice/parse', { method: 'POST', body: { transcript }, signal }),

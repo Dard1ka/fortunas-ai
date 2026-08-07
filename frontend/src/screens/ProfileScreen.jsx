@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
 import Pill from '../ui/Pill.jsx';
 import Icon from '../ui/Icon.jsx';
+import Input from '../ui/Input.jsx';
+import Button from '../ui/Button.jsx';
 import { api } from '../api/client.js';
+import pkg from '../../package.json';
 
 const TEAM = [
   { name: 'Gregorius Darrel Andika Setya', role: 'Backend · Frontend · Pipeline' },
@@ -15,6 +18,28 @@ export default function ProfileScreen({ onLogout }) {
   const [health, setHealth] = useState(null);
   const [healthErr, setHealthErr] = useState(null);
   const [me, setMe] = useState(null);
+  const [address, setAddress] = useState('');
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeErr, setCodeErr] = useState(null);
+  const [newCode, setNewCode] = useState('');
+
+  // Kode publik UMKM (mis. KDS-001) — kunci alur pesanan pelanggan. Sumber:
+  // business_profile dari /auth/me; akun lama tanpa alamat bisa backfill di sini.
+  const publicCode = newCode || me?.business_profile?.code || '';
+
+  const submitAddress = async () => {
+    if (!address.trim()) return;
+    setCodeBusy(true);
+    setCodeErr(null);
+    try {
+      const r = await api.updateAddress(address.trim());
+      setNewCode(r.code || '');
+    } catch (err) {
+      setCodeErr(err.message || 'Gagal menyimpan alamat.');
+    } finally {
+      setCodeBusy(false);
+    }
+  };
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -32,7 +57,7 @@ export default function ProfileScreen({ onLogout }) {
       <div style={{ padding: '4px 18px 14px' }}>
         <Pill bg="var(--sky)" mono>SAYA</Pill>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', margin: '10px 0 4px' }}>
-          Fortunas AI · v2.0
+          Fortunas AI · v{pkg.version}
         </h2>
         <p style={{ color: 'var(--ink-3)', fontSize: 12.5, lineHeight: 1.5 }}>
           Status engine, info tim, dan pengaturan tampilan.
@@ -46,6 +71,24 @@ export default function ProfileScreen({ onLogout }) {
         <Row label="Email" value={me?.email || '—'} />
         <Row label="Workspace" value={me?.table_prefix || '—'} mono />
         {me?.business_profile?.jenis && <Row label="Jenis usaha" value={me.business_profile.jenis} />}
+        {publicCode ? (
+          <Row label="Kode publik" value={publicCode} mono />
+        ) : me ? (
+          <div style={{ padding: '10px 0 12px', borderTop: '1px dashed var(--border-soft)', display: 'grid', gap: 8 }}>
+            <Input
+              id="profile-address"
+              label="Alamat usaha"
+              placeholder="mis. Jl. Dhoho 12, Kediri"
+              hint="Untuk membuat kode publik UMKM (mis. KDS-001) — dipakai pelanggan saat memesan."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              error={codeErr}
+            />
+            <Button onClick={submitAddress} disabled={codeBusy || !address.trim()} style={{ justifySelf: 'start' }}>
+              {codeBusy ? 'Menyimpan…' : 'Buat kode publik'}
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       {/* AI engine card */}

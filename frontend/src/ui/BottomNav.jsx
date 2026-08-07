@@ -15,6 +15,7 @@ export default function BottomNav({ onVoice }) {
 
   return (
     <div
+      data-testid="bottom-nav"
       style={{
         position: 'fixed',
         bottom: 0,
