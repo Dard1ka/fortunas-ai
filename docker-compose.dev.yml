@@ -14,7 +14,19 @@
 
 services:
 
+  # ── ARSIP — tidak dipakai produksi ────────────────────────────────
+  # LLM aktif = Gemini 2.5 Flash via API (lihat app/llm_provider.py).
+  # Blok ini SENGAJA dipertahankan sebagai jejak migrasi: arsitektur LLM
+  # lokal ini pernah benar-benar dibangun dan masih dirujuk novelty #2 di
+  # proposal hibah. `profiles` membuatnya tidak ikut `docker compose up`,
+  # jadi tidak ada yang tanpa sengaja mengunduh model 4-5 GB untuk sesuatu
+  # yang tidak pernah dipanggil.
+  # Menjalankannya dengan sengaja:
+  #   docker compose -f docker-compose.dev.yml --profile archive up ollama
+  #   make pull-model
+  #   LLM_PROVIDER=ollama uvicorn app.main:app
   ollama:
+    profiles: ["archive"]
     image: ollama/ollama:latest
     container_name: fortunas_ollama_dev
     restart: unless-stopped
@@ -39,6 +51,8 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      # OLLAMA_BASE_URL: hanya terbaca kalau LLM_PROVIDER=ollama dipilih sengaja
+      # (service ollama di atas ada di profile "archive", tidak jalan default).
       OLLAMA_BASE_URL: http://ollama:11434
       CHROMA_DB_PATH: /data/chroma_db
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
@@ -54,9 +68,6 @@ services:
       - ./credentials:/app/credentials:ro
     ports:
       - "8000:8000"                             # exposed for direct Swagger access
-    depends_on:
-      ollama:
-        condition: service_healthy
     networks:
       - fortunas_net
     # Override entrypoint to enable --reload

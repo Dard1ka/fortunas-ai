@@ -30,6 +30,9 @@ class Settings(BaseModel):
     bigquery_dataset: str = os.getenv("BIGQUERY_DATASET", "fortunas_ai")
     bigquery_table: str = os.getenv("BIGQUERY_TABLE", "online_retail")
 
+    # ARSIP: hanya terbaca kalau LLM_PROVIDER=ollama dipilih secara sadar. Produksi
+    # memakai Gemini (lihat app/llm_provider.py); service ollama di docker-compose.yml
+    # ada di profile "archive" dan tidak ikut `docker compose up` default.
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
 

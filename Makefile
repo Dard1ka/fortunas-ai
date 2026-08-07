@@ -27,7 +27,7 @@ help:
 	@echo "  make dev           Start in DEVELOPMENT mode (hot reload)"
 	@echo "  make dev-down      Stop development stack"
 	@echo ""
-	@echo "  make pull-model    Pull qwen3:8b into Ollama (run once)"
+	@echo "  make pull-model    (ARSIP) Pull qwen3:8b — hanya untuk LLM_PROVIDER=ollama"
 	@echo "  make ingest        Re-run knowledge base ingest manually"
 	@echo "  make shell-backend Open shell inside backend container"
 	@echo "  make clean         Remove stopped containers + dangling images"
@@ -62,8 +62,8 @@ logs:
 logs-backend:
 	docker compose logs -f backend
 
-logs-ollama:
-	docker compose logs -f ollama
+logs-ollama:  # ARSIP — service ollama ada di profile "archive", lihat docker-compose.yml
+	docker compose --profile archive logs -f ollama
 
 # ── Status ───────────────────────────────────────────────────
 ps:
@@ -76,13 +76,13 @@ dev:
 dev-down:
 	docker compose -f docker-compose.dev.yml down
 
-# ── Ollama model ─────────────────────────────────────────────
+# ── Ollama model (ARSIP — hanya untuk LLM_PROVIDER=ollama) ────
 pull-model:
-	docker compose exec ollama ollama pull qwen3:8b
+	docker compose --profile archive exec ollama ollama pull qwen3:8b
 	@echo "✓ Model ready. Verify: make model-list"
 
 model-list:
-	docker compose exec ollama ollama list
+	docker compose --profile archive exec ollama ollama list
 
 # ── Knowledge base ───────────────────────────────────────────
 ingest:
@@ -93,8 +93,8 @@ ingest:
 shell-backend:
 	docker compose exec backend bash
 
-shell-ollama:
-	docker compose exec ollama bash
+shell-ollama:  # ARSIP — service ollama ada di profile "archive", lihat docker-compose.yml
+	docker compose --profile archive exec ollama bash
 
 # ── Cleanup ──────────────────────────────────────────────────
 clean:

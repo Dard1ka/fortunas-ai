@@ -1,8 +1,10 @@
 """Lapisan LLM provider-agnostic.
 
 Pilih backend via env LLM_PROVIDER:
-  - "ollama" (default) → model lokal (qwen3:8b) via Ollama
+  - "gemini" (default) → Gemini 2.5 Flash (API) — ini yang jalan di produksi
   - "openai"           → ChatGPT (OpenAI API)
+  - "ollama"           → model lokal (qwen3:8b) via Ollama — ARSIP, lihat
+                          docker-compose.yml; hanya aktif kalau dipilih sengaja
 
 Semua pemanggilan LLM di app (insight, voice parser, SQL agent) lewat
 `llm_generate()` supaya ganti provider cukup ubah .env tanpa sentuh kode.
@@ -25,7 +27,11 @@ load_dotenv()
 
 
 def get_provider() -> str:
-    return os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+    # Default "gemini": itu yang benar-benar dipakai produksi. Default lama "ollama"
+    # membuat deploy mana pun yang lupa menyetel LLM_PROVIDER gagal dengan
+    # connection-refused ke 127.0.0.1:11434 — pesan yang menunjuk ke arah yang salah,
+    # dan tidak ada satu test pun yang menangkapnya.
+    return os.getenv("LLM_PROVIDER", "gemini").strip().lower()
 
 
 def get_model() -> str:
@@ -59,6 +65,8 @@ def llm_generate(
 
 
 def _ollama_generate(prompt, json_mode, temperature, max_tokens, timeout) -> str:
+    # ARSIP — jalur ini masih berfungsi, dipilih lewat LLM_PROVIDER=ollama, tapi
+    # produksi memakai Gemini (lihat _gemini_generate / docker-compose.yml).
     import requests
 
     base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
