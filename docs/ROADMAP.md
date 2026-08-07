@@ -41,7 +41,7 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 7. DPA jadi "pagar" AI | ✅ selesai | **Backend SELESAI (PR #4)** + **UI mobile DPA (view+edit, chip editor, password confirm) — PR #12** |
 | 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6, PR #9)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
 
-**Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + intent routing untuk 4 topik inti saat itu — sekarang total **11**, lihat `app/analysis_registry.py`, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend. **Catatan Task 1d:** klien React (`frontend/`) yang dirujuk di baris ini sudah **dihapus dari repo** (Task 1b) — klien tunggal sekarang Flutter web (PWA).
+**Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + intent routing untuk 4 topik inti saat itu — sekarang total **11**, lihat `app/analysis_registry.py`, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend. **Catatan Task 1e:** klien React (`frontend/`) yang dirujuk di baris ini sempat dihapus lalu dipulihkan (Task 1b → Task 1e) — sekarang dipertahankan di repo sebagai arsip/rujukan desain, tidak dibangun/dites/di-gate CI. Klien tunggal yang di-ship tetap Flutter web (PWA).
 
 **Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #15, Day 9 slice 3)** → ~~QR render customer~~ ✅ **(PR #16, Day 9 slice 4)** → ~~Scan QR UMKM (#5 house)~~ ✅ **(PR #17, Day 10)**. **Sprint Day-9 + Day-10 SELESAI.** Semua UI mobile credential-free selesai. Sisa: kamera scan (`mobile_scanner`) = satu-satunya sisa mobile — butuh device fisik + native plugin config.
 
@@ -63,10 +63,10 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 Yang **sudah berdiri** (jangan dibangun ulang):
 
 - ✅ Backend FastAPI multi-tenant — BigQuery tabel per tenant, `TenantContext` dari JWT
-- ✅ Auth UMKM email/password (bcrypt + JWT) — **dipakai web demo React saat itu** (React sudah dihapus dari repo, Task 1b — klien tunggal sekarang Flutter web/PWA)
+- ✅ Auth UMKM email/password (bcrypt + JWT) — **dipakai web demo React saat itu** (React sempat dihapus lalu dipulihkan sebagai arsip/rujukan desain, Task 1b → Task 1e — klien tunggal yang di-ship tetap Flutter web/PWA)
 - ✅ LLM **Gemini 2.5 Flash** (`app/llm_provider.py`) + RAG (ChromaDB) + intent routing untuk **4 topik inti saat itu** (repeat_customer, high_value_customer, peak_hour, bundle_opportunity) — **Catatan Task 1d:** sudah bertambah jadi **11** analisis total (lihat `app/analysis_registry.py`). Ollama/Qwen3 masih ada di `docker-compose.yml` tapi **diarsipkan** (profile `archive`), bukan aktif.
 - ✅ Aplikasi **Flutter** — kerangka layar (home, briefing, history, profile) + alur voice transaction
-- ~~✅ Web demo React — sudah login/ask/voice~~ — **Catatan Task 1d:** `frontend/` (React) sudah **dihapus dari repo** (Task 1b). Klien tunggal sekarang Flutter web (PWA).
+- ~~✅ Web demo React — sudah login/ask/voice~~ — **Catatan Task 1e:** `frontend/` (React) sempat **dihapus dari repo** (Task 1b), lalu dipulihkan sebagai arsip/rujukan desain (Task 1e) — tidak dibangun/dites/di-gate CI. Klien tunggal yang di-ship tetap Flutter web (PWA).
 
 Yang **belum ada** (jadi target MVP): login di aplikasi HP, database produksi (PostgreSQL), seluruh sisi Customer, QR, DPA guardrail.
 

@@ -3,10 +3,12 @@
 > context use [`memory.md`](memory.md) and [`README.md`](README.md); for setup
 > see README Quick Start and [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Kept for history.
 >
-> Also outdated as of Task 1b: `mobile/android/`, `mobile/ios/`, and `frontend/`
-> (all referenced below as still present) have been removed from the repo. The
-> single shipped client is Flutter web (PWA), built from `mobile/` via
-> `flutter build web`.
+> Also outdated as of Task 1b: `mobile/android/` and `mobile/ios/` (referenced
+> below as still present) have been removed from the repo. The single shipped
+> client is Flutter web (PWA), built from `mobile/` via `flutter build web`.
+> `frontend/` (React) is retained in the repo as an archive / design
+> reference (Task 1e reverted that part of Task 1b) — not built, not tested,
+> not CI-gated, and not the shipped client.
 
 # AI_CONTEXT.md — Fortunas AI
 
@@ -14,7 +16,7 @@
 >
 > **Last updated:** 2026-05-19 (v2.2 — Flutter migration in progress)
 >
-> **Active frontend:** `mobile/` (Flutter), built to web only. The `frontend/` React PWA — described below as "retained as legacy reference" — has since been **deleted** (Task 1b); see `mobile/MIGRATION.md` for the original React → Flutter rationale.
+> **Active frontend:** `mobile/` (Flutter), built to web only. The `frontend/` React PWA — described below as "retained as legacy reference" — is still retained, now explicitly as an archive / design reference (Task 1e, after a brief deletion in Task 1b); see `mobile/MIGRATION.md` for the original React → Flutter rationale.
 
 ---
 
@@ -110,17 +112,19 @@ Target metrics (don't lower without discussion):
 - **fl_chart** 0.69 — charts (reserved for v2.3 KPI deep-dive)
 - **intl** 0.19 — Rp / date formatting
 
-### Frontend — **removed (Task 1b)**
-- Used to be React 19 + Vite (`frontend/package.json`, `react-router-dom`). The
-  folder and the nginx Docker image that served it were deleted;
-  the client is Flutter web only now.
+### Frontend — **archived (Task 1e, after a brief deletion in Task 1b)**
+- React 19 + Vite (`frontend/package.json`, `react-router-dom`) is retained in
+  the repo as an archive / design reference (`frontend/README.md`) — not
+  built, not tested, not CI-gated. The folder and the nginx Docker image that
+  serves it (`docker/frontend/`) are both present again; the shipped client
+  is still Flutter web only.
 
 ### Infra
-- **Docker** + Docker Compose v2 (production stack) — backend only by default
-  now that the `frontend`/nginx service is gone; `ollama` is still defined in
-  `docker-compose.yml` but sits behind `profiles: ["archive"]`, so it does not
-  start unless you run `docker compose --profile archive up ollama` on
-  purpose. See `DOCKER.md` for the current port-exposure caveat.
+- **Docker** + Docker Compose v2 (production stack) — `backend` and an
+  archived `frontend` (nginx + React build) by default; `ollama` is still
+  defined in `docker-compose.yml` but sits behind `profiles: ["archive"]`, so
+  it does not start unless you run `docker compose --profile archive up
+  ollama` on purpose. See `DOCKER.md` for the current port-exposure caveat.
 
 ### Dataset
 - **UCI Online Retail** (Chen, 2015) — ±1M rows seeded into BigQuery table `fortunasai.fortunas_ai.online_retail`
@@ -167,7 +171,11 @@ fortunas-ai/
 │   └── README.md                 # quick start
 │   # NOTE: mobile/android/ and mobile/ios/ (native platform targets) were
 │   # removed in Task 1b — only mobile/web/ is built and shipped.
-├── docker/                       # backend/ (Dockerfile, entrypoint.sh), ollama/ — frontend/ removed in Task 1b
+├── frontend/                     # React 19 + Vite — ARCHIVED (Task 1e, after a
+│                                 #   brief deletion in Task 1b): not built, not
+│                                 #   tested, not CI-gated, not the shipped client.
+│                                 #   See frontend/README.md.
+├── docker/                       # backend/ (Dockerfile, entrypoint.sh), ollama/, frontend/ (nginx + React build, archived)
 ├── docs/                         # Fortunas-AI-Overview.pdf + generate_pdf.py + LinkedIn drafts
 ├── docker-compose.yml            # production stack
 ├── docker-compose.dev.yml        # hot-reload dev stack
@@ -187,11 +195,12 @@ fortunas-ai/
 
 This deserves its own section because the surface-level pitch ("data never leaves the server") has a real exception at the STT step. Be transparent about it in any user-facing material you generate.
 
-> **Task 1b note:** this section documents the React-era implementation
-> (`frontend/src/voice/useSpeechRecognition.js`), since deleted along with the
-> rest of `frontend/`. The trade-off reasoning is kept for history; the code
-> path itself no longer exists. Current voice input lives in the Flutter app
-> (`mobile/lib/voice/`) via the `speech_to_text` package (see §3).
+> **Task 1b/1e note:** this section documents the React-era implementation
+> (`frontend/src/voice/useSpeechRecognition.js`). That file is retained in the
+> repo — `frontend/` is archived, not deleted (Task 1e reverted Task 1b's
+> deletion) — but the code path is not built, not run, and not shipped. The
+> trade-off reasoning is kept for history. Current voice input lives in the
+> Flutter app (`mobile/lib/voice/`) via the `speech_to_text` package (see §3).
 
 ### What we actually use
 
@@ -240,11 +249,14 @@ Until that ships, anyone documenting the system should describe STT as "browser-
 
 ## 5. Request flows (end-to-end)
 
-> **Task 1b note:** the frontend-side steps below (screen names, routes, the
-> Vite proxy) describe the removed React client and are stale. The
-> backend-side steps (`app/api/routes/*` → `app/services/pipeline.py` →
-> intent mapping → BigQuery → RAG → LLM) remain accurate — only the client
-> calling these endpoints changed (Flutter web, `mobile/lib/api/client.dart`).
+> **Task 1b/1e note:** the frontend-side steps below (screen names, routes,
+> the Vite proxy) describe the React client, which is no longer the shipped
+> one and are stale as a result — the code itself is still in the repo,
+> archived (`frontend/`, Task 1e reverted Task 1b's deletion), just not
+> built/run/shipped. The backend-side steps (`app/api/routes/*` →
+> `app/services/pipeline.py` → intent mapping → BigQuery → RAG → LLM) remain
+> accurate — only the client calling these endpoints changed (Flutter web,
+> `mobile/lib/api/client.dart`).
 
 ### Flow A: "Ask a business question" — `POST /ask`
 
@@ -435,7 +447,7 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 
 6. **APScheduler in dev with `--reload`.** uvicorn's reload spawns a fresh process each code change; the scheduler restarts too. Briefing job will run only after the next cron tick post-restart. Verify by checking timestamps in `app/data/daily_reports.json`.
 
-7. **CORS.** `app/core/config.py` (`CORS_ORIGINS` env var) defaults to `localhost:3000`, `127.0.0.1:3000`, `:5173` — leftover from the removed React dev server ports. The `nginx`-serves-frontend same-origin scenario no longer applies (Task 1b removed that Docker service). Whatever origin actually serves the Flutter web build (`flutter run -d chrome`'s dev port, or the deployed PWA's domain) needs to be in `CORS_ORIGINS` if it isn't already.
+7. **CORS.** `app/core/config.py` (`CORS_ORIGINS` env var) defaults to `localhost:3000`, `127.0.0.1:3000`, `:5173` — these match the *archived* React dev server's ports (`frontend/`, Task 1e restored it after Task 1b's deletion; Vite dev server listens on `:3000` in `docker-compose.dev.yml`, `:5173` via a bare local `npm run dev`), not the shipped Flutter client. The `nginx`-serves-frontend same-origin scenario (`docker-compose.yml`'s `frontend` service) exists again too, but that's the archived/design-reference path — not the supported deploy (`deploy/nginx-fortunas.conf`, where the PWA and API share an origin instead). Whatever origin actually serves the Flutter web build (`flutter run -d chrome`'s dev port, or the deployed PWA's domain) needs to be in `CORS_ORIGINS` if it isn't already.
 
 8. **`get_*_agent()` are `lru_cache`d in `app/core/deps.py`.** If you change `.env` (especially BigQuery or LLM provider settings — `LLM_PROVIDER`, `GEMINI_API_KEY`, `OLLAMA_*`), restart uvicorn — the cache doesn't observe env changes.
 
@@ -461,7 +473,7 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 3. Extend the rule set in `app/intent_mapper.py` so questions like *"berapa pesanan yang batal?"* map to the new key.
 4. If the prompt structure differs from the 11 existing analyses, extend `app/prompt_builder.py`.
 5. Optionally add a Markdown doc to `app/knowledge/umkm_docs/` and run `POST /ingest?reset=true` to refresh RAG.
-6. Add entries to the `_iconFor`/`_colorFor` maps in `mobile/lib/screens/briefing_screen.dart` so the KPI card renders. (Historical note: this used to be `frontend/src/screens/BriefingScreen.jsx`; the React client was removed — see Task 1b, day-18 handoff.)
+6. Add entries to the `_iconFor`/`_colorFor` maps in `mobile/lib/screens/briefing_screen.dart` so the KPI card renders. (Historical note: this used to be `frontend/src/screens/BriefingScreen.jsx`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Adding a new API route
 
@@ -469,14 +481,14 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 2. Define request/response Pydantic models in `app/schemas.py` (not in the route file).
 3. Register in `app/main.py:create_app()` via `app.include_router(<name>.router)`.
 4. Put business logic in `app/services/<name>_service.py` if it's >30 LOC.
-5. Add client method to `mobile/lib/api/client.dart`. (Historical note: this used to also touch `frontend/src/api/client.js`; the React client was removed — see Task 1b, day-18 handoff.)
+5. Add client method to `mobile/lib/api/client.dart`. (Historical note: this used to also touch `frontend/src/api/client.js`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Adding a new screen
 
 1. Create `mobile/lib/screens/<name>_screen.dart`. Reuse `ScreenHeader`, `Pill`, `Icon` etc. from `mobile/lib/ui/`.
 2. Add a route entry in `mobile/lib/app.dart` (go_router).
 3. Update `mobile/lib/ui/bottom_nav.dart` if it deserves a tab.
-(Historical note: this recipe used to target `frontend/src/screens/*.jsx`, `App.jsx`, `BottomNav.jsx`; the React client was removed — see Task 1b, day-18 handoff.)
+(Historical note: this recipe used to target `frontend/src/screens/*.jsx`, `App.jsx`, `BottomNav.jsx`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Generating the overview PDF
 
@@ -515,9 +527,11 @@ ollama serve
 ### Viewing the app
 
 The single shipped client is **Flutter web (PWA)** (in `mobile/`). As of Task 1b,
-`mobile/android/` and `mobile/ios/` (native platform targets) and `frontend/`
-(the React client) have been removed from the repo — only the web target is
-built and shipped:
+`mobile/android/` and `mobile/ios/` (native platform targets) have been removed
+from the repo — only the web target is built and shipped. `frontend/` (the
+React client) was also removed by Task 1b, then restored by Task 1e as an
+archive / design reference — it is back in the repo but still not built, not
+tested, and not shipped:
 
 ```bash
 cd mobile

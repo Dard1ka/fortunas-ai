@@ -43,9 +43,23 @@ Kanal rilis produk = **PWA yang dibangun dari Flutter web** (`flutter build web`
 Turunannya yang sudah dieksekusi:
 - `mobile/android/`, `mobile/ios/` **dihapus** (2026-08-07) — demo juri memakai PWA yang sudah
   ter-deploy, bukan APK sideload.
-- `frontend/` (React) **dihapus** — sudah tidak dibangun, tidak dites, tidak di-gate CI.
+- `frontend/` (React) sempat **dihapus** lalu **dipulihkan** sebagai arsip/rujukan desain (Task
+  1e, 2026-08-07, membatalkan sebagian keputusan ini) — lihat amandemen di bawah.
 - Layar webview Midtrans Snap **dihapus** — `webview_flutter` nol dukungan web.
 - `PhoneFrame` 430 px diganti `AdaptiveShell` tiga tier (compact / medium / expanded).
+
+> **Amandemen (Task 1e, 2026-08-07):** menghapus `frontend/` dari repo ternyata melangkah
+> terlalu jauh dan sudah dibatalkan. Kanal rilis (PWA Flutter web, native tidak dirilis) tetap
+> berlaku persis seperti keputusan ADR ini — yang berubah cuma satu turunan di atas. Alasannya:
+> React tetap secara arsitektur jalur yang lebih tepat untuk produk web-only (DOM asli, payload
+> ~0,2 MB vs Flutter web yang terukur 3,28 MB, accessibility dan SEO jalan — lihat tabel "Biaya"
+> di bawah) dan merupakan stack yang benar-benar di-*commit* proposal hibah (React 19 + Vite);
+> menghapusnya menghapus bukti bahwa stack yang dijanjikan itu pernah dibangun. `frontend/`
+> sekarang berstatus arsip/rujukan desain (`frontend/README.md`) — tidak dibangun, tidak dites,
+> tidak di-gate CI, bukan klien yang di-ship. Migrasi kembali ke React sebagai klien yang
+> di-ship **tetap terbuka sebagai pekerjaan pasca-hibah**, kalau tim suatu saat memutuskan
+> keunggulan arsitektur itu sepadan dengan biaya menulis ulang dari 6 layar React ke paritas
+> dengan 22 layar Flutter saat ini.
 
 ## Alternatif yang dipertimbangkan
 
@@ -99,7 +113,7 @@ bertanya. Dipetakan di `Fortunas/PROPOSAL_VS_REALITA.md`.
 
 | Kapan | Biaya membatalkan |
 |---|---|
-| **Sekarang** (branch `feat/ui-polish-pwa` belum di-merge) | **Murah.** `git checkout 41d595f -- mobile/android mobile/ios frontend` |
+| **Sekarang** (branch `feat/ui-polish-pwa` belum di-merge) | **Murah.** `frontend/` sudah dipulihkan (Task 1e); sisa `git checkout 41d595f -- mobile/android mobile/ios` untuk membatalkan sisa keputusan ini |
 | Setelah PR ini di-merge | Sedang — perlu revert lintas commit |
 | Setelah deploy `app.fortunas.id` | Mahal — DNS, sertifikat, dan ekspektasi pengguna ikut terlibat |
 

@@ -115,7 +115,7 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 |---|---|---|
 | **Python 3.12** | Backend | ✅ |
 | **Flutter SDK 3.27+** | Mobile | ✅ |
-| ~~**Node 20+**~~ | ~~Frontend React (kalau perlu cek)~~ — **superseded**: `frontend/` (React) sudah dihapus dari repo (Task 1b). Klien tunggal sekarang Flutter web (PWA). | ❌ tidak perlu lagi |
+| **Node 20+** (opsional) | Frontend React (`frontend/`) — dipertahankan di repo sebagai arsip/rujukan desain (Task 1e), tidak dibangun/dites/di-gate CI. Klien tunggal yang di-ship tetap Flutter web (PWA). | ❌ tidak wajib untuk alur MVP — hanya perlu kalau menyentuh arsip `frontend/` |
 | **PostgreSQL 15** atau Docker | DB lokal | ✅ |
 | **Git + GitHub CLI (`gh`)** | Version control | ✅ |
 | **VS Code** + extensions: Python, Dart, Flutter, GitLens | Editor | ✅ |

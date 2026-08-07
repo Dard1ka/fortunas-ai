@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#f7e3a8"/>
+      <stop offset="55%" stop-color="#e8c36a"/>
+      <stop offset="100%" stop-color="#9c7228"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a2d3c"/>
+      <stop offset="100%" stop-color="#0f1018"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- background tile -->
+  <rect x="0" y="0" width="256" height="256" rx="52" fill="url(#shine)"/>
+
+  <!-- thin gold inner border -->
+  <rect x="8" y="8" width="240" height="240" rx="46" fill="none"
+        stroke="url(#gold)" stroke-width="1.5" opacity="0.55"/>
+
+  <!-- serif F -->
+  <text x="128" y="192" font-family="Georgia, 'Times New Roman', serif"
+        font-size="210" font-weight="bold" fill="url(#gold)"
+        text-anchor="middle" filter="url(#glow)">F</text>
+
+  <!-- tiny spark / decorative dot -->
+  <circle cx="186" cy="78" r="5" fill="url(#gold)" opacity="0.9"/>
+  <circle cx="196" cy="68" r="2" fill="#f7e3a8" opacity="0.9"/>
+</svg>

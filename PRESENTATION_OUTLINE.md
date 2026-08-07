@@ -40,7 +40,7 @@ BigQuery (execute query, return rows)
 LLM Provider (Gemini 2.5 Flash aktif; Ollama/Qwen3 diarsipkan, lihat app/llm_provider.py) → insight + rekomendasi
   |
   v
-Client (Flutter Web PWA — dibangun dari mobile/, klien React lama sudah dihapus)
+Client (Flutter Web PWA — dibangun dari mobile/; klien React lama tetap ada di frontend/ sebagai arsip/rujukan desain, bukan yang di-ship)
 ```
 
 ## 4. Core Features
@@ -61,7 +61,7 @@ Client (Flutter Web PWA — dibangun dari mobile/, klien React lama sudah dihapu
 
 | Layer | Teknologi |
 |-------|-----------|
-| Client | Flutter Web (PWA) — klien React lama sudah dihapus |
+| Client | Flutter Web (PWA) — klien React lama tetap ada di `frontend/` sebagai arsip/rujukan desain, bukan yang di-ship |
 | Backend | FastAPI (Python) |
 | Database | Google BigQuery |
 | AI/LLM | **Gemini 2.5 Flash** (API, aktif) · Ollama/Qwen3:8b lokal (arsip, `LLM_PROVIDER=ollama`) |

@@ -43,7 +43,10 @@ app/data/*.db
 *.pyo
 
 # ── Node.js ──────────────────────────────────────────────────────
+frontend/node_modules/
 node_modules/
+frontend/dist/
+frontend/.vite/
 npm-debug.log*
 
 # ── IDE ──────────────────────────────────────────────────────────

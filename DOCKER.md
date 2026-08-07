@@ -1,14 +1,16 @@
 > ⚠️ **Bukan jalur deploy yang didukung.** Stack Docker ini terus disentuh
-> setelah rewrite multi-tenant + auth (Task 1b menghapus service `frontend`,
-> Task 1c mengarsipkan `ollama`) — jadi bukan "mendahului multi-tenant", tapi
-> tetap tidak merepresentasikan bentuk stack multi-tenant saat ini secara
-> cukup dekat untuk jadi jalur deploy resmi. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
+> setelah rewrite multi-tenant + auth (Task 1b sempat menghapus service
+> `frontend`, Task 1e memulihkannya sebagai arsip; Task 1c mengarsipkan
+> `ollama`) — jadi bukan "mendahului multi-tenant", tapi tetap tidak
+> merepresentasikan bentuk stack multi-tenant saat ini secara cukup dekat
+> untuk jadi jalur deploy resmi. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 > (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
 >
-> Catatan tambahan: service `frontend` (React, dulu di-build dari image nginx-nya sendiri) yang dirujuk
-> di dokumen ini sudah dihapus dari repo dan dari `docker-compose*.yml`. Klien
-> yang di-ship sekarang adalah **Flutter web (PWA)** di `mobile/`, dijalankan
-> di luar Docker (`flutter run -d chrome` / `flutter build web`).
+> Catatan tambahan: service `frontend` (React, di-build dari image nginx-nya
+> sendiri) yang dirujuk di dokumen ini ada kembali di `docker-compose*.yml`
+> (Task 1e) — tapi tetap arsip/rujukan desain, bukan klien yang di-ship. Klien
+> yang di-ship adalah **Flutter web (PWA)** di `mobile/`, dijalankan di luar
+> Docker (`flutter run -d chrome` / `flutter build web`).
 
 # Fortunas AI — Docker Setup Guide
 
@@ -48,6 +50,11 @@ Volumes:
   reports_data → daily briefing JSON
 ```
 
+> Diagram di atas menampilkan jalur yang dipakai untuk pengembangan (PWA di
+> luar Docker). `docker-compose.yml` juga punya service `fortunas_frontend`
+> (nginx + React build, port `3000:80`, `depends_on: backend`) — arsip/rujukan
+> desain (Task 1e), bukan bagian jalur ini dan bukan klien yang di-ship.
+
 > **Ollama sekarang ARSIP, bukan bagian default stack.** `docker compose up`
 > (tanpa flag tambahan) **tidak** menyalakan `fortunas_ollama` — servicenya
 > ada di `docker-compose.yml` tapi di balik `profiles: ["archive"]`. LLM aktif
@@ -55,10 +62,13 @@ Volumes:
 > normal tanpa Ollama. Untuk sengaja menjalankan jalur lokal arsip:
 > `docker compose --profile archive up ollama` + `LLM_PROVIDER=ollama` di `.env`.
 
-> **Catatan port & CORS:** dengan service `frontend`/nginx dihapus,
-> `docker-compose.yml` (production) sekarang mem-publish `8000:8000` langsung
-> di service `backend` — stack ini murni API-only. `CORS_ORIGINS` di file itu
-> berisi placeholder (`http://localhost`, `http://127.0.0.1`); sesuaikan
+> **Catatan port & CORS:** `docker-compose.yml` (production) mem-publish
+> `8000:8000` langsung di service `backend` — ini tetap benar meski service
+> `frontend` ada lagi (Task 1e), karena `frontend` mengakses backend lewat
+> nginx proxy internal-nya sendiri (`docker/frontend/nginx.conf`, `/api/*` →
+> `backend:8000`), bukan lewat port yang dipublish ke host. `CORS_ORIGINS` di
+> file itu berisi placeholder (`http://localhost`, `http://127.0.0.1`) untuk
+> pemanggil yang menghubungi `:8000` langsung dari origin lain — sesuaikan
 > dengan origin asli tempat PWA benar-benar disajikan (mis. port dev
 > `flutter run -d chrome`). Di jalur deploy yang didukung
 > (`deploy/nginx-fortunas.conf`), PWA dan API disajikan same-origin sehingga
@@ -158,8 +168,10 @@ fortunas_backend | INFO: Application startup complete.
 > nunggu ~2,5 menit (30x percobaan, jeda 5 detik) sebelum akhirnya lanjut. Itu
 > justru mengulang masalah yang mau dihindari arsip: backend tetap berlaku
 > seolah Ollama aktif walau sudah dipindah ke profile arsip. Sudah digate di
-> `entrypoint.sh` supaya wait-loop-nya hanya jalan kalau `LLM_PROVIDER=ollama`
-> beneran dipilih.
+> `entrypoint.sh` supaya wait-loop-nya skip untuk `LLM_PROVIDER=openai` atau
+> `gemini` dan jalan untuk nilai lain mana pun (Task 1e menyempurnakan gate-nya
+> supaya persis meniru routing `app/llm_provider.py`, bukan cuma cek string
+> `"ollama"` — lihat Troubleshooting di bawah untuk kenapa itu penting).
 >
 > Kalau kamu sengaja menjalankan `docker compose --profile archive up ollama` +
 > `LLM_PROVIDER=ollama`, log-nya jadi (persis seperti sebelumnya, tidak diubah
@@ -291,20 +303,33 @@ Fortunas/
 ## Troubleshooting
 
 ### "Ollama not ready after 30 attempts. Starting anyway..."
-Ini **normal, bukan error**, kalau kamu tidak sengaja pakai jalur arsip —
-backend tetap lanjut start dan bekerja normal dengan LLM aktif (Gemini), cuma
-delay ~2.5 menit di awal karena `entrypoint.sh` masih mencoba ping Ollama dulu.
-Kalau kamu memang sengaja mau pakai `LLM_PROVIDER=ollama`, pastikan service
-`ollama` dinyalakan dengan profile-nya:
-```bash
-docker compose --profile archive up -d ollama
-docker compose --profile archive ps
-docker compose --profile archive logs ollama
+Sejak `entrypoint.sh` di-gate (Task 1d, gate-nya disempurnakan lagi di Task 1e
+supaya persis meniru routing `app/llm_provider.py`), pesan ini **hanya bisa
+muncul** di jalur tunggu Ollama — yaitu kalau `LLM_PROVIDER` (setelah
+di-trim + lowercase) bukan persis `openai` atau `gemini`. Dengan
+`LLM_PROVIDER=gemini` (default, dan yang dipin di `.env.example` maupun
+`deploy/.env.production.example`), skrip **skip** wait ini sama sekali —
+pesan ini **tidak akan pernah muncul** di jalur default (lihat contoh log
+Step 3 di atas, tanpa delay).
 
-# Restart jika perlu
-docker compose --profile archive restart ollama
-docker compose restart backend
-```
+Kalau kamu benar-benar melihat pesan ini:
+- **Sengaja pakai jalur arsip** (`LLM_PROVIDER=ollama`) tapi lupa nyalakan
+  service-nya? Nyalakan dengan profile-nya:
+  ```bash
+  docker compose --profile archive up -d ollama
+  docker compose --profile archive ps
+  docker compose --profile archive logs ollama
+
+  # Restart jika perlu
+  docker compose --profile archive restart ollama
+  docker compose restart backend
+  ```
+- **Tidak sengaja?** Cek nilai `LLM_PROVIDER` di `.env` — kemungkinan kosong
+  atau typo (bukan persis `openai`/`gemini`). Nilai seperti itu bukan cuma
+  bikin `entrypoint.sh` menunggu Ollama: `app/llm_provider.py` sendiri juga
+  diam-diam merutekan ke `_ollama_generate()` lewat `else` bare untuk nilai
+  apa pun selain `openai`/`gemini` — jadi ini perilaku aplikasi yang nyata,
+  bukan cuma cerita startup script. Perbaiki nilainya jadi `gemini`.
 
 ### "Cannot connect to BigQuery"
 ```bash

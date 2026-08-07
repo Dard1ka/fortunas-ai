@@ -12,19 +12,27 @@ echo "================================================"
 echo " Fortunas AI Backend Starting..."
 echo "================================================"
 
-# ── 1. Wait for Ollama — ONLY if it's the selected provider ──
-# Default matches app/llm_provider.py's get_provider() default ("gemini"), so
-# this never disagrees with what the app itself will actually use. Ollama is
-# archived behind docker-compose's `profiles: ["archive"]` (Task 1c) — under
-# the default provider there is no `ollama` service in the stack to wait for,
-# so skip the wait instead of blocking ~2.5 minutes (30 retries x 5s) for a
-# host that will never come up.
-LLM_PROVIDER="${LLM_PROVIDER:-gemini}"
-LLM_PROVIDER_LOWER="$(echo "$LLM_PROVIDER" | tr '[:upper:]' '[:lower:]')"
+# ── 1. Wait for Ollama — ONLY if the app would actually route to it ──
+# Mirrors app/llm_provider.py's routing exactly, not just its default:
+# get_provider() does os.getenv("LLM_PROVIDER", "gemini").strip().lower(), and
+# llm_generate() special-cases only "openai" and "gemini" — everything else
+# (a typo, an empty string, or "ollama" itself) falls through a bare `else`
+# into _ollama_generate(). So the gate below skips the wait for openai/gemini
+# and waits for anything else, instead of matching "ollama" specifically —
+# that keeps it correct even for values neither side pins in practice.
+#
+# `${LLM_PROVIDER-gemini}` (no colon) applies the default only when the
+# variable is completely unset, matching os.getenv's own default behavior;
+# an explicitly empty `LLM_PROVIDER=` is left empty, same as Python sees it.
+LLM_PROVIDER="${LLM_PROVIDER-gemini}"
+LLM_PROVIDER_TRIMMED="$(printf '%s' "$LLM_PROVIDER" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+LLM_PROVIDER_LOWER="$(printf '%s' "$LLM_PROVIDER_TRIMMED" | tr '[:upper:]' '[:lower:]')"
 
-if [ "$LLM_PROVIDER_LOWER" = "ollama" ]; then
+if [ "$LLM_PROVIDER_LOWER" = "openai" ] || [ "$LLM_PROVIDER_LOWER" = "gemini" ]; then
+    echo "[1/3] LLM_PROVIDER=${LLM_PROVIDER} — skipping Ollama wait (not selected)."
+else
     OLLAMA_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
-    echo "[1/3] LLM_PROVIDER=ollama — waiting for Ollama at ${OLLAMA_URL}..."
+    echo "[1/3] LLM_PROVIDER=${LLM_PROVIDER} — waiting for Ollama at ${OLLAMA_URL}..."
 
     MAX_RETRIES=30
     COUNT=0
@@ -38,8 +46,6 @@ if [ "$LLM_PROVIDER_LOWER" = "ollama" ]; then
         sleep 5
     done
     echo "✓ Ollama is ready."
-else
-    echo "[1/3] LLM_PROVIDER=${LLM_PROVIDER} — skipping Ollama wait (not selected)."
 fi
 
 # ── 2. Run knowledge base ingest (only if chroma_db empty) ──

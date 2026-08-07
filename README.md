@@ -161,7 +161,7 @@ cd /opt/fortunas-ai && git pull && sudo systemctl restart fortunas-backend
 ```
 HTTPS (when a domain is available): certbot — see DEPLOY.md §9.
 
-> Docker files (`docker/`, `docker-compose*.yml`) remain in the repo and have kept getting touched after the multi-tenant/auth rewrite (Task 1b removed the `frontend` service, Task 1c archived `ollama`) — they don't predate it. They still don't reflect the current multi-tenant stack shape closely enough to be the supported deploy path, though — that's the VPS guide above.
+> Docker files (`docker/`, `docker-compose*.yml`) remain in the repo and have kept getting touched after the multi-tenant/auth rewrite (Task 1b removed the `frontend` service, Task 1e restored it as an archived/design-reference service, Task 1c archived `ollama`) — they don't predate it. They still don't reflect the current multi-tenant stack shape closely enough to be the supported deploy path, though — that's the VPS guide above.
 
 ---
 

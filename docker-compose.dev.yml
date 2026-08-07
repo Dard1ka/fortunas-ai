@@ -1,6 +1,7 @@
 # ============================================================
 #  Fortunas AI — docker-compose.dev.yml
-#  Development mode: hot-reload backend. The PWA (Flutter web) is not part of
+#  Development mode: hot-reload backend + Vite dev server for the archived
+#  React frontend. The PWA (Flutter web, the shipped client) is not part of
 #  this compose file — run it separately (`cd mobile && flutter run -d chrome`).
 #
 #  Usage:
@@ -8,6 +9,7 @@
 #
 #  Differences from production (docker-compose.yml):
 #    - Backend: source code mounted (--reload enabled)
+#    - Frontend: Vite dev server (not nginx) with HMR
 #    - Backend port 8000 is exposed directly (production now does this too —
 #      see the CORS_ORIGINS note below in both files)
 # ============================================================
@@ -57,9 +59,12 @@ services:
       CHROMA_DB_PATH: /data/chroma_db
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
       KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
-      # :3000 and :5173 were the deleted React frontend's (CRA/Vite) dev
-      # ports — no longer meaningful. Replace with wherever the PWA is
-      # actually served from (e.g. flutter run -d chrome's dev port).
+      # CORS_ORIGINS is for callers hitting :8000 *directly* from a different
+      # origin — the PWA (served separately, e.g. flutter run -d chrome's dev
+      # port) or Swagger UI. The frontend service below proxies /api through
+      # its own Vite dev server (same-origin from the browser's point of
+      # view), so it doesn't need an entry here. Replace these placeholder
+      # localhost origins with wherever you're actually serving the PWA from.
       CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
     volumes:
       - ./app:/app/app                          # ← hot reload source
@@ -77,6 +82,24 @@ services:
       --port 8000
       --reload
       --log-level debug
+
+  # ── Frontend (Vite dev server, archived React — design reference only) ──
+  frontend:
+    image: node:20-alpine
+    container_name: fortunas_frontend_dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app                         # ← live Vite HMR
+      - /app/node_modules                       # anonymous volume (avoid overwriting)
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE=/api
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    networks:
+      - fortunas_net
 
 volumes:
   ollama_data:

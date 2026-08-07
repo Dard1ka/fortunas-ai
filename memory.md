@@ -8,7 +8,7 @@
 Backend analitik UMKM Indonesia: pemilik usaha bertanya pakai Bahasa Indonesia (teks/suara),
 dijawab AI dari data transaksi mereka sendiri. **Multi-tenant SaaS** + sudah **deploy ke VPS**.
 Produk akhir = **PWA (Flutter web, di-build dari `mobile/` via `flutter build web`)**.
-React (`frontend/`) dan target native (`mobile/android/`, `mobile/ios/`) sudah dihapus dari repo — klien tunggal.
+Target native (`mobile/android/`, `mobile/ios/`) sudah dihapus dari repo — klien tunggal = PWA. `frontend/` (React) dipertahankan sebagai arsip/rujukan desain — tidak dibangun, tidak dites, tidak di-gate CI, bukan yang di-ship.
 
 ## Stack
 - FastAPI (Python 3.11/3.12), uvicorn

@@ -2,9 +2,10 @@
 > single-tenant, tanpa auth). Untuk setup terkini lihat **Quick Start di [README.md](README.md)**
 > dan deploy di **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Disimpan sebagai arsip.
 >
-> Catatan tambahan: folder `frontend/` (React) yang dirujuk di dokumen ini sudah
-> dihapus dari repo. Klien yang di-ship sekarang adalah **Flutter web (PWA)** di
-> `mobile/` (`flutter build web`) — lihat README.md.
+> Catatan tambahan: folder `frontend/` (React) yang dirujuk di dokumen ini
+> dipertahankan di repo sebagai arsip/rujukan desain (Task 1e) — tidak
+> dibangun, tidak dites, tidak di-gate CI. Klien yang di-ship tetap
+> **Flutter web (PWA)** di `mobile/` (`flutter build web`) — lihat README.md.
 
 # Fortunas AI — Panduan Setup
 

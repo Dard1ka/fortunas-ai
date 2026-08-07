@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 256" width="900" height="256">
+  <defs>
+    <linearGradient id="gold2" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#f7e3a8"/>
+      <stop offset="55%" stop-color="#e8c36a"/>
+      <stop offset="100%" stop-color="#9c7228"/>
+    </linearGradient>
+    <linearGradient id="shine2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a2d3c"/>
+      <stop offset="100%" stop-color="#0f1018"/>
+    </linearGradient>
+  </defs>
+
+  <!-- icon tile -->
+  <rect x="0" y="0" width="256" height="256" rx="52" fill="url(#shine2)"/>
+  <rect x="8" y="8" width="240" height="240" rx="46" fill="none"
+        stroke="url(#gold2)" stroke-width="1.5" opacity="0.55"/>
+  <text x="128" y="192" font-family="Georgia, 'Times New Roman', serif"
+        font-size="210" font-weight="bold" fill="url(#gold2)"
+        text-anchor="middle">F</text>
+  <circle cx="186" cy="78" r="5" fill="url(#gold2)" opacity="0.9"/>
+  <circle cx="196" cy="68" r="2" fill="#f7e3a8" opacity="0.9"/>
+
+  <!-- wordmark -->
+  <text x="296" y="158" font-family="Georgia, 'Times New Roman', serif"
+        font-size="104" font-weight="bold" fill="url(#gold2)"
+        letter-spacing="2">Fortunas</text>
+  <text x="742" y="158" font-family="Georgia, 'Times New Roman', serif"
+        font-size="104" font-weight="normal" fill="#e8c36a"
+        letter-spacing="4">AI</text>
+
+  <!-- tagline line -->
+  <line x1="298" y1="180" x2="870" y2="180"
+        stroke="url(#gold2)" stroke-width="1.2" opacity="0.45"/>
+  <text x="298" y="212" font-family="Segoe UI, Arial, sans-serif"
+        font-size="22" font-weight="500" fill="#c9b684" letter-spacing="6">
+    UMKM ANALYTICS &#x2022; WHATSAPP &#x2022; AI
+  </text>
+</svg>

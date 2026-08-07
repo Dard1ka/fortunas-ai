@@ -4,9 +4,11 @@
 > **(1)** LLM aktif produksi sekarang **Gemini 2.5 Flash**, bukan Ollama/Qwen3
 > lokal (Ollama masih ada di `docker-compose.yml` tapi diarsipkan di balik
 > `profiles: ["archive"]`, dipilih sengaja lewat `LLM_PROVIDER=ollama`); dan
-> **(2)** klien React `frontend/` sudah **dihapus** dari repo (Task 1b) — klien
-> yang di-ship sekarang adalah **Flutter web (PWA)** dari `mobile/`. Langkah di
-> bawah ditulis ulang supaya cocok dengan repo saat ini.
+> **(2)** klien React `frontend/` dipertahankan di repo sebagai arsip/rujukan
+> desain (Task 1e, membatalkan sebagian penghapusan Task 1b) — tidak dibangun,
+> tidak dites, tidak di-gate CI. Klien yang di-ship tetap **Flutter web (PWA)**
+> dari `mobile/`. Langkah di bawah ditulis ulang supaya cocok dengan repo saat
+> ini.
 
 ## Persiapan Sebelum Demo
 
