@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomeScreen from './screens/HomeScreen.jsx';
 import BriefingScreen from './screens/BriefingScreen.jsx';
 import ResultScreen from './screens/ResultScreen.jsx';
@@ -7,6 +7,8 @@ import HistoryScreen from './screens/HistoryScreen.jsx';
 import ProfileScreen from './screens/ProfileScreen.jsx';
 import CheckoutScreen from './screens/CheckoutScreen.jsx';
 import DpaScreen from './screens/DpaScreen.jsx';
+import ScanScreen from './screens/ScanScreen.jsx';
+import CustomerApp from './customer/CustomerApp.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
 import AppShell from './ui/AppShell.jsx';
 import VoiceFlow from './voice/VoiceFlow.jsx';
@@ -15,6 +17,7 @@ import { api, clearToken, getToken, setPrefix } from './api/client.js';
 export default function App() {
   const [showVoice, setShowVoice] = useState(false);
   const [token, setTokenState] = useState(getToken());
+  const { pathname } = useLocation();
 
   // Auto-logout saat backend balas 401 (token kedaluwarsa/invalid).
   useEffect(() => {
@@ -36,6 +39,16 @@ export default function App() {
     setTokenState('');
   };
 
+  // Area pelanggan: sesi TERPISAH dari UMKM — bisa diakses tanpa login UMKM.
+  // AppShell tetap membingkainya 430px (phone-only route, R1a).
+  if (pathname.startsWith('/customer')) {
+    return (
+      <AppShell onVoice={() => {}}>
+        <CustomerApp />
+      </AppShell>
+    );
+  }
+
   if (!token) {
     return <LoginScreen onAuthed={() => setTokenState(getToken())} />;
   }
@@ -49,6 +62,7 @@ export default function App() {
           <Route path="/result"   element={<ResultScreen   onVoice={() => setShowVoice(true)} />} />
           <Route path="/checkout" element={<CheckoutScreen />} />
           <Route path="/dpa"      element={<DpaScreen />} />
+          <Route path="/scan"     element={<ScanScreen />} />
           <Route path="/history"  element={<HistoryScreen  onVoice={() => setShowVoice(true)} />} />
           <Route path="/me"       element={<ProfileScreen  onVoice={() => setShowVoice(true)} onLogout={handleLogout} />} />
           <Route path="*"         element={<Navigate to="/" replace />} />

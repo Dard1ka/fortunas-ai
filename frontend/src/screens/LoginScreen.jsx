@@ -119,6 +119,12 @@ export default function LoginScreen({ onAuthed }) {
           {loading ? 'Memproses…' : mode === 'login' ? 'Masuk' : 'Daftar'}
         </Button>
 
+        <div style={{ marginTop: 6, textAlign: 'center' }}>
+          <a href="/customer/login" style={{ fontSize: 12, color: 'var(--violet-deep)', fontWeight: 600, textDecoration: 'none' }}>
+            Masuk sebagai pelanggan →
+          </a>
+        </div>
+
         <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12.5, color: 'var(--ink-3)' }}>
           {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
           <button

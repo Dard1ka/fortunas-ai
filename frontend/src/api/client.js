@@ -6,8 +6,12 @@ import { recordLatency } from './latency.js';
 const BASE = '/api';
 const TOKEN_KEY = 'fortunas_token';
 const PREFIX_KEY = 'fortunas_prefix';
+// Kunci token customer SENGAJA terpisah dari token UMKM (dua peran, dua JWT
+// backend berbeda) — interceptor tidak boleh cross-attach; ada test yang
+// menjaganya (src/api/roles.test.js).
+const CUSTOMER_TOKEN_KEY = 'fortunas_customer_token';
 
-// ── Auth token (JWT) di localStorage ──────────────────────────────
+// ── Auth token UMKM (JWT) di localStorage ─────────────────────────
 export function getToken() {
   try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
 }
@@ -16,6 +20,17 @@ export function setToken(token) {
 }
 export function clearToken() {
   try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(PREFIX_KEY); } catch { /* ignore */ }
+}
+
+// ── Auth token CUSTOMER (JWT terpisah) ────────────────────────────
+export function getCustomerToken() {
+  try { return localStorage.getItem(CUSTOMER_TOKEN_KEY) || ''; } catch { return ''; }
+}
+export function setCustomerToken(token) {
+  try { localStorage.setItem(CUSTOMER_TOKEN_KEY, token); } catch { /* ignore */ }
+}
+export function clearCustomerToken() {
+  try { localStorage.removeItem(CUSTOMER_TOKEN_KEY); } catch { /* ignore */ }
 }
 
 // ── Tenant prefix (untuk namespace data lokal per-bisnis, mis. riwayat voice) ──
@@ -30,11 +45,11 @@ export function voiceHistoryKey() {
   return `fortunas_voice_${getPrefix() || 'anon'}`;
 }
 
-async function request(path, { method = 'GET', body, signal, trackLatency = false, auth = true } = {}) {
+async function request(path, { method = 'GET', body, signal, trackLatency = false, auth = true, role = 'umkm' } = {}) {
   const started = trackLatency ? performance.now() : 0;
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
-  const token = getToken();
+  const token = role === 'customer' ? getCustomerToken() : getToken();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res;
@@ -53,10 +68,16 @@ async function request(path, { method = 'GET', body, signal, trackLatency = fals
   if (trackLatency) recordLatency(performance.now() - started);
 
   if (!res.ok) {
-    // Token invalid/kedaluwarsa → logout otomatis (App akan tampil layar login).
-    if (res.status === 401) {
-      clearToken();
-      window.dispatchEvent(new Event('auth:logout'));
+    // Token invalid/kedaluwarsa → logout otomatis PER PERAN — 401 customer
+    // TIDAK boleh menghapus sesi UMKM (dan sebaliknya).
+    if (res.status === 401 && auth) {
+      if (role === 'customer') {
+        clearCustomerToken();
+        window.dispatchEvent(new Event('customer:logout'));
+      } else {
+        clearToken();
+        window.dispatchEvent(new Event('auth:logout'));
+      }
     }
     let detail = '';
     try {
@@ -88,6 +109,14 @@ export const api = {
   reportDaily:  (signal)              => request('/report/daily', { signal }),
   umkmTransactions: (limit = 200, signal) => request(`/umkm/transactions?limit=${limit}`, { signal }),
   reportRun:    (signal)              => request('/report/daily/run', { method: 'POST', signal, trackLatency: true }),
+  // ── Customer (peran terpisah — Bearer = customer token) ──
+  customerBootstrap: (payload, signal) =>
+    request('/customer/auth/bootstrap', { method: 'POST', body: payload, signal, auth: false }),
+  customerHome: (signal)              => request('/customer/home', { signal, role: 'customer' }),
+  customerQrSession: (signal)         =>
+    request('/customer/qr/session', { method: 'POST', signal, role: 'customer' }),
+  scanValidate: (token, signal)       =>
+    request('/umkm/customer/scan/validate', { method: 'POST', body: { customer_qr_token: token }, signal }),
   getDpa:       (signal)             => request('/umkm/dpa', { signal }),
   putDpa:       (payload, signal)    =>
     request('/umkm/dpa', { method: 'PUT', body: payload, signal }),
