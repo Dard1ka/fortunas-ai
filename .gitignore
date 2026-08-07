@@ -72,8 +72,9 @@ mobile/android/.gradle/
 mobile/android/local.properties
 mobile/android/app/build/
 
-# ── Handover doc (berisi credential — JANGAN commit ke repo publik) ──
+# ── Handover doc (berisi credential/infra — JANGAN commit ke repo publik) ──
 HANDOVER.txt
+HANDOVER.md
 
 # ── Submission archive itself ────────────────────────────────────
 fortunas-ai.zip
