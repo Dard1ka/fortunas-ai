@@ -1,11 +1,12 @@
 # ============================================================
 #  Fortunas AI — docker-compose.yml
-#  Production-mode stack (nginx serves built React)
+#  API-only stack (backend + Ollama). The PWA (Flutter web) is not part of
+#  this compose file — see deploy/nginx-fortunas.conf for the supported
+#  same-origin VPS deploy, or run the PWA separately for local dev.
 #
 #  Services:
 #    ollama    → local LLM server (Qwen3:8b)
-#    backend   → FastAPI + RAG pipeline
-#    frontend  → nginx serving React build
+#    backend   → FastAPI + RAG pipeline, exposed on :8000
 #
 #  Usage:
 #    docker compose up --build          ← first time / after code change
@@ -58,8 +59,18 @@ services:
       CHROMA_DB_PATH: /data/chroma_db
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
       KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
-      # Allow requests from nginx frontend
-      CORS_ORIGINS: '["http://localhost","http://localhost:3000","http://127.0.0.1"]'
+      # API-only stack now (the nginx frontend that used to proxy this is gone).
+      # In the supported VPS deploy (deploy/nginx-fortunas.conf), the PWA and
+      # API are served same-origin and CORS doesn't come into play at all. For
+      # this compose stack, the PWA is served from wherever you run it
+      # separately (e.g. `flutter run -d chrome`'s dev port) — replace these
+      # placeholder localhost origins with that actual origin.
+      CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
+    ports:
+      - "8000:8000"           # exposed directly: the nginx frontend that used to
+                               # proxy this was removed (Task 1b). The PWA is served
+                               # separately (VPS nginx, see deploy/nginx-fortunas.conf);
+                               # this compose stack now serves the API only.
     volumes:
       - chroma_data:/data/chroma_db           # vector DB (persistent)
       - reports_data:/data/reports            # daily reports (persistent)
@@ -69,7 +80,6 @@ services:
         condition: service_healthy
     networks:
       - fortunas_net
-    # NOT exposed externally — only reachable via nginx proxy
 
 # ── Named Volumes ──────────────────────────────────────────────
 volumes:

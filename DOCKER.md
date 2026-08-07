@@ -21,11 +21,11 @@ Tidak perlu install Python atau Ollama secara manual — semua berjalan di dalam
 │              Flutter web (PWA), luar Docker          │
 │              flutter run -d chrome                   │
 └──────────────────────┬──────────────────────────────┘
-                       │ HTTP (lihat catatan port di bawah)
+                       │ http://localhost:8000
          ┌─────────────▼─────────────┐
          │   fortunas_backend        │
          │   FastAPI + RAG pipeline  │
-         │   port 8000 (internal)    │
+         │   port 8000 (exposed)     │
          └──────┬──────────┬─────────┘
                 │          │
    ┌────────────▼───┐  ┌───▼──────────────────┐
@@ -40,11 +40,14 @@ Volumes:
   reports_data → daily briefing JSON
 ```
 
-> **Catatan port:** dengan service `frontend`/nginx dihapus, `docker-compose.yml`
-> (production) tidak lagi mem-publish port host untuk backend. Untuk akses dari
-> host (mis. dari PWA yang jalan via `flutter run -d chrome`), pakai
-> `docker-compose.dev.yml` (mem-publish `8000:8000`) atau tambahkan mapping
-> `ports: ["8000:8000"]` sendiri di service `backend`.
+> **Catatan port & CORS:** dengan service `frontend`/nginx dihapus,
+> `docker-compose.yml` (production) sekarang mem-publish `8000:8000` langsung
+> di service `backend` — stack ini murni API-only. `CORS_ORIGINS` di file itu
+> berisi placeholder (`http://localhost`, `http://127.0.0.1`); sesuaikan
+> dengan origin asli tempat PWA benar-benar disajikan (mis. port dev
+> `flutter run -d chrome`). Di jalur deploy yang didukung
+> (`deploy/nginx-fortunas.conf`), PWA dan API disajikan same-origin sehingga
+> CORS tidak relevan sama sekali.
 
 ---
 
@@ -215,7 +218,7 @@ make dev
 
 Perbedaan dengan mode production:
 - **Backend**: source code di-mount langsung → perubahan `.py` langsung efektif tanpa rebuild
-- **Backend port 8000** dibuka ke host → bisa akses Swagger di http://localhost:8000/docs, dan PWA (`flutter run -d chrome`) bisa connect ke `http://localhost:8000`
+- Port `8000` sama-sama dibuka ke host di kedua mode (lihat catatan port & CORS di atas) — bisa akses Swagger di http://localhost:8000/docs, dan PWA (`flutter run -d chrome`) bisa connect ke `http://localhost:8000`
 
 ```bash
 # Stop dev mode

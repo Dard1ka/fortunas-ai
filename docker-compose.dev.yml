@@ -1,14 +1,15 @@
 # ============================================================
 #  Fortunas AI — docker-compose.dev.yml
-#  Development mode: hot-reload backend + Vite dev server
+#  Development mode: hot-reload backend. The PWA (Flutter web) is not part of
+#  this compose file — run it separately (`cd mobile && flutter run -d chrome`).
 #
 #  Usage:
 #    docker compose -f docker-compose.dev.yml up --build
 #
-#  Differences from production:
+#  Differences from production (docker-compose.yml):
 #    - Backend: source code mounted (--reload enabled)
-#    - Frontend: Vite dev server (not nginx) with HMR
-#    - Backend port 8000 is exposed directly
+#    - Backend port 8000 is exposed directly (production now does this too —
+#      see the CORS_ORIGINS note below in both files)
 # ============================================================
 
 services:
@@ -42,7 +43,10 @@ services:
       CHROMA_DB_PATH: /data/chroma_db
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
       KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
-      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173"]'
+      # :3000 and :5173 were the deleted React frontend's (CRA/Vite) dev
+      # ports — no longer meaningful. Replace with wherever the PWA is
+      # actually served from (e.g. flutter run -d chrome's dev port).
+      CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
     volumes:
       - ./app:/app/app                          # ← hot reload source
       - chroma_data:/data/chroma_db
