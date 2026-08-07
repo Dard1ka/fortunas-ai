@@ -7,17 +7,38 @@ import '../auth/token_store.dart';
 import 'auth_interceptor.dart';
 import 'models.dart';
 
-/// Default backend base URL. Override at run time via:
-///   flutter run --dart-define=FORTUNAS_API=http://10.0.2.2:8000
+/// Host backend untuk build native (APK demo). Web tidak memakainya.
+const _nativeHost = 'http://127.0.0.1:8000';
+
+/// Base URL backend.
 ///
-/// Notes:
-/// - Android emulator: `10.0.2.2` maps to host's `localhost`.
-/// - iOS simulator: `localhost` works directly.
-/// - Physical phone on same WiFi: use PC's LAN IP (e.g. http://192.168.40.6:8000).
-const _defaultBaseUrl = String.fromEnvironment(
+/// **Web (kanal rilis):** PWA disajikan dari origin yang sama dengan API, yang
+/// di-proxy nginx di `/api` — jadi base relatif sudah benar dan CORS tidak
+/// pernah ikut bermain.
+///
+/// **Native (APK demo):** butuh host absolut. Override saat run:
+///   flutter run --dart-define=FORTUNAS_API=http://10.0.2.2:8000
+/// - Android emulator: `10.0.2.2` memetakan ke `localhost` host.
+/// - iOS simulator: `localhost` langsung jalan.
+/// - HP fisik di WiFi sama: pakai IP LAN PC (mis. http://192.168.40.6:8000).
+const kApiBaseUrl = String.fromEnvironment(
   'FORTUNAS_API',
-  defaultValue: 'http://127.0.0.1:8000',
+  defaultValue: kIsWeb ? '/api' : _nativeHost,
 );
+
+/// Prefiks untuk `image_url` yang dikembalikan backend
+/// (bentuknya `/media/products/...`, lihat `app/product_repo.py:56`).
+///
+/// Kosong di web karena `/media` sudah same-origin; absolut di native.
+/// **Bukan** di bawah `/api` — nginx mem-proxy `/media/` terpisah.
+const kMediaBaseUrl = kIsWeb
+    ? ''
+    : String.fromEnvironment('FORTUNAS_API', defaultValue: _nativeHost);
+
+/// Gabungkan [mediaBase] dengan `image_url` relatif dari backend.
+/// String kosong masuk → string kosong keluar (produk tanpa gambar).
+String joinMediaUrl(String mediaBase, String imageUrl) =>
+    imageUrl.isEmpty ? '' : '$mediaBase$imageUrl';
 
 class FortunasApi {
   final Dio _dio;
@@ -27,7 +48,7 @@ class FortunasApi {
     String? Function()? getToken,
     void Function()? onUnauthorized,
   }) : _dio = Dio(BaseOptions(
-          baseUrl: baseUrl ?? _defaultBaseUrl,
+          baseUrl: baseUrl ?? kApiBaseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 120),
           sendTimeout:    const Duration(seconds: 10),

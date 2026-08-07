@@ -26,6 +26,16 @@ jobs:
         run: python -m pytest tests/ -v
 
   mobile:
+    # ⚠️ JANGAN GANTI STRING `name:` INI.
+    # Proteksi branch `main` mencocokkan required status check berdasarkan NAMA
+    # JOB secara harfiah. Mengubahnya membuat GitHub menunggu selamanya sebuah
+    # check yang tidak akan pernah dilaporkan, dan PR macet di `blocked` —
+    # bukan `dirty`, jadi tidak terlihat seperti masalah CI dan mudah salah
+    # didiagnosis. Sudah pernah terjadi: PR #26 sempat macet karena job ini
+    # di-rename, sementara `Backend (ruff + pytest)` lolos.
+    # Kalau nama ini memang mau diperbarui, ubah setelan required status check
+    # di Settings → Branches DALAM PERUBAHAN YANG SAMA (butuh hak admin repo).
+    # Isi job-nya kini: analyze + test + build web (lihat langkah-langkah di bawah).
     name: Mobile (flutter analyze)
     runs-on: ubuntu-latest
     steps:
@@ -44,4 +54,19 @@ jobs:
         working-directory: mobile
       - name: Test
         run: flutter test
+        working-directory: mobile
+      # Kanal rilis = PWA. Tanpa gate ini, regresi khusus web (mis. plugin
+      # yang tidak mendukung web) lolos diam-diam sampai deploy.
+      #
+      # --no-web-resources-cdn: WAJIB, dan harus sama dengan perintah build di
+      # deploy/DEPLOY.md. Tanpa flag ini `flutter_bootstrap.js` memancarkan
+      # buildConfig ber-`engineRevision` tanpa `useLocalCanvasKit`, sehingga
+      # loader mengambil CanvasKit dari https://www.gstatic.com/flutter-canvaskit/
+      # saat runtime. Akibatnya: cold load offline tidak bisa boot (service
+      # worker hanya meng-cache same-origin), ada script pihak ketiga yang
+      # disuntik meski index.html bersih, dan IP tiap UMKM terkirim ke Google.
+      # Gate CI harus mem-build persis apa yang dideploy, kalau tidak gate ini
+      # menghijaukan artefak yang berbeda dari yang dipakai produksi.
+      - name: Build web (PWA release)
+        run: flutter build web --release --no-web-resources-cdn
         working-directory: mobile

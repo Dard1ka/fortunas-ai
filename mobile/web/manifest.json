@@ -1,12 +1,13 @@
 {
-    "name": "fortunas_ai",
-    "short_name": "fortunas_ai",
+    "name": "Fortunas AI — Analitik Bisnis UMKM",
+    "short_name": "Fortunas AI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FAF7F0",
     "theme_color": "#6D5EF7",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Tanya bisnismu pakai suara atau teks. Jawaban langsung dari data transaksi tokomu sendiri.",
+    "orientation": "any",
+    "lang": "id",
     "prefer_related_applications": false,
     "icons": [
         {
