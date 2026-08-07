@@ -1,6 +1,6 @@
 /* Fortunas AI design tokens — mobile-first, neo-brutalist palette. */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+/* Fonts di-self-host via @fontsource (import di main.jsx) — JANGAN tambah
+   @import ke host pihak ketiga; ada test yang menjaganya. */
 
 :root {
   --bg: #FAF7F0;
