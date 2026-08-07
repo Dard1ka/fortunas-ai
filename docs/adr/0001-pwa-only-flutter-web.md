@@ -1,6 +1,6 @@
 # ADR 0001 — Kanal rilis: PWA Flutter web, native tidak dirilis
 
-- **Status:** 🟡 **PROPOSED — menunggu persetujuan tim**
+- **Status:** ⚫ **SUPERSEDED oleh [ADR-0002](0002-react-production-client.md) (2026-08-07) — tidak pernah diratifikasi (hanya pengusul yang menandatangani)**
 - **Tanggal keputusan diambil:** 2026-08-06 · **Tanggal ADR ditulis:** 2026-08-07
 - **Diusulkan oleh:** Go Steven Sanjaya
 - **Perlu persetujuan:** Gregorius Darrel Andika Setya (ketua) · Filo Alvian Ongky · Michael Ivan Santoso
