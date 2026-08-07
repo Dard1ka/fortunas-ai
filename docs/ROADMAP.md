@@ -35,13 +35,13 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 | 1. Login UMKM + HTTPS | 🟡 sebagian | Auth backend ✅ + **layar Login/Register Flutter ✅ (auth gate + token secure-storage + Profile akun) — PR #10**. Belum: HTTPS/domain VPS |
 | 2. PostgreSQL | ✅ selesai | PR #3. Cutover Postgres prod (smoke asli) masih nunggu kredensial |
 | 3. Customer login HP + OTP | ✅ selesai | Backend bootstrap + Firebase seam ✅ (Day 4). **Flutter mobile 3 layar SELESAI (Day 9 slice 3, `PR #15`)**: modul `customer/` terisolasi, dev-token OTP (any 6 digit, token `dev:<uid>:<phone>`), in-memory session, gate allowance additive. Firebase real phone-auth deferred (lihat `PENDING_EXTERNAL_SETUP.md`). |
-| 4. QR identitas customer | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. **Mobile render SELESAI (Day 9 slice 4, `PR #16`)**: `qr_flutter`, auto-refresh 90s (lead-5s), dari layar profil customer. **Scanner UMKM (#5) tetap defer** (butuh device fisik + native plugin `mobile_scanner`). |
-| 5. Scan QR → auto-member | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. **UI mobile house SELESAI (Day 10, `PR #17`)**: layar scan + validate + auto-membership, input token manual. **Kamera `mobile_scanner` deferred** (device fisik + native config) — satu-satunya sisa mobile. |
+| 4. QR identitas customer | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: QR signed 90s single-use + `POST /customer/qr/session`. **Mobile render SELESAI (Day 9 slice 4, `PR #16`)**: `qr_flutter`, auto-refresh 90s (lead-5s), dari layar profil customer. **Scanner UMKM (#5) tetap defer** (butuh device fisik + native plugin `mobile_scanner`) — **Catatan Task 1d:** sejak pivot PWA-only (2026-08-06), `mobile/android/`/`mobile/ios/` sudah dihapus, jadi native plugin ini tidak bisa dipasang lagi tanpa menambah kembali platform folder-nya. |
+| 5. Scan QR → auto-member | ✅ selesai | **Backend SELESAI (Day 4, PR #7)**: `POST /umkm/customer/scan/validate` + auto-membership. **UI mobile house SELESAI (Day 10, `PR #17`)**: layar scan + validate + auto-membership, input token manual. **Kamera `mobile_scanner` deferred** (device fisik + native config) — satu-satunya sisa mobile, dan sejak pivot PWA-only tidak lagi bisa dikerjakan dengan cara ini (lihat catatan baris di atas). |
 | 6. Checkout nyambung customer | 🟡 sebagian | **Backend SELESAI (Day 5, PR #8)**: POST /checkout/confirm multi-item + opt-in QR loyalty link. **UI mobile (Kasir) SELESAI (Day 9 slice 2, PR #14)**: form multi-item + inline success. Sisa: kolom BQ enriched `CustomerUserID`/`TenantID` + scanner QR customer |
 | 7. DPA jadi "pagar" AI | ✅ selesai | **Backend SELESAI (PR #4)** + **UI mobile DPA (view+edit, chip editor, password confirm) — PR #12** |
 | 8. Analisis `top_product` | ✅ selesai | **SELESAI (Day 6, PR #9)**: analisis ke-5 — produk terlaris rank by **omzet** (+ `total_qty` per baris), intent routing (guard vs bundle), prompt+RAG+fallback parity, briefing jadi 5 analisis. 100% credential-free |
 
-**Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + 4 analisis, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend.
+**Fondasi yang sudah berdiri (JANGAN rebuild):** v4.0 (FastAPI multi-tenant, auth UMKM bcrypt+JWT, Gemini 2.5 Flash + RAG + intent routing untuk 4 topik inti saat itu — sekarang total **11**, lihat `app/analysis_registry.py`, Flutter skeleton, React demo) + kontrak API + CI + PostgreSQL + DPA backend. **Catatan Task 1d:** klien React (`frontend/`) yang dirujuk di baris ini sudah **dihapus dari repo** (Task 1b) — klien tunggal sekarang Flutter web (PWA).
 
 **Berikutnya (credential-free, urutan saran):** ~~Customer JWT + QR identity backend (#4/#5)~~ ✅ **Day 4 (PR #7)** → ~~checkout endpoint (#6)~~ ✅ **Day 5 (PR #8)** → ~~analisis `top_product` (#8)~~ ✅ **Day 6 (PR #9)** → ~~UI mobile Login UMKM (#1)~~ ✅ **(PR #10)** → ~~UI mobile DPA (#7)~~ ✅ **(PR #12)** → ~~Briefing 5-analisis UI~~ ✅ **(PR #13, Day 9 slice 1)** → ~~Layar checkout (Kasir)~~ ✅ **(PR #14, Day 9 slice 2)** → ~~Customer login HP+OTP mobile (#3)~~ ✅ **(PR #15, Day 9 slice 3)** → ~~QR render customer~~ ✅ **(PR #16, Day 9 slice 4)** → ~~Scan QR UMKM (#5 house)~~ ✅ **(PR #17, Day 10)**. **Sprint Day-9 + Day-10 SELESAI.** Semua UI mobile credential-free selesai. Sisa: kamera scan (`mobile_scanner`) = satu-satunya sisa mobile — butuh device fisik + native plugin config.
 
@@ -63,10 +63,10 @@ Fortunas AI berubah dari *alat analitik untuk UMKM* → *satu aplikasi 2 peran (
 Yang **sudah berdiri** (jangan dibangun ulang):
 
 - ✅ Backend FastAPI multi-tenant — BigQuery tabel per tenant, `TenantContext` dari JWT
-- ✅ Auth UMKM email/password (bcrypt + JWT) — **dipakai web demo React**
-- ✅ LLM **Gemini 2.5 Flash** (`app/llm_provider.py`) + RAG (ChromaDB) + **4 analisis** (repeat_customer, high_value_customer, peak_hour, bundle_opportunity)
+- ✅ Auth UMKM email/password (bcrypt + JWT) — **dipakai web demo React saat itu** (React sudah dihapus dari repo, Task 1b — klien tunggal sekarang Flutter web/PWA)
+- ✅ LLM **Gemini 2.5 Flash** (`app/llm_provider.py`) + RAG (ChromaDB) + intent routing untuk **4 topik inti saat itu** (repeat_customer, high_value_customer, peak_hour, bundle_opportunity) — **Catatan Task 1d:** sudah bertambah jadi **11** analisis total (lihat `app/analysis_registry.py`). Ollama/Qwen3 masih ada di `docker-compose.yml` tapi **diarsipkan** (profile `archive`), bukan aktif.
 - ✅ Aplikasi **Flutter** — kerangka layar (home, briefing, history, profile) + alur voice transaction
-- ✅ Web demo React — sudah login/ask/voice
+- ~~✅ Web demo React — sudah login/ask/voice~~ — **Catatan Task 1d:** `frontend/` (React) sudah **dihapus dari repo** (Task 1b). Klien tunggal sekarang Flutter web (PWA).
 
 Yang **belum ada** (jadi target MVP): login di aplikasi HP, database produksi (PostgreSQL), seluruh sisi Customer, QR, DPA guardrail.
 
@@ -122,10 +122,10 @@ Model kerja: **3 dev rotasi/estafet per hari** (A→B→C). Tiap akhir hari waji
 | 🔨 Polish + E2E test | Uji alur penuh UMKM & Customer |
 
 ### Minggu 4 — Polish + Submission (Hari 16–20) → `v5.0.0-mvp-submission`
-**Tujuan:** zero bug critical, dokumentasi, build APK, **submit ke MIS Grant**.
+**Tujuan:** zero bug critical, dokumentasi, ~~build APK~~ build PWA, **submit ke MIS Grant**.
 
 - 🔨 Fix bug + rate limiting + audit keamanan
-- 🔨 Build APK release + test di device fisik
+- 🔨 ~~Build APK release + test di device fisik~~ — **superseded** (pivot PWA-only, 2026-08-06): `mobile/android/`/`mobile/ios/` dihapus dari repo, tidak ada APK lagi. Build target = `flutter build web --release --no-web-resources-cdn`.
 - 🔨 Dokumentasi (README, guide, demo script) + rekam demo
 - 🎯 **SUBMIT** (Hari 20, Dev B + C kerja bareng)
 
@@ -139,7 +139,7 @@ Fitur ini **sengaja ditunda** dari MVP (tenaga 3 dev terbatas). Urutan saran:
 2. 🕒 **Promo generator + spin wheel** ← fitur paling "wow" untuk demo *(pertimbangkan versi tipis masuk MVP — lihat catatan keputusan)*
 3. 🕒 **FCM push notification** (briefing pagi, promo belum dipakai)
 4. 🕒 **Scheduler briefing per-tenant**
-5. 🕒 **9 analisis sisanya** (revenue_trend, customer_segmentation, churn_risk, slow_moving, demand_forecast, average_basket, inventory_alert, price_sensitivity, promo_effectiveness)
+5. ~~🕒 **9 analisis sisanya** (revenue_trend, customer_segmentation, churn_risk, slow_moving, demand_forecast, average_basket, inventory_alert, price_sensitivity, promo_effectiveness)~~ — **Catatan Task 1d:** `revenue_trend`, `customer_segmentation`, `churn_risk`, `slow_moving_product`, `average_basket_size`, dan `demand_forecast` sudah **shipped** (total analisis sekarang 11, lihat `app/analysis_registry.py`). Sisa backlog nyata: 🕒 `inventory_alert`, `price_sensitivity`, `promo_effectiveness`.
 6. 🕒 Dark theme, verifikasi email edit DPA, Whisper STT, mode offline
 
 ---

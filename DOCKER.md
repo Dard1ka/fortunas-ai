@@ -30,15 +30,27 @@ Tidak perlu install Python atau Ollama secara manual — semua berjalan di dalam
                 │          │
    ┌────────────▼───┐  ┌───▼──────────────────┐
    │ fortunas_ollama│  │  Google Cloud (ext.)  │
-   │ Qwen3:8b       │  │  BigQuery + Sheets    │
+   │ Qwen3:8b       │  │  BigQuery + Gemini API│
    │ port 11434     │  └──────────────────────-┘
+   │ (ARSIP —       │
+   │  profile       │
+   │  "archive",    │
+   │  tidak start   │
+   │  default)      │
    └────────────────┘
 
 Volumes:
-  ollama_data  → model weights (~4.8 GB)
+  ollama_data  → model weights (~4.8 GB), hanya terisi kalau profile archive dipakai
   chroma_data  → vector embeddings
   reports_data → daily briefing JSON
 ```
+
+> **Ollama sekarang ARSIP, bukan bagian default stack.** `docker compose up`
+> (tanpa flag tambahan) **tidak** menyalakan `fortunas_ollama` — servicenya
+> ada di `docker-compose.yml` tapi di balik `profiles: ["archive"]`. LLM aktif
+> = Gemini 2.5 Flash (API, lihat `app/llm_provider.py`), jadi backend jalan
+> normal tanpa Ollama. Untuk sengaja menjalankan jalur lokal arsip:
+> `docker compose --profile archive up ollama` + `LLM_PROVIDER=ollama` di `.env`.
 
 > **Catatan port & CORS:** dengan service `frontend`/nginx dihapus,
 > `docker-compose.yml` (production) sekarang mem-publish `8000:8000` langsung
@@ -123,34 +135,41 @@ make up
 ```
 
 Proses pertama kali akan:
-1. Download base images (python:3.11-slim, ollama/ollama) — ~1–2 GB
+1. Download base image backend (python:3.11-slim) — `ollama/ollama` HANYA ter-download kalau kamu pakai `docker compose --profile archive up ollama` sengaja, bukan dengan `docker compose up --build` biasa
 2. Install semua Python dependencies — ~5 menit
-3. Start semua services
+3. Start service `backend` (satu-satunya service default; `ollama` di-skip karena `profiles: ["archive"]`)
 
-Log yang normal saat startup:
+Log yang normal saat startup (default, tanpa profile archive — `entrypoint.sh` tetap mencoba nge-ping Ollama dulu, tapi lanjut jalan walau tidak ketemu karena LLM aktifnya Gemini, bukan Ollama):
 ```
-fortunas_ollama  | Ollama is running
-fortunas_backend | [1/3] Waiting for Ollama...
-fortunas_backend | ✓ Ollama is ready.
+fortunas_backend | [1/3] Waiting for Ollama at http://ollama:11434...
+fortunas_backend |    ... attempt 1/30, retrying in 5s   (berulang sampai 30x kalau ollama tidak dinyalakan)
+fortunas_backend | ⚠  Ollama not ready after 30 attempts. Starting anyway...
 fortunas_backend | [2/3] First boot — running knowledge base ingest...
 fortunas_backend | ✓ Knowledge base ingest complete.
 fortunas_backend | [3/3] Starting FastAPI (uvicorn)...
 fortunas_backend | INFO: Application startup complete.
 ```
+> Baris "Waiting for Ollama" ini kosmetik peninggalan desain lama — backend tidak
+> benar-benar butuh Ollama untuk jalan (LLM aktif = Gemini). Kalau kamu sengaja
+> menjalankan `docker compose --profile archive up ollama`, log-nya akan
+> `✓ Ollama is ready.` tanpa delay ~2.5 menit di atas.
 
 ---
 
-### Step 4 — Pull Model Qwen3:8b (WAJIB, dilakukan sekali)
+### Step 4 — (OPSIONAL, hanya untuk jalur arsip) Pull Model Qwen3:8b
 
-Buka terminal baru (biarkan docker compose tetap jalan):
+LLM aktif produksi = **Gemini 2.5 Flash**, jadi step ini **tidak wajib** untuk
+menjalankan aplikasi. Kerjakan hanya kalau kamu sengaja mau memakai jalur lokal
+arsip (`LLM_PROVIDER=ollama`):
 
 ```bash
+docker compose --profile archive up -d ollama   # nyalakan service ollama dulu
 make pull-model
 ```
 
 Atau manual:
 ```bash
-docker compose exec ollama ollama pull qwen3:8b
+docker compose --profile archive exec ollama ollama pull qwen3:8b
 ```
 
 > Model berukuran **~4.8 GB**. Proses download mungkin membutuhkan 10–30 menit
@@ -161,7 +180,7 @@ Verifikasi:
 ```bash
 make model-list
 # atau
-docker compose exec ollama ollama list
+docker compose --profile archive exec ollama ollama list
 ```
 
 ---
@@ -171,7 +190,7 @@ docker compose exec ollama ollama list
 | URL | Keterangan |
 |---|---|
 | http://localhost:8000/docs | Swagger UI backend (hanya di dev mode) |
-| http://localhost:11434 | Ollama API (hanya untuk debugging) |
+| http://localhost:11434 | Ollama API — hanya ada kalau `--profile archive` dipakai |
 
 Aplikasi Fortunas AI sendiri adalah PWA Flutter, dijalankan terpisah dari stack
 Docker ini (`cd mobile && flutter run -d chrome`).
@@ -248,15 +267,19 @@ Fortunas/
 
 ## Troubleshooting
 
-### "Ollama not ready after 30 attempts"
-Backend startup timeout menunggu Ollama. Solusi:
+### "Ollama not ready after 30 attempts. Starting anyway..."
+Ini **normal, bukan error**, kalau kamu tidak sengaja pakai jalur arsip —
+backend tetap lanjut start dan bekerja normal dengan LLM aktif (Gemini), cuma
+delay ~2.5 menit di awal karena `entrypoint.sh` masih mencoba ping Ollama dulu.
+Kalau kamu memang sengaja mau pakai `LLM_PROVIDER=ollama`, pastikan service
+`ollama` dinyalakan dengan profile-nya:
 ```bash
-# Pastikan Ollama container jalan
-docker compose ps
-docker compose logs ollama
+docker compose --profile archive up -d ollama
+docker compose --profile archive ps
+docker compose --profile archive logs ollama
 
 # Restart jika perlu
-docker compose restart ollama
+docker compose --profile archive restart ollama
 docker compose restart backend
 ```
 
@@ -285,7 +308,8 @@ ports:
 ```bash
 docker compose down -v    # hapus semua volumes
 docker compose up --build # rebuild dari nol
-make pull-model           # pull model lagi (masih ada di volume ollama)
+# Kalau kamu pakai jalur arsip (LLM_PROVIDER=ollama), model perlu di-pull ulang:
+# make pull-model
 ```
 
 ### Backend lambat saat pertama kali

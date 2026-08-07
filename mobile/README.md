@@ -21,7 +21,7 @@ flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
 flutter build web --release --no-web-resources-cdn
 ```
 
-Backend (FastAPI + Ollama + BigQuery) needs to be running. See repo root `SETUP.md` and `DOCKER.md`.
+Backend (FastAPI + Gemini + BigQuery) needs to be running — Ollama is archived, not required (see `app/llm_provider.py`). See repo root `SETUP.md` and `DOCKER.md`.
 
 ## What this app is
 

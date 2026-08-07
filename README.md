@@ -40,8 +40,8 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 |---|---|
 | **Multi-tenant + Auth** | Email/password (bcrypt) + JWT. Each business sees only its own data. |
 | **Conversational Query** | Ask in natural Bahasa Indonesia → grounded insight (`/ask`) |
-| **4 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` |
-| **Daily Briefing** | On-demand per-tenant business summary (4 analyses + executive summary) |
+| **11 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` · `top_product` · `revenue_trend` · `customer_segmentation` · `churn_risk` · `slow_moving_product` · `average_basket_size` · `demand_forecast` (see `app/analysis_registry.py`) |
+| **Daily Briefing** | On-demand per-tenant business summary (all 11 analyses + executive summary) |
 | **🎤 Voice Input** | Speak transactions in Bahasa Indonesia → parsed → saved to that tenant's BigQuery |
 | **Customer naming** | Auto-assign numeric Customer ID per name; shown as `Nama (id)` |
 | **RAG Knowledge Base** | UMKM tips retrieved from ChromaDB to enrich recommendations |
@@ -175,7 +175,7 @@ Interactive docs: **`/docs`**. All data endpoints require `Authorization: Bearer
 | `POST` | `/auth/login` | — | Login → JWT |
 | `GET` | `/auth/me` | ✅ | Current account/tenant info |
 | `POST` | `/ask` | ✅ | NL question → grounded insight |
-| `GET` | `/briefing` | ✅ | Run 4 analyses + executive summary |
+| `GET` | `/briefing` | ✅ | Run all 11 analyses + executive summary |
 | `POST` | `/report/daily/run` | ✅ | Run + save daily briefing (per-tenant) |
 | `GET` | `/report/daily` | ✅ | Latest saved briefing + history |
 | `POST` | `/voice/parse` | ✅ | Voice transcript → structured preview |
@@ -234,7 +234,8 @@ fortunas-ai/
 - [ ] Mobile app auth (login → JWT) — connect Flutter to the deployed API
 - [ ] HTTPS (domain + certbot) before mobile release
 - [ ] WhatsApp Business Cloud API (infra ready; blocked by Meta region restriction)
-- [ ] `demand_forecast` / `inventory_alert` analysis modules
+- [x] `demand_forecast` analysis module (shipped — see `app/analysis_registry.py`, now 11 analyses total)
+- [ ] `inventory_alert` analysis module
 
 ---
 

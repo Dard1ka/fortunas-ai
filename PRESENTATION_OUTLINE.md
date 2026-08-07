@@ -1,5 +1,10 @@
 # Fortunas AI — Presentation Outline
 
+> **Catatan (Task 1d, 2026-08-07):** Beberapa baris di bawah (LLM, frontend,
+> jumlah analisis) mendeskripsikan desain awal proposal yang sudah berubah di
+> kode. Sudah dikoreksi di tempatnya masing-masing; lihat `PROPOSAL_VS_REALITA.md`
+> (folder induk `Fortunas/`) untuk daftar lengkap + konsekuensi narasi paper.
+
 ## 1. Problem Statement
 UMKM di Indonesia menghasilkan data transaksi setiap hari, tetapi:
 - Tidak punya data analyst untuk mengolah data
@@ -32,10 +37,10 @@ SQL Agent (query template dari QUERY_MAP)
 BigQuery (execute query, return rows)
   |
   v
-Local LLM / Ollama (interpret results → insight + rekomendasi)
+LLM Provider (Gemini 2.5 Flash aktif; Ollama/Qwen3 diarsipkan, lihat app/llm_provider.py) → insight + rekomendasi
   |
   v
-Frontend (React — glassmorphism dark theme, accessible)
+Client (Flutter Web PWA — dibangun dari mobile/, klien React lama sudah dihapus)
 ```
 
 ## 4. Core Features
@@ -43,7 +48,7 @@ Frontend (React — glassmorphism dark theme, accessible)
 | Fitur | Deskripsi |
 |-------|-----------|
 | Natural Language Query | Tanya pakai bahasa sehari-hari |
-| 4 Analisis Inti | Repeat customer, peak hour, bundling, high-value customer |
+| 11 Analisis Siap Pakai | Repeat customer, high-value customer, peak hour, bundling, top product, revenue trend, customer segmentation, churn risk, slow-moving product, average basket size, demand forecast |
 | AI Interpretation | LLM ubah data mentah jadi insight bisnis natural language |
 | Auto Recommendation | Setiap analisis disertai 3 saran actionable |
 | Briefing Otomatis | Satu klik, semua analisis + executive summary |
@@ -56,22 +61,22 @@ Frontend (React — glassmorphism dark theme, accessible)
 
 | Layer | Teknologi |
 |-------|-----------|
-| Frontend | React + Vite |
+| Client | Flutter Web (PWA) — klien React lama sudah dihapus |
 | Backend | FastAPI (Python) |
 | Database | Google BigQuery |
-| AI/LLM | Ollama (Qwen3:8b, local) |
+| AI/LLM | **Gemini 2.5 Flash** (API, aktif) · Ollama/Qwen3:8b lokal (arsip, `LLM_PROVIDER=ollama`) |
 | Streaming | Server-Sent Events (SSE) |
 | Agent Logic | Intent routing + SQL agent |
 
-**Kenapa Local LLM?**
-- Data UMKM sensitif, tidak perlu dikirim ke cloud
-- Bisa jalan di laptop biasa (8GB+ RAM)
-- Gratis, tidak ada biaya API
+**Kenapa Gemini (bukan lagi Local LLM)?**
+- Kualitas jawaban Bahasa Indonesia lebih konsisten + tidak butuh RAM besar di sisi server
+- Jalur lokal (Ollama/Qwen3) tetap ada sebagai arsip — bisa diaktifkan lewat `LLM_PROVIDER=ollama` untuk skenario "data tidak keluar server"
+- Trade-off: klaim UU PDP "data tidak keluar server" tidak lagi berlaku untuk jalur default (Gemini adalah API cloud) — lihat `PROPOSAL_VS_REALITA.md` untuk konsekuensi narasi paper
 
 ## 6. Value Proposition
 
 1. **Aksesibilitas**: UMKM tidak perlu hire data analyst
-2. **Privasi**: Data tetap di lokal, LLM jalan di laptop sendiri
+2. **Privasi**: Isolasi antar UMKM di lapisan data (tiap tenant hanya akses tabelnya sendiri); LLM aktif (Gemini) adalah API cloud — jalur lokal (Ollama/Qwen3) tetap tersedia sebagai arsip untuk skenario "data tidak keluar server"
 3. **Actionable**: Bukan cuma angka, tapi saran yang bisa langsung diterapkan
 4. **Proaktif**: Briefing otomatis — AI yang inisiatif, bukan menunggu pertanyaan
 5. **Real-time**: SSE streaming — lihat hasil satu per satu, tidak menunggu semua selesai

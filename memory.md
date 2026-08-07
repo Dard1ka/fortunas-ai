@@ -33,7 +33,9 @@ Client (Flutter web/PWA) --Bearer JWT--> nginx :80 --> uvicorn :8000 (FastAPI)
   template deterministik dari data = fallback bila LLM kosong (`_repair_output` di `app/llm_service.py`).
 - Invoice voice **auto-increment** (user tak perlu sebut). Sheets **sudah dihapus** dari jalur multi-tenant (langsung BQ).
 - Scheduler briefing OFF (`BRIEFING_SCHEDULER_ENABLED=false`); briefing per-tenant via `POST /report/daily/run`.
-- 4 intent analitik (hardcoded): repeat_customer, high_value_customer, peak_hour, bundle_opportunity.
+- 11 intent analitik (hardcoded, lihat `app/analysis_registry.py`): repeat_customer, high_value_customer,
+  peak_hour, bundle_opportunity, top_product, revenue_trend, customer_segmentation, churn_risk,
+  slow_moving_product, average_basket_size, demand_forecast.
   Nambah analisis → ubah `intent_mapper.py` + `queries.py` + `analysis_registry.py`.
 
 ## Endpoint Inti (lihat `/docs`)
