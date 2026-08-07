@@ -94,6 +94,6 @@ export const api = {
     request(`/umkm/products/search?q=${encodeURIComponent(q)}`, { signal }),
   voiceParse:   (transcript, signal)  =>
     request('/voice/parse', { method: 'POST', body: { transcript }, signal }),
-  voiceTransaction: (payload, signal) =>
-    request('/voice/transaction', { method: 'POST', body: payload, signal }),
+  // /voice/transaction: jalur tulis legacy backend — UI kini menulis lewat
+  // /checkout/confirm (K5, ADR-0002); method client-nya dihapus (nol pemakai).
 };
