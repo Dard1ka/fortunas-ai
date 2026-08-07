@@ -12,7 +12,20 @@ venv/
 # ── Secrets & Credentials (CRITICAL — never commit) ─────────────
 .env
 .env.*
+# Varian nama TANPA titik atau dengan prefiks lain. Bukan paranoia:
+# 2026-08-07 sebuah file bernama `env` (tanpa titik) berisi API key asli
+# (OpenAI, Gemini, Meta, JWT_SECRET) lolos dari pola `.env*` di atas dan muncul
+# sebagai untracked di repo yang PUBLIC — satu `git add .` dari ter-commit dan
+# dipanen bot. Tidak pernah benar-benar ter-commit, tapi celahnya nyata.
+# Pola ini menutup KELAS kesalahannya, bukan cuma instansnya.
+env
+*.env
+# CATATAN: `env.*` SENGAJA TIDAK dipakai — ia akan menjaring
+# `app/migrations/env.py` (file Alembic yang wajib ter-track) dan merusak
+# migrasi untuk siapa pun yang clone baru. Kalau nanti perlu menutup
+# `env.local` dsb, tambahkan nama spesifiknya, jangan wildcard.
 !.env.example
+!deploy/.env.production.example
 credentials/
 secrets/
 *service-account*.json
