@@ -72,8 +72,13 @@ mobile/android/.gradle/
 mobile/android/local.properties
 mobile/android/app/build/
 
-# ── Handover doc (berisi credential — JANGAN commit ke repo publik) ──
+# ── Handover doc (berisi credential/infra — JANGAN commit ke repo publik) ──
+# Baris HANDOVER.md pernah ada di commit 5943661 tapi TIDAK ikut ter-squash saat
+# PR #25 di-merge, jadi ia hilang dari main. Salinan kanonik file itu sekarang
+# hidup di folder induk Fortunas/ (di luar work tree) — pola ini disengaja:
+# file di luar repo tidak bisa ikut ter-commit walau .gitignore salah lagi.
 HANDOVER.txt
+HANDOVER.md
 
 # ── Submission archive itself ────────────────────────────────────
 fortunas-ai.zip
