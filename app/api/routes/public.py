@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, HTTPException, Request
+import jwt
+from fastapi import APIRouter, Header, HTTPException, Request
 
 from app import db, order_repo, product_repo
+from app.core.auth import decode_access_token
 from app.schemas import PublicOrderCreateRequest, PublicOrderResponse
 from app.services import payment
 
@@ -67,6 +69,28 @@ def _rate_limit_order(request: Request) -> None:
         _sweep_stale_order_hits(now)
 
 
+def _optional_customer_id(authorization: str | None) -> str | None:
+    """Baca `customer_user_id` dari bearer pelanggan bila ADA & sah — best-effort.
+
+    Jalur order publik SENGAJA tanpa auth: tamu tetap boleh memesan. Jadi token
+    yang tak ada / kedaluwarsa / bukan token customer TIDAK menolak request —
+    cuma berarti pesanan tak tertaut ke akun (tetap tercatat, tapi tak menaut
+    loyalty saat `completed`). Token yang sah bertanda tangan, jadi id-nya
+    dipercaya tanpa lookup DB tambahan; keberadaan akun diverifikasi belakangan
+    saat penautan loyalty (juga best-effort).
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_access_token(token)
+    except jwt.PyJWTError:
+        return None
+    if payload.get("role") != "customer":
+        return None
+    return payload.get("customer_user_id") or None
+
+
 @router.get("/public/umkm/{code}")
 def get_umkm_by_code(code: str) -> dict:
     tenant = db.get_tenant_by_code(code)
@@ -110,10 +134,18 @@ def _order_out(o: dict) -> PublicOrderResponse:
 @router.post("/public/umkm/{code}/orders", response_model=PublicOrderResponse,
              status_code=201)
 def create_public_order(code: str, req: PublicOrderCreateRequest,
-                        request: Request) -> PublicOrderResponse:
+                        request: Request,
+                        authorization: str | None = Header(default=None),
+                        ) -> PublicOrderResponse:
     """Pelanggan membuat pesanan lewat kode UMKM → buat order pending_payment +
-    inisiasi pembayaran. Validasi: produk milik UMKM, punya harga, stok cukup."""
+    inisiasi pembayaran. Validasi: produk milik UMKM, punya harga, stok cukup.
+
+    Header `Authorization` OPSIONAL: bila memuat bearer pelanggan yang sah,
+    pesanan ditautkan ke akunnya (`customer_user_id`) supaya penjualan online
+    masuk ke loyalty saat `completed`. Tanpa/token tak sah → tetap diproses
+    sebagai pesanan tamu (endpoint ini tanpa auth by design)."""
     _rate_limit_order(request)
+    customer_user_id = _optional_customer_id(authorization)
     tenant = db.get_tenant_by_code(code)
     if tenant is None:
         raise HTTPException(status_code=404, detail="UMKM dengan kode itu tidak ditemukan.")
@@ -142,7 +174,7 @@ def create_public_order(code: str, req: PublicOrderCreateRequest,
     order = order_repo.create_order(
         tenant_id, code=tenant.get("business_profile", {}).get("code", code),
         customer_name=req.customer_name, customer_phone=req.customer_phone,
-        items=items, total=total)
+        items=items, total=total, customer_user_id=customer_user_id)
 
     charge = payment.create_charge(order)
     order = order_repo.attach_payment(
@@ -163,18 +195,25 @@ def get_public_order(payment_order_id: str) -> PublicOrderResponse:
     return _order_out(o)
 
 
-@router.api_route("/public/orders/{payment_order_id}/simulate-pay",
+@router.api_route("/public/orders/{payment_order_id}/confirm-payment",
                   methods=["GET", "POST"])
-def simulate_pay(payment_order_id: str) -> dict:
-    """Mode simulasi (tanpa Midtrans): tandai pesanan lunas. Untuk demo/testing.
-    Ditolak bila Midtrans live agar tidak jadi celah bypass pembayaran."""
-    if payment.is_live():
-        raise HTTPException(status_code=400,
-                            detail="Simulasi dinonaktifkan saat Midtrans aktif.")
+def confirm_payment(payment_order_id: str) -> dict:
+    """Konfirmasi pembayaran **QRIS statis** oleh pelanggan ("Saya sudah bayar").
+
+    QRIS statis tak punya callback per-transaksi, jadi pelanggan menyatakan
+    sendiri sudah membayar → pesanan ditandai lunas (stok dipotong, idempoten
+    via `mark_paid`). Ini KLAIM, bukan bukti: UMKM WAJIB memverifikasi dana
+    benar-benar masuk di aplikasi QRIS-nya sebelum menekan Terima, dan menekan
+    Tolak (stok kembali otomatis) bila ternyata belum dibayar.
+
+    Sengaja tanpa guard `is_live`: Midtrans = future scope, jadi tak ada jalur
+    otomatis yang bisa "di-bypass" endpoint ini. Saat Midtrans diaktifkan nanti,
+    jalur lunas pindah ke webhook (`verify_notification`) dan endpoint ini bisa
+    dibatasi/di-nonaktifkan."""
     o = order_repo.get_by_payment_order_id(payment_order_id)
     if o is None:
         raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan.")
-    o = order_repo.mark_paid(o["id"], payment_status="simulated_settlement")
+    o = order_repo.mark_paid(o["id"], payment_status="qris_manual_confirmed")
     return {"ok": True, "status": o["status"], "order_id": o["id"]}
 
 

@@ -56,6 +56,7 @@ def _to_dict(o: PublicOrder) -> dict[str, Any]:
         "code": o.code or "",
         "customer_name": o.customer_name or "",
         "customer_phone": o.customer_phone or "",
+        "customer_user_id": o.customer_user_id,
         "items": list(o.items or []),
         "total": o.total or 0,
         "status": o.status,
@@ -73,9 +74,14 @@ def _to_dict(o: PublicOrder) -> dict[str, Any]:
 
 def create_order(tenant_id: int, *, code: str, customer_name: str,
                  customer_phone: str, items: list[dict[str, Any]],
-                 total: int) -> dict[str, Any]:
+                 total: int, customer_user_id: str | None = None) -> dict[str, Any]:
     """Buat pesanan baru berstatus pending_payment. `payment_order_id` unik
-    di-generate agar bisa dipetakan balik dari webhook gateway."""
+    di-generate agar bisa dipetakan balik dari webhook gateway.
+
+    `customer_user_id` opsional (best-effort): terisi hanya bila pelanggan
+    kebetulan login saat memesan lewat jalur publik. Dipakai belakangan saat
+    pesanan `completed` untuk menaut penjualan online ke akun pelanggan.
+    """
     now = _now()
     with SessionLocal() as s:
         o = PublicOrder(
@@ -83,6 +89,7 @@ def create_order(tenant_id: int, *, code: str, customer_name: str,
             code=code,
             customer_name=customer_name.strip(),
             customer_phone=customer_phone.strip(),
+            customer_user_id=customer_user_id,
             items=items,
             total=total,
             status=STATUS_PENDING,

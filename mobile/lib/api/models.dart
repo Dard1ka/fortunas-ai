@@ -1150,6 +1150,158 @@ class UmkmOrderListResponse {
       );
 }
 
+// ─── Pesan publik pelanggan (self-order lewat KODE UMKM, tanpa akun) ──
+
+/// Satu produk di menu publik. Cermin dari item `products[]` pada
+/// `GET /public/umkm/{code}` (backend `routes/public.get_umkm_by_code`).
+class PublicMenuProduct {
+  final int id;
+  final String name;
+  final String description;
+  final String imageUrl;
+  final int? categoryId;
+  final int? stock;   // null = tak dilacak (selalu boleh dipesan)
+  final int? price;   // null = harga belum diset (tak bisa dipesan)
+
+  const PublicMenuProduct({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.imageUrl = '',
+    this.categoryId,
+    this.stock,
+    this.price,
+  });
+
+  /// Bisa dipesan hanya bila punya harga DAN (tak dilacak atau stok > 0).
+  bool get orderable => price != null && (stock == null || stock! > 0);
+
+  factory PublicMenuProduct.fromJson(Map<String, dynamic> j) => PublicMenuProduct(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        name: j['name']?.toString() ?? '',
+        description: j['description']?.toString() ?? '',
+        imageUrl: j['image_url']?.toString() ?? '',
+        categoryId: (j['category_id'] as num?)?.toInt(),
+        stock: (j['stock'] as num?)?.toInt(),
+        price: (j['price'] as num?)?.toInt(),
+      );
+}
+
+/// Info toko + menu dari `GET /public/umkm/{code}`.
+class PublicUmkm {
+  final String code;
+  final String name;
+  final String city;
+  final String address;
+  final List<PublicMenuProduct> products;
+  final int count;
+
+  const PublicUmkm({
+    this.code = '',
+    this.name = '',
+    this.city = '',
+    this.address = '',
+    this.products = const [],
+    this.count = 0,
+  });
+
+  factory PublicUmkm.fromJson(Map<String, dynamic> j) => PublicUmkm(
+        code: j['code']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        city: j['city']?.toString() ?? '',
+        address: j['address']?.toString() ?? '',
+        products: (j['products'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(PublicMenuProduct.fromJson)
+            .toList(),
+        count: (j['count'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Satu baris pesanan seperti dikembalikan backend di `items[]`
+/// (`{product_id, name, qty, unit_price, subtotal}`).
+class PublicOrderItem {
+  final int productId;
+  final String name;
+  final int qty;
+  final int unitPrice;
+  final int subtotal;
+
+  const PublicOrderItem({
+    required this.productId,
+    required this.name,
+    required this.qty,
+    required this.unitPrice,
+    required this.subtotal,
+  });
+
+  factory PublicOrderItem.fromJson(Map<String, dynamic> j) => PublicOrderItem(
+        productId: (j['product_id'] as num?)?.toInt() ?? 0,
+        name: j['name']?.toString() ?? '',
+        qty: (j['qty'] as num?)?.toInt() ?? 0,
+        unitPrice: (j['unit_price'] as num?)?.toInt() ?? 0,
+        subtotal: (j['subtotal'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Pesanan seperti dilihat PELANGGAN (`PublicOrderResponse` backend). Kunci
+/// pemantauan status adalah `paymentOrderId` (bukan `id` berurutan) — itu
+/// capability token 128-bit yang mencegah enumerasi PII.
+class PublicOrder {
+  final int id;
+  final String code;
+  final String customerName;
+  final String customerPhone;
+  final List<PublicOrderItem> items;
+  final int total;
+  final String status;
+  final String? paymentProvider;   // "midtrans" | "simulated"
+  final String? paymentToken;      // Snap token (Midtrans)
+  final String? paymentRedirectUrl; // simulasi: path internal; Midtrans: URL Snap
+  final String? paymentOrderId;
+  final String createdAt;
+  final String updatedAt;
+
+  const PublicOrder({
+    required this.id,
+    this.code = '',
+    this.customerName = '',
+    this.customerPhone = '',
+    this.items = const [],
+    this.total = 0,
+    this.status = 'pending_payment',
+    this.paymentProvider,
+    this.paymentToken,
+    this.paymentRedirectUrl,
+    this.paymentOrderId,
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  /// Pembayaran aktif = QRIS statis: pelanggan scan qr.jpeg, bayar manual, lalu
+  /// konfirmasi "Saya sudah bayar". Midtrans (webview Snap) = future scope.
+  bool get isQrisStatic => paymentProvider == 'qris_static';
+
+  factory PublicOrder.fromJson(Map<String, dynamic> j) => PublicOrder(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        code: j['code']?.toString() ?? '',
+        customerName: j['customer_name']?.toString() ?? '',
+        customerPhone: j['customer_phone']?.toString() ?? '',
+        items: (j['items'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(PublicOrderItem.fromJson)
+            .toList(),
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        status: j['status']?.toString() ?? 'pending_payment',
+        paymentProvider: j['payment_provider']?.toString(),
+        paymentToken: j['payment_token']?.toString(),
+        paymentRedirectUrl: j['payment_redirect_url']?.toString(),
+        paymentOrderId: j['payment_order_id']?.toString(),
+        createdAt: j['created_at']?.toString() ?? '',
+        updatedAt: j['updated_at']?.toString() ?? '',
+      );
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 List<String> _stringList(dynamic v) {
   if (v is List) {

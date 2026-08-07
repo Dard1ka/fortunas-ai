@@ -97,6 +97,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: () => context.push('/customer/login'),
                     child: const Text('Saya pelanggan? Masuk di sini'),
                   ),
+                  const SizedBox(height: 4),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  // Alur pelanggan anonim: pesan lewat KODE UMKM tanpa akun.
+                  OutlinedButton.icon(
+                    key: const Key('login_public_order'),
+                    onPressed: () => context.push('/order'),
+                    icon: const Icon(Icons.storefront_outlined, size: 18),
+                    label: const Text('Pesan tanpa akun'),
+                  ),
                 ],
               ),
             ),

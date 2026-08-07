@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app import order_repo
 from app.core.tenancy import TenantContext, get_current_tenant
 from app.schemas import UmkmOrder, UmkmOrderListResponse
+from app.services import checkout_service
 
 router = APIRouter(tags=["orders"])
 
@@ -73,5 +74,23 @@ def reject_order(order_id: int,
 @router.post("/umkm/orders/{order_id}/complete", response_model=UmkmOrder)
 def complete_order(order_id: int,
                    tenant: TenantContext = Depends(get_current_tenant)) -> UmkmOrder:
-    """`accepted` → `completed`. Jembatan ke BigQuery menyusul di Slice 2."""
-    return _act(tenant.tenant_id, order_id, "complete")
+    """`accepted` → `completed`, lalu jembatani penjualan ke BigQuery (Slice 2).
+
+    Penulisan BigQuery dilakukan HANYA di sini (bukan di `order_repo.apply_action`)
+    supaya `order_repo` tetap murni relasional dan bebas dependensi BigQuery.
+    Titik `completed` = barang diserahkan; baru di sinilah pesanan online layak
+    dihitung sebagai penjualan oleh analitik/riwayat (semua baca BigQuery).
+
+    Jembatan best-effort: pesanan sudah `completed` terlebih dulu, jadi kegagalan
+    BigQuery tak membatalkan penyelesaian (lihat `checkout_service`). Karena
+    transisi `accepted → completed` dijaga compare-and-set, `complete` hanya
+    menang SEKALI — jadi jembatan ini tak pernah menulis pesanan yang sama dua kali.
+    """
+    try:
+        order = order_repo.apply_action(tenant.tenant_id, order_id, "complete")
+    except order_repo.TransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if order is None:
+        raise HTTPException(status_code=404, detail="Pesanan tidak ditemukan.")
+    checkout_service.persist_completed_order(order, tenant)
+    return UmkmOrder(**order)

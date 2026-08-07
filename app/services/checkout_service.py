@@ -12,7 +12,7 @@ from typing import Any
 from app import customer_repo, loyalty_repo, points_repo, product_repo, promo_repo
 from app.core.tenancy import TenantContext
 from app.qr_nonce_repo import consume_nonce
-from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse
+from app.schemas import CheckoutConfirmRequest, CheckoutConfirmResponse, CheckoutLineItem
 from app.services.promo_service import verify_promo_qr
 from app.services.qr_service import verify_qr
 
@@ -120,6 +120,66 @@ def persist_basket(
                 "status": "bq_error", "matched_products": matched}
     return {"invoice": inv, "inserted": inserted, "errors": [],
             "status": "ok", "matched_products": matched}
+
+
+def persist_completed_order(order: dict, tenant: TenantContext) -> dict:
+    """Jembatani pesanan online yang SELESAI ke BigQuery (reuse `persist_basket`).
+
+    Dipanggil dari `routes/orders.complete_order` tepat setelah status pindah ke
+    `completed` — titik di mana barang benar-benar diserahkan ke pelanggan.
+    Sebelum jembatan ini, penjualan jalur pesan-online tak pernah masuk BigQuery,
+    padahal 11 analisis + /ask + /briefing + riwayat semuanya baca BigQuery — jadi
+    omzet online ter-underreport total: hanya checkout kasir walk-in yang terhitung
+    di top_product, revenue_trend, peak_hour, dst.
+
+    Me-reuse `persist_basket` PERSIS seperti jalur walk-in, jadi penautan katalog
+    (stock_code), penomoran invoice, dan validasi baris identik. `customer_user_id`
+    (terisi hanya bila pelanggan kebetulan login saat memesan) menaut penjualan ke
+    akun lewat riwayat produk loyalty — cermin `confirm_checkout`: best-effort,
+    kegagalan loyalty tak membatalkan pencatatan penjualan.
+
+    SELURUHNYA best-effort: pesanan SUDAH `completed` (barang sudah pindah tangan),
+    jadi kegagalan BigQuery TIDAK boleh membatalkan penyelesaian — underreport satu
+    pesanan jauh lebih ringan daripada memblokir tombol Selesai. Return hasil
+    `persist_basket` (atau penanda dry_run/empty/bq_exception) untuk observabilitas.
+    """
+    if _dry_run_enabled():
+        return {"status": "dry_run", "inserted": 0}
+
+    items = [
+        CheckoutLineItem(
+            product=it["name"], qty=it["qty"],
+            unit_price=it["unit_price"], total=it.get("subtotal"),
+        )
+        for it in (order.get("items") or [])
+    ]
+    if not items:
+        return {"status": "empty", "inserted": 0}
+
+    # ── SALE → BigQuery (seam yang sama dengan walk-in) ──
+    # invoice=None → persist_basket auto-generate nomor invoice berikutnya.
+    try:
+        res = persist_basket(
+            items, order.get("customer_name") or "", "Indonesia", None,
+            tenant.table("transactions"), tenant.table("customers"),
+            tenant_id=tenant.tenant_id,
+        )
+    except Exception as exc:  # BQ kredensial/jaringan — jangan patahkan completion
+        return {"status": "bq_exception", "inserted": 0, "errors": [str(exc)]}
+
+    # ── Tautan loyalty (SETELAH sale sukses, best-effort) ──
+    cid = order.get("customer_user_id")
+    if cid and res.get("status") == "ok":
+        try:
+            customer_repo.ensure_membership(cid, tenant.tenant_id)
+            for it in items:
+                product_repo.record_purchase(
+                    cid, tenant.tenant_id, product_name=it.product,
+                    amount=(it.total or it.qty * it.unit_price), count=1,
+                )
+        except Exception:
+            pass  # loyalty tak pernah membatalkan pencatatan penjualan
+    return res
 
 
 def _rupiah(n: int) -> str:

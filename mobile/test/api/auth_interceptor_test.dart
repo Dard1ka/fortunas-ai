@@ -24,6 +24,24 @@ void main() {
     expect(o2.headers.containsKey('Authorization'), isFalse);
   });
 
+  test('skips Bearer header for /public/* even when token present', () {
+    final i = AuthInterceptor(getToken: () => 'jwt123');
+    for (final p in const [
+      '/public/umkm/KDS-001',
+      '/public/umkm/KDS-001/orders',
+      '/public/orders/ORD-1-abc',
+      '/public/orders/ORD-1-abc/simulate-pay',
+    ]) {
+      final o = RequestOptions(path: p);
+      i.onRequest(o, RequestInterceptorHandler());
+      expect(o.headers.containsKey('Authorization'), isFalse, reason: p);
+    }
+    // Non-public path still gets the header.
+    final o = RequestOptions(path: '/umkm/orders');
+    i.onRequest(o, RequestInterceptorHandler());
+    expect(o.headers['Authorization'], 'Bearer jwt123');
+  });
+
   test('calls onUnauthorized on 401 response', () {
     var called = false;
     final i = AuthInterceptor(getToken: () => null, onUnauthorized: () => called = true);

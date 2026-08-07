@@ -470,9 +470,9 @@ def test_public_order_lookup_uses_unguessable_key(monkeypatch, tmp_path):
     assert c.get(f"/public/orders/{o['id']}").status_code == 404
 
 
-def test_simulate_pay_also_keyed_by_payment_order_id(monkeypatch, tmp_path):
-    """simulate-pay punya cacat enumerasi yang sama: dengan id berurutan siapa pun
-    bisa menandai pesanan orang lain lunas di mode simulasi."""
+def test_confirm_payment_also_keyed_by_payment_order_id(monkeypatch, tmp_path):
+    """confirm-payment (QRIS statis) harus dikunci payment_order_id, bukan id
+    berurutan: kalau tidak, siapa pun bisa menandai pesanan orang lain lunas."""
     from app.services import payment
     monkeypatch.setattr(payment, "_server_key", lambda: "")
     c = _client()
@@ -480,10 +480,10 @@ def test_simulate_pay_also_keyed_by_payment_order_id(monkeypatch, tmp_path):
     o = _order(c, code, pid)
     poid = o["payment_order_id"]                       # ikut di respons create
     assert poid == order_repo.get_order(o["id"])["payment_order_id"]
-    assert o["payment_redirect_url"] == f"/public/orders/{poid}/simulate-pay"
+    assert o["payment_redirect_url"] == f"/public/orders/{poid}/confirm-payment"
     assert c.post(o["payment_redirect_url"]).json()["status"] == "paid"
     # jalur id berurutan tak lagi ada
-    assert c.post(f"/public/orders/{o['id']}/simulate-pay").status_code == 404
+    assert c.post(f"/public/orders/{o['id']}/confirm-payment").status_code == 404
 
 
 def test_public_responses_hide_tenant_id(monkeypatch, tmp_path):
@@ -810,3 +810,134 @@ def test_payment_order_id_entropi_128_bit(monkeypatch, tmp_path):
         acak = poid.rsplit("-", 1)[1]
         assert len(acak) == 32, poid
         int(acak, 16)          # harus hex murni
+
+
+# ── Slice 2: jembatan pesanan `completed` → BigQuery (reuse persist_basket) ──
+
+def _drive_to_accepted(c, monkeypatch, tmp_path, email, *, stock=9, qty=1, bearer=None):
+    """Daftar UMKM + produk, buat pesanan publik (opsional dengan bearer
+    pelanggan), bayar (simulasi), terima. Return (code, pid, tok, tenant_id, o)
+    dengan pesanan berstatus `accepted` — siap di-`complete`."""
+    from app.services import payment
+    monkeypatch.setattr(payment, "_server_key", lambda: "")
+    code, pid, tok = _setup(c, monkeypatch, tmp_path, email=email, stock=stock)
+    tenant_id = c.get("/auth/me", headers=_h(tok)).json()["tenant_id"]
+    r = c.post(f"/public/umkm/{code}/orders",
+               json={"customer_name": "Budi", "customer_phone": "0812",
+                     "items": [{"product_id": pid, "qty": qty}]},
+               headers=(_h(bearer) if bearer else None))
+    assert r.status_code == 201, r.text
+    o = r.json()
+    _pay(c, o)
+    assert c.post(f"/umkm/orders/{o['id']}/accept", headers=_h(tok)).status_code == 200
+    return code, pid, tok, tenant_id, o
+
+
+def test_complete_bridges_sale_to_bigquery(monkeypatch, tmp_path):
+    """Tombol Selesai (`accepted → completed`) menulis penjualan ke BigQuery
+    lewat persist_basket — sebelum ini omzet pesanan online tak terhitung sama
+    sekali di analitik/riwayat (yang semuanya baca BigQuery)."""
+    from app.services import checkout_service as cs
+    calls: list[dict] = []
+
+    def _fake_persist(items, name, country, invoice, tx, cust, tenant_id=None):
+        calls.append({"items": items, "name": name, "country": country,
+                      "tenant_id": tenant_id})
+        return {"status": "ok", "inserted": len(items), "invoice": "100", "errors": []}
+
+    monkeypatch.setattr(cs, "persist_basket", _fake_persist)
+    c = _client()
+    _, _, tok, tenant_id, o = _drive_to_accepted(c, monkeypatch, tmp_path, "bq1@t.com")
+
+    r = c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "completed"
+    assert len(calls) == 1, "persist_basket harus dipanggil sekali saat completed"
+    assert calls[0]["name"] == "Budi"
+    assert calls[0]["country"] == "Indonesia"
+    assert calls[0]["tenant_id"] == tenant_id
+    assert [it.product for it in calls[0]["items"]] == ["Kopi Susu"]
+    assert [it.qty for it in calls[0]["items"]] == [1]
+
+
+def test_complete_writes_bigquery_only_once_on_retry(monkeypatch, tmp_path):
+    """Retry POST /complete pada pesanan yang sudah `completed` balas 409 dan
+    TIDAK menulis BigQuery lagi: transisi accepted→completed dijaga
+    compare-and-set, jadi hanya menang sekali."""
+    from app.services import checkout_service as cs
+    calls: list[int] = []
+    monkeypatch.setattr(cs, "persist_basket",
+                        lambda *a, **k: (calls.append(1),
+                                         {"status": "ok", "inserted": 1, "invoice": "1"})[1])
+    c = _client()
+    _, _, tok, _, o = _drive_to_accepted(c, monkeypatch, tmp_path, "bq2@t.com")
+
+    assert c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok)).status_code == 200
+    assert c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok)).status_code == 409
+    assert len(calls) == 1, "BigQuery ditulis dua kali untuk pesanan yang sama"
+
+
+def test_complete_links_loyalty_when_customer_logged_in(monkeypatch, tmp_path):
+    """Pelanggan yang login saat memesan → `customer_user_id` tertangkap di
+    pesanan, dan saat Selesai penjualan ditaut ke akun (record_purchase +
+    ensure_membership), best-effort di atas penulisan BigQuery."""
+    from app import customer_repo
+    from app.core.auth import create_customer_token
+    from app.services import checkout_service as cs
+    monkeypatch.setattr(cs, "persist_basket",
+                        lambda *a, **k: {"status": "ok", "inserted": 1, "invoice": "1"})
+    recorded: list[tuple] = []
+    membered: list[tuple] = []
+    monkeypatch.setattr(cs.product_repo, "record_purchase",
+                        lambda cid, tid, *, product_name, amount, count=1:
+                        recorded.append((cid, tid, product_name, amount, count)))
+    monkeypatch.setattr(cs.customer_repo, "ensure_membership",
+                        lambda cid, tid: (membered.append((cid, tid)), ({}, True))[1])
+
+    cust, _ = customer_repo.upsert_customer(
+        firebase_uid="fb-bq3", phone_number="0899", username="Sinta",
+        birth_date="2000-01-01")
+    bearer = create_customer_token(customer_user_id=cust["customer_user_id"])
+    c = _client()
+    _, _, tok, tenant_id, o = _drive_to_accepted(
+        c, monkeypatch, tmp_path, "bq3@t.com", bearer=bearer)
+
+    assert order_repo.get_order(o["id"])["customer_user_id"] == cust["customer_user_id"]
+    assert c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok)).status_code == 200
+    assert recorded == [(cust["customer_user_id"], tenant_id, "Kopi Susu", 15000, 1)]
+    assert membered == [(cust["customer_user_id"], tenant_id)]
+
+
+def test_complete_guest_order_writes_bq_without_loyalty(monkeypatch, tmp_path):
+    """Pesanan tamu (tanpa bearer pelanggan) tetap masuk BigQuery, tapi TIDAK
+    menaut loyalty — `customer_user_id` None."""
+    from app.services import checkout_service as cs
+    monkeypatch.setattr(cs, "persist_basket",
+                        lambda *a, **k: {"status": "ok", "inserted": 1, "invoice": "1"})
+    recorded: list[int] = []
+    monkeypatch.setattr(cs.product_repo, "record_purchase",
+                        lambda *a, **k: recorded.append(1))
+    c = _client()
+    _, _, tok, _, o = _drive_to_accepted(c, monkeypatch, tmp_path, "bq4@t.com")
+
+    assert order_repo.get_order(o["id"])["customer_user_id"] is None
+    assert c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok)).status_code == 200
+    assert recorded == [], "pesanan tamu tak boleh menaut loyalty"
+
+
+def test_complete_survives_bigquery_exception(monkeypatch, tmp_path):
+    """Kegagalan BigQuery (kredensial/jaringan) TIDAK membatalkan penyelesaian:
+    barang sudah diserahkan, jadi pesanan tetap `completed` walau tulis gagal."""
+    from app.services import checkout_service as cs
+
+    def _boom(*a, **k):
+        raise RuntimeError("BigQuery unreachable")
+
+    monkeypatch.setattr(cs, "persist_basket", _boom)
+    c = _client()
+    _, _, tok, _, o = _drive_to_accepted(c, monkeypatch, tmp_path, "bq5@t.com")
+
+    r = c.post(f"/umkm/orders/{o['id']}/complete", headers=_h(tok))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "completed"
+    assert order_repo.get_order(o["id"])["status"] == order_repo.STATUS_COMPLETED

@@ -227,4 +227,50 @@ class FakeApi extends FortunasApi {
     if (orderActionError != null) throw orderActionError!;
     return orderActionResult ?? UmkmOrder(id: orderId, status: action);
   }
+
+  // ── Pesan publik pelanggan ──
+  PublicUmkm? publicUmkmResult;
+  Object? publicUmkmError;
+  String? lastPublicUmkmCode;
+  PublicOrder? createPublicOrderResult;
+  Object? createPublicOrderError;
+  (String, String, String, List<Map<String, int>>)? lastCreatePublicOrder;
+  PublicOrder? publicOrderStatusResult;
+  String? lastStatusPoid;
+  Map<String, dynamic>? confirmPayResult;
+  String? lastConfirmPayPoid;
+
+  @override
+  Future<PublicUmkm> getPublicUmkm(String code, {CancelToken? cancelToken}) async {
+    lastPublicUmkmCode = code;
+    if (publicUmkmError != null) throw publicUmkmError!;
+    return publicUmkmResult ?? const PublicUmkm();
+  }
+
+  @override
+  Future<PublicOrder> createPublicOrder(
+    String code, {
+    required String customerName,
+    required String customerPhone,
+    required List<Map<String, int>> items,
+    CancelToken? cancelToken,
+  }) async {
+    lastCreatePublicOrder = (code, customerName, customerPhone, items);
+    if (createPublicOrderError != null) throw createPublicOrderError!;
+    return createPublicOrderResult ?? const PublicOrder(id: 0);
+  }
+
+  @override
+  Future<PublicOrder> getPublicOrderStatus(String paymentOrderId,
+      {CancelToken? cancelToken}) async {
+    lastStatusPoid = paymentOrderId;
+    return publicOrderStatusResult ?? const PublicOrder(id: 0);
+  }
+
+  @override
+  Future<Map<String, dynamic>> confirmPublicOrderPayment(String paymentOrderId,
+      {CancelToken? cancelToken}) async {
+    lastConfirmPayPoid = paymentOrderId;
+    return confirmPayResult ?? {'ok': true, 'status': 'paid'};
+  }
 }

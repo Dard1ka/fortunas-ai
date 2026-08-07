@@ -120,9 +120,7 @@ def test_public_menu_includes_price(monkeypatch, tmp_path):
     assert pj["products"][0]["price"] == 15000
 
 
-def test_create_order_and_simulate_pay_decrements_stock(monkeypatch, tmp_path):
-    from app.services import payment
-    monkeypatch.setattr(payment, "_server_key", lambda: "")  # pastikan mode simulasi
+def test_create_order_and_confirm_payment_decrements_stock(monkeypatch, tmp_path):
     c = _client()
     code, pid, tok = _register_with_product(c, monkeypatch, tmp_path,
                                             email="ord@t.com", city="Kudus",
@@ -134,10 +132,11 @@ def test_create_order_and_simulate_pay_decrements_stock(monkeypatch, tmp_path):
     o = r.json()
     assert o["total"] == 30000
     assert o["status"] == "pending_payment"
-    assert o["payment_provider"] == "simulated"
-    assert o["payment_redirect_url"].endswith("/simulate-pay")
+    # Pembayaran aktif = QRIS statis (Midtrans = future scope).
+    assert o["payment_provider"] == "qris_static"
+    assert o["payment_redirect_url"].endswith("/confirm-payment")
 
-    # bayar (simulasi) → lunas + stok berkurang 2 (3 → 1)
+    # konfirmasi bayar (QRIS statis manual) → lunas + stok berkurang 2 (3 → 1)
     pay = c.post(o["payment_redirect_url"])
     assert pay.status_code == 200, pay.text
     assert pay.json()["status"] == "paid"

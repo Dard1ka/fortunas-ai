@@ -35,6 +35,14 @@ void main() {
     expect(authRedirect(AuthStatus.authenticated, '/scan'), isNull);
   });
 
+  test('public order flow (/order) allowed while unauthenticated', () {
+    expect(authRedirect(AuthStatus.unauthenticated, '/order'), isNull);
+    // unknown still resolves to splash first:
+    expect(authRedirect(AuthStatus.unknown, '/order'), '/splash');
+    // authenticated UMKM hitting /order is allowed through (not an auth page):
+    expect(authRedirect(AuthStatus.authenticated, '/order'), isNull);
+  });
+
   test('customer flow allowed while UMKM unauthenticated', () {
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/login'), isNull);
     expect(authRedirect(AuthStatus.unauthenticated, '/customer/otp'), isNull);

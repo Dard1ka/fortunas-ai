@@ -164,10 +164,17 @@ pesanan platform-wide ke pemanggil tanpa auth).
 Ditulis apa adanya sesuai ledger (`​.superpowers/sdd/2026-07-31-slice1-inbox-pesanan-umkm/progress.md`) —
 kalau sesuatu tercatat di sana sebagai belum teruji atau trade sadar, begitu juga di sini.
 
-1. **Analitik belum menghitung pesanan online.** `complete_order` (`accepted → completed`) belum menjembatani
-   ke BigQuery (`checkout_service.py`) — itu scope **Slice 2**. Konsekuensinya: **omzet under-reported**
-   sampai Slice 2 selesai; laporan analitik UMKM hari ini tidak melihat transaksi dari jalur pesan-online sama
-   sekali, hanya dari checkout kasir langsung.
+1. ~~**Analitik belum menghitung pesanan online.**~~ **SELESAI di Slice 2 (2026-08-03).** `complete_order`
+   (`accepted → completed`) kini menjembatani ke BigQuery lewat `checkout_service.persist_completed_order`
+   (me-reuse `persist_basket`), jadi omzet pesan-online sudah terhitung di 11 analisis + /ask + /briefing +
+   riwayat. `customer_user_id` (bila pelanggan login saat memesan) menaut penjualan ke akun loyalty
+   (`record_purchase` + `ensure_membership`), best-effort. **Utang tersisa yang diterima sadar:**
+   (a) penulisan BigQuery **best-effort tanpa retry** — pesanan sudah `completed` lebih dulu, jadi kalau
+   BigQuery tak terjangkau tepat saat Selesai ditekan, satu pesanan under-report permanen (tak diblok, tak
+   di-antre ulang); dipilih karena memblokir tombol Selesai lebih buruk. (b) **Poin loyalty TIDAK
+   di-earn** untuk pesanan online (hanya riwayat produk via `record_purchase`) — earning poin masih backlog
+   terpisah (FASE2 §6). (c) `customer_user_id` ditangkap di `create_public_order` dari bearer pelanggan yang
+   ditandatangani **tanpa lookup DB**; keberadaan akun baru diverifikasi saat penautan loyalty (best-effort).
 2. **Refund uang ke pelanggan = manual, pengembalian stok = otomatis.** Saat UMKM menekan Tolak (atau webhook
    melapor refund/chargeback), `restore_stock` jalan otomatis, tapi **tidak ada** alur pengembalian uang ke
    pelanggan — itu dilakukan manual di luar sistem (mis. transfer langsung oleh UMKM). Dialog tolak di mobile
