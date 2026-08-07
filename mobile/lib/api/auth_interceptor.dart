@@ -10,9 +10,16 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final token = getToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+    // Jalur publik (`/public/*`) dipakai pelanggan ANONIM yang tak punya token.
+    // Kalau seorang UMKM kebetulan sedang login di app yang sama, tokennya TAK
+    // boleh ikut menempel di sini: backend `create_public_order` membaca header
+    // ini sebagai identitas PELANGGAN (`_optional_customer_id`, role=customer),
+    // jadi token UMKM cuma sampah yang berpotensi memicu 401 palsu. Di-skip.
+    if (!options.path.startsWith('/public/')) {
+      final token = getToken();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
     }
     handler.next(options);
   }

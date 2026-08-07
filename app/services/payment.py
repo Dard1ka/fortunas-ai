@@ -45,22 +45,38 @@ def client_config() -> dict[str, Any]:
 
 
 def create_charge(order: dict[str, Any]) -> dict[str, Any]:
-    """Buat transaksi pembayaran untuk sebuah pesanan.
+    """Buat "transaksi" pembayaran untuk sebuah pesanan.
+
+    MODE AKTIF = **QRIS statis**: pelanggan memindai satu QR (gambar `qr.jpeg`
+    yang dipasang di klien), membayar sejumlah `total` lewat aplikasi bank/
+    e-wallet-nya, lalu menekan "Saya sudah bayar" → memanggil `confirm-payment`
+    yang menandai pesanan lunas. QRIS statis TIDAK punya callback per-transaksi,
+    jadi konfirmasi manual: UMKM WAJIB memverifikasi dana benar-benar masuk
+    sebelum menekan Terima (Tolak mengembalikan stok).
+
+    Midtrans (Snap + webhook otomatis) = **future scope**: kodenya disimpan di
+    `_create_charge_midtrans` + `verify_notification` dan tinggal diaktifkan
+    kembali nanti (mis. `create_charge` memanggilnya saat `is_live()`).
 
     Return: {"provider", "token", "redirect_url"}.
-    - Midtrans: token = Snap token, redirect_url = Snap redirect page.
-    - Simulasi: token = None, redirect_url = endpoint internal simulasi lunas.
+    - QRIS statis: token = None, redirect_url = endpoint internal `confirm-payment`.
     """
     payment_order_id = order["payment_order_id"]
-    if not is_live():
-        return {
-            "provider": "simulated",
-            "token": None,
-            # Kunci = payment_order_id (bukan id berurutan): endpoint publik tak
-            # boleh bisa dienumerasi. Endpoint ini menandai pesanan lunas saat dibuka.
-            "redirect_url": f"/public/orders/{payment_order_id}/simulate-pay",
-        }
+    return {
+        "provider": "qris_static",
+        "token": None,
+        # Kunci = payment_order_id (bukan id berurutan): endpoint publik tak
+        # boleh bisa dienumerasi. Endpoint ini menandai pesanan lunas saat dipanggil.
+        "redirect_url": f"/public/orders/{payment_order_id}/confirm-payment",
+    }
 
+
+def _create_charge_midtrans(order: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+    """FUTURE SCOPE — pembuatan transaksi Midtrans Snap. Dorman: tidak dipanggil
+    `create_charge` saat ini (pembayaran aktif = QRIS statis). Disimpan utuh agar
+    Midtrans bisa diaktifkan kembali tanpa menulis ulang. `verify_notification`
+    (webhook) tetap terpasang di route untuk melengkapi jalur ini."""
+    payment_order_id = order["payment_order_id"]
     items = order.get("items") or []
     item_details = [
         {

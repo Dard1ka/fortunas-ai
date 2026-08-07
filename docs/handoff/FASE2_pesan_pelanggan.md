@@ -2,7 +2,11 @@
 
 > Dokumen untuk developer yang melanjutkan fitur **"pesan pelanggan"** Fortunas.
 > Status per 2026-07-28: **backend Fase 2 selesai & teruji (46 test hijau, belum di-commit)**.
-> Sisa pekerjaan utama: **UI Flutter pelanggan (Slice 2e)**.
+> Update 2026-08-03: **Slice 2 (jembatan BigQuery) & Slice 2e (UI Flutter pelanggan) SELESAI.**
+> UI pelanggan: route publik `/order` (`screens/public_order_screen.dart` +
+> `public_order/public_order_controller.dart`), entry "Pesan tanpa akun" di login,
+> `AuthInterceptor` skip `/public/*`, 4 method client `/public/*`. Alur: kode → menu grid
+> bergambar + cari client-side → keranjang → checkout (nama/HP) → bayar (simulasi) → pantau status.
 
 ---
 
@@ -90,7 +94,17 @@ Pelanggan memesan ke UMKM lewat **KODE UMKM** (mis. `KDS-001`) — **tanpa scan 
 
 ---
 
-## 4. ⏳ TODO — Slice 2e: UI Flutter pelanggan (pekerjaan berikutnya)
+## 4. ✅ SELESAI — Slice 2e: UI Flutter pelanggan (2026-08-03)
+
+Terbangun sesuai rencana di bawah. File: `mobile/lib/screens/public_order_screen.dart`
+(satu layar, 3 fase), `mobile/lib/public_order/public_order_controller.dart` (Riverpod),
+4 method `/public/*` di `mobile/lib/api/client.dart`, `AuthInterceptor` skip `/public/*`,
+route `/order` di `app.dart` + whitelist `authRedirect`, entry "Pesan tanpa akun" di
+`login_screen.dart`. **Pembayaran hanya mode simulasi** — Midtrans Snap (webview) masih TODO;
+pesanan `midtrans` menampilkan pesan "lanjutkan lewat tautan toko". Tes: `test/public_order/`,
+`test/api/auth_interceptor_test.dart`, `test/auth/auth_redirect_test.dart`.
+
+Rencana asli (arsip):
 
 Bangun alur publik `/order` (tanpa auth). Urutan layar:
 
@@ -139,8 +153,11 @@ Bangun alur publik `/order` (tanpa auth). Urutan layar:
   lewat `order_repo.apply_action` (compare-and-set) + tabel `_ALLOWED_FROM`, **jangan** `set_status` yang
   menulis tanpa syarat. Lihat `docs/handoff/day-15.md`.
 - **Notifikasi UMKM** saat ada order baru masuk (FCM `device_tokens` sudah ada; lihat `notify_repo.py`).
-- **Order → transaksi BigQuery** saat pesanan `completed` (reuse `checkout_service.persist_basket`) supaya masuk riwayat & analitik UMKM.
-- **Kaitkan order ke loyalty** (poin) bila pelanggan punya akun.
+- ~~**Order → transaksi BigQuery** saat pesanan `completed` (reuse `checkout_service.persist_basket`)~~ —
+  **SELESAI (Slice 2, 2026-08-03):** `checkout_service.persist_completed_order`, dipanggil dari
+  `routes/orders.complete_order`. Sekarang masuk riwayat & analitik UMKM.
+- **Kaitkan order ke loyalty** (poin) bila pelanggan punya akun. **Sebagian:** riwayat produk (`record_purchase`)
+  + membership sudah ditaut saat `completed` bila pelanggan login (Slice 2); **earning poin belum** — masih TODO.
 - **Expiry order** `pending_payment` yang tak dibayar (job/cron) → status `expired`, kembalikan reservasi.
 - **Menu self-order per-kategori** (disebut di handoff day-14 sebagai Fase 3).
 

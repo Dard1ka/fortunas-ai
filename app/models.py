@@ -233,6 +233,12 @@ class PublicOrder(Base):
     code = Column(Text, nullable=False, default="")  # snapshot kode UMKM
     customer_name = Column(Text, nullable=False, default="")
     customer_phone = Column(Text, nullable=False, default="")
+    # Akun pelanggan yang kebetulan login saat memesan (loyalty). None = tamu.
+    # Jalur publik tanpa auth, jadi ini best-effort: diisi hanya bila klien
+    # menyertakan bearer pelanggan yang sah (lihat routes/public.create_public_order).
+    # Dipakai saat pesanan `completed` untuk menaut penjualan online ke akun
+    # (checkout_service.persist_completed_order).
+    customer_user_id = Column(Text, nullable=True, index=True)
     # items: list[{product_id, name, qty, unit_price, subtotal}]
     items = Column(JSON, nullable=False, default=list)
     total = Column(Integer, nullable=False, default=0)  # Rupiah bulat

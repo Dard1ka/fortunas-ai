@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Wajib untuk semua HTTP (dio) + webview pembayaran Midtrans Snap.
+         Flutter hanya menambah izin ini otomatis di manifest debug, jadi tanpa
+         deklarasi di sini RELEASE build tak punya akses jaringan sama sekali. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="fortunas_ai"
         android:name="${applicationName}"

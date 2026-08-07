@@ -25,6 +25,7 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/products_screen.dart';
+import 'screens/public_order_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/result_screen.dart';
@@ -147,6 +148,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scan',
         builder: (_, __) => const PhoneFrame(child: ScanScreen()),
+      ),
+      // Alur pesan-publik pelanggan (tanpa akun). Diizinkan tanpa auth —
+      // lihat authRedirect (`/order` di-whitelist bersama `/customer/*`).
+      GoRoute(
+        path: '/order',
+        builder: (_, __) => const PhoneFrame(child: PublicOrderScreen()),
       ),
       GoRoute(
         path: '/customer/login',

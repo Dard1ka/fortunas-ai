@@ -283,6 +283,52 @@ class FortunasApi {
         cancelToken: cancelToken);
     return UmkmOrder.fromJson((r.data as Map).cast<String, dynamic>());
   }
+
+  // ── Pesan publik pelanggan (self-order lewat KODE UMKM, tanpa auth) ──
+  // AuthInterceptor sengaja TIDAK melampirkan token ke `/public/*` (pelanggan
+  // anonim). Backend menangkap `customer_user_id` hanya bila header customer
+  // yang sah kebetulan ada — di alur "Pesan tanpa akun" ini memang tak ada.
+
+  /// Info toko + menu bergambar. 404 bila kode UMKM tak dikenal.
+  Future<PublicUmkm> getPublicUmkm(String code, {CancelToken? cancelToken}) async {
+    final r = await _dio.get('/public/umkm/$code', cancelToken: cancelToken);
+    return PublicUmkm.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  /// Buat pesanan → backend memvalidasi produk/harga/stok lalu menginisiasi
+  /// pembayaran. Return pesanan dengan `paymentRedirectUrl`/`paymentOrderId`.
+  Future<PublicOrder> createPublicOrder(
+    String code, {
+    required String customerName,
+    required String customerPhone,
+    required List<Map<String, int>> items, // [{product_id, qty}]
+    CancelToken? cancelToken,
+  }) async {
+    final r = await _dio.post('/public/umkm/$code/orders', data: {
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'items': items,
+    }, cancelToken: cancelToken);
+    return PublicOrder.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  /// Pantau status pesanan lewat capability token `paymentOrderId`.
+  Future<PublicOrder> getPublicOrderStatus(String paymentOrderId,
+      {CancelToken? cancelToken}) async {
+    final r = await _dio.get('/public/orders/$paymentOrderId',
+        cancelToken: cancelToken);
+    return PublicOrder.fromJson((r.data as Map).cast<String, dynamic>());
+  }
+
+  /// Konfirmasi pembayaran QRIS statis oleh pelanggan ("Saya sudah bayar") →
+  /// backend menandai pesanan lunas. Ini KLAIM (bukan bukti); UMKM memverifikasi
+  /// dana sebelum menerima. Return {ok, status, order_id}.
+  Future<Map<String, dynamic>> confirmPublicOrderPayment(String paymentOrderId,
+      {CancelToken? cancelToken}) async {
+    final r = await _dio.post('/public/orders/$paymentOrderId/confirm-payment',
+        cancelToken: cancelToken);
+    return (r.data as Map).cast<String, dynamic>();
+  }
 }
 
 /// Singleton Riverpod provider for the API client.
