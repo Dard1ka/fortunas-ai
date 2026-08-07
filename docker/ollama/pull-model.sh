@@ -25,4 +25,4 @@ docker compose --profile archive exec ollama ollama pull "${MODEL}"
 
 echo ""
 echo "✓ Model ${MODEL} is ready."
-echo "  Verify with: docker compose exec ollama ollama list"
+echo "  Verify with: docker compose --profile archive exec ollama ollama list"
