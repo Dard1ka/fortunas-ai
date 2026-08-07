@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
 import Pill from '../ui/Pill.jsx';
 import Icon from '../ui/Icon.jsx';
@@ -15,6 +16,7 @@ const TEAM = [
 ];
 
 export default function ProfileScreen({ onLogout }) {
+  const navigate = useNavigate();
   const [health, setHealth] = useState(null);
   const [healthErr, setHealthErr] = useState(null);
   const [me, setMe] = useState(null);
@@ -90,6 +92,36 @@ export default function ProfileScreen({ onLogout }) {
           </div>
         ) : null}
       </Card>
+
+      {/* Pagar AI (DPA) — batasan yang wajib dipatuhi AI (MVP-5) */}
+      <div style={{ margin: '0 18px 12px' }}>
+        <button
+          type="button"
+          onClick={() => navigate('/dpa')}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '14px 16px',
+            background: 'var(--surface)',
+            border: '1.5px solid var(--ink)',
+            borderRadius: 18,
+            boxShadow: '2px 2px 0 var(--ink)',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--lime)', border: '1.5px solid var(--ink)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <Icon name="bolt" size={17} stroke="var(--ink)" strokeWidth={2.2} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14 }}>Pagar AI (DPA)</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Aturan boleh/larangan yang dipatuhi AI</div>
+          </div>
+          <Icon name="chevron" size={16} stroke="var(--ink)" strokeWidth={2} />
+        </button>
+      </div>
 
       {/* AI engine card */}
       <Card>
