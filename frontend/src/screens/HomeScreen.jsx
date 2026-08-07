@@ -335,6 +335,49 @@ export default function HomeScreen({ onVoice }) {
           </div>
           <Icon name="chevron" size={18} stroke="var(--ink)" strokeWidth={2} />
         </button>
+
+        {/* Scan member (validasi QR pelanggan, route /scan) */}
+        <button
+          type="button"
+          onClick={() => navigate('/scan')}
+          style={{
+            width: '100%',
+            marginTop: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: 14,
+            background: 'var(--surface)',
+            color: 'var(--ink)',
+            border: '1.5px solid var(--ink)',
+            borderRadius: 18,
+            boxShadow: 'var(--shadow-pop-sm)',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: 'var(--sky)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="sparkle" size={20} stroke="var(--ink)" strokeWidth={2.2} />
+          </div>
+          <div style={{ textAlign: 'left', flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14 }}>
+              Scan Member
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
+              Daftarkan pelanggan dari QR/token
+            </div>
+          </div>
+          <Icon name="chevron" size={18} stroke="var(--ink)" strokeWidth={2} />
+        </button>
       </div>
     </div>
   );
