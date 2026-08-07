@@ -369,8 +369,11 @@ Normal. Saat pertama boot, backend menjalankan ingest knowledge base + load mode
 ## Checklist Sebelum Commit Docker Files
 
 ```bash
-# Pastikan tidak ada secrets dalam docker context
-docker compose config     # tidak boleh ada nilai nyata dari .env ditampilkan
+# Validasi compose TANPA mencetak nilai .env ke terminal/transkrip.
+# ⚠️ JANGAN jalankan `docker compose config` polos — perintah itu
+# meng-interpolasi .env dan MENCETAK semua secret (insiden nyata 2026-08-07:
+# 6 kredensial bocor ke transkrip sesi dan harus dirotasi).
+docker compose config --quiet && echo "compose OK"
 
 # File yang WAJIB ada sebelum docker compose up:
 ls .env                                  # isi nilai nyata (jangan commit)
