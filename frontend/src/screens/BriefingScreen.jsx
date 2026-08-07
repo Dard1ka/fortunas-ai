@@ -4,18 +4,35 @@ import Pill from '../ui/Pill.jsx';
 import Icon from '../ui/Icon.jsx';
 import { api } from '../api/client.js';
 
+// Peta lengkap 11 analisis registry (app/analysis_registry.py) — ikon dari
+// set Icon.jsx yang ada, warna dari token. Fallback chart/violet untuk
+// analisis baru yang belum dipetakan.
 const ICON_FOR_ANALYSIS = {
-  repeat_customer:    'user',
-  high_value_customer: 'coin',
-  peak_hour:           'clock',
-  bundle_opportunity:  'bag',
+  repeat_customer:       'user',
+  high_value_customer:   'coin',
+  peak_hour:             'clock',
+  bundle_opportunity:    'bag',
+  top_product:           'flame',
+  revenue_trend:         'chart',
+  customer_segmentation: 'sparkle',
+  churn_risk:            'bolt',
+  slow_moving_product:   'history',
+  average_basket_size:   'plus',
+  demand_forecast:       'upload',
 };
 
 const COLOR_FOR_ANALYSIS = {
-  repeat_customer:    'var(--violet)',
-  high_value_customer: 'var(--sky)',
-  peak_hour:           'var(--lime)',
-  bundle_opportunity:  'var(--peach)',
+  repeat_customer:       'var(--violet)',
+  high_value_customer:   'var(--sky)',
+  peak_hour:             'var(--lime)',
+  bundle_opportunity:    'var(--peach)',
+  top_product:           'var(--peach-soft)',
+  revenue_trend:         'var(--lime-deep)',
+  customer_segmentation: 'var(--violet-soft)',
+  churn_risk:            'var(--peach)',
+  slow_moving_product:   'var(--surface-hover)',
+  average_basket_size:   'var(--sky)',
+  demand_forecast:       'var(--violet)',
 };
 
 function shortKpi(section) {
@@ -178,17 +195,17 @@ export default function BriefingScreen() {
             </p>
           </div>
 
-          {/* KPI grid */}
+          {/* KPI grid — SEMUA seksi (11 analisis), bukan 4 pertama saja */}
           <div
             style={{
               padding: '0 18px',
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
               gap: 10,
               marginBottom: 12,
             }}
           >
-            {(latest.sections || []).slice(0, 4).map((s) => (
+            {(latest.sections || []).map((s) => (
               <div
                 key={s.analysis_type}
                 style={{
