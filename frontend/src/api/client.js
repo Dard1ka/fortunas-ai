@@ -88,8 +88,12 @@ export const api = {
   reportDaily:  (signal)              => request('/report/daily', { signal }),
   umkmTransactions: (limit = 200, signal) => request(`/umkm/transactions?limit=${limit}`, { signal }),
   reportRun:    (signal)              => request('/report/daily/run', { method: 'POST', signal, trackLatency: true }),
+  checkoutConfirm: (payload, signal) =>
+    request('/checkout/confirm', { method: 'POST', body: payload, signal, trackLatency: true }),
+  productsSearch: (q, signal) =>
+    request(`/umkm/products/search?q=${encodeURIComponent(q)}`, { signal }),
   voiceParse:   (transcript, signal)  =>
     request('/voice/parse', { method: 'POST', body: { transcript }, signal }),
-  voiceTransaction: (payload, signal) =>
-    request('/voice/transaction', { method: 'POST', body: payload, signal }),
+  // /voice/transaction: jalur tulis legacy backend — UI kini menulis lewat
+  // /checkout/confirm (K5, ADR-0002); method client-nya dihapus (nol pemakai).
 };

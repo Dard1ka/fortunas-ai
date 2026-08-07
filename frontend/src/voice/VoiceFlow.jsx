@@ -83,14 +83,20 @@ export default function VoiceFlow({ onClose }) {
     setError(null);
     try {
       const computedTotal = Number(tx.total) || Number(tx.qty) * Number(tx.unit_price);
-      const payload = { ...tx, total: computedTotal };
-      const res = await api.voiceTransaction(payload);
+      // K5 (ADR-0002): voice = metode input Checkout — SATU jalur tulis via
+      // /checkout/confirm (bisa attach customer, dipakai juga layar Kasir).
+      // /voice/transaction ditinggalkan sebagai jalur legacy backend.
+      const res = await api.checkoutConfirm({
+        items: [{ product: tx.product, qty: Number(tx.qty), unit_price: Number(tx.unit_price) }],
+        ...(tx.customer ? { customer: tx.customer } : {}),
+        ...(tx.invoice ? { invoice: tx.invoice } : {}),
+      });
       if (res?.ok === false) {
         setError(res.reply || 'Gagal menyimpan transaksi.');
         setSubmitting(false);
         return;
       }
-      pushVoiceHistory(payload);
+      pushVoiceHistory({ ...tx, total: computedTotal, invoice: res?.invoice || tx.invoice });
       setSubmitting(false);
       setState('success');
       closeTimerRef.current = setTimeout(() => onClose?.(), 2200);
