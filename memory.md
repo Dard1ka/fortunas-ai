@@ -7,8 +7,13 @@
 ## Apa Ini
 Backend analitik UMKM Indonesia: pemilik usaha bertanya pakai Bahasa Indonesia (teks/suara),
 dijawab AI dari data transaksi mereka sendiri. **Multi-tenant SaaS** + sudah **deploy ke VPS**.
-Produk akhir = **PWA (Flutter web, di-build dari `mobile/` via `flutter build web`)**.
-Target native (`mobile/android/`, `mobile/ios/`) sudah dihapus dari repo — klien tunggal = PWA. `frontend/` (React) dipertahankan sebagai arsip/rujukan desain — tidak dibangun, tidak dites, tidak di-gate CI, bukan yang di-ship.
+Produk akhir = **web app + PWA (React 19 + Vite, di-build dari `frontend/` via `npm run build`)**.
+
+> **Status klien (2026-08-07, ADR-0002):** React (`frontend/`) = klien produksi — dibangun,
+> dites, di-gate CI (`Frontend (lint + test + build)`), target deploy `app.fortunas.id`.
+> Flutter (`mobile/`) = **deprecated** — cadangan demo sampai Gate D (paritas penuh +
+> ratifikasi tim), jangan tambah fitur di sana. Target native sudah dihapus dari repo.
+> Lihat `docs/adr/0002-react-production-client.md`.
 
 ## Stack
 - FastAPI (Python 3.11/3.12), uvicorn
@@ -19,7 +24,7 @@ Target native (`mobile/android/`, `mobile/ios/`) sudah dihapus dari repo — kli
 
 ## Arsitektur (alur data)
 ```
-Client (Flutter web/PWA) --Bearer JWT--> nginx :80 --> uvicorn :8000 (FastAPI)
+Client (React web/PWA — frontend/) --Bearer JWT--> nginx :80 --> uvicorn :8000 (FastAPI)
   get_current_tenant (JWT) → tahu tenant → akses HANYA tabel {prefix}_transactions/_customers
   → Gemini menyusun insight (grounded ke data) + RAG → JSON {summary, top_findings, recommendation, rag_sources}
 ```
@@ -55,14 +60,15 @@ Client (Flutter web/PWA) --Bearer JWT--> nginx :80 --> uvicorn :8000 (FastAPI)
 - `app/llm_provider.py` — switch LLM gemini/openai/ollama
 - `app/llm_service.py`, `app/prompt_builder.py` — insight + prompt
 - `app/agents/rag_agent.py`, `app/knowledge/ingest.py` — RAG
-- `mobile/lib/` — Flutter (client tunggal, di-build ke web/PWA)
+- `frontend/src/` — React 19 + Vite (klien produksi, PWA)
+- `mobile/lib/` — Flutter (DEPRECATED, cadangan demo s/d Gate D — ADR-0002)
 - `deploy/` — DEPLOY.md, systemd unit, nginx conf, .env contoh
 - `scripts/` — util maintenance BQ
 
 ## Cara Jalan (ringkas — detail di HANDOVER.txt / deploy/DEPLOY.md)
 - **Lokal**: venv + `pip install -r requirements.txt`; isi `.env`; jalankan
-  `uvicorn app.main:app --port 8000`; `cd mobile && flutter pub get && flutter run -d chrome`.
-  PWA → backend lain: `flutter run -d chrome --dart-define=FORTUNAS_API=http://<host>:8000`.
+  `uvicorn app.main:app --port 8000`; `cd frontend && npm ci && npm run dev`.
+  Client → backend lain: set `VITE_API_TARGET=http://<host>:8000` (proxy dev server-side).
 - **VPS (sudah live)**: kode di `/opt/fortunas-ai`; update = `git pull && sudo systemctl restart fortunas-backend`.
 
 ## Gotchas
@@ -71,7 +77,7 @@ Client (Flutter web/PWA) --Bearer JWT--> nginx :80 --> uvicorn :8000 (FastAPI)
 - `.env`, `credentials/`, `*.db`, `chroma_db/`, `HANDOVER.txt` = gitignored. Jangan commit secret.
 
 ## TODO Berikutnya
-- [ ] Mobile (Flutter): login (JWT) + konsumsi API.
-- [ ] HTTPS (domain + certbot) sebelum rilis mobile.
+- [ ] Paritas React skop-hibah: Checkout + DPA (Wave A), customer OTP/QR/scan (Wave B) — lihat ADR-0002.
+- [ ] HTTPS (domain + certbot) sebelum rilis PWA React — blocker utama.
 - [ ] Rotate API key Gemini; jadikan repo private.
 - [ ] (opsional) rapikan format "Rp x,0"; bersihkan endpoint WA/Sheets legacy.

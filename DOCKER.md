@@ -6,11 +6,10 @@
 > untuk jadi jalur deploy resmi. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 > (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
 >
-> Catatan tambahan: service `frontend` (React, di-build dari image nginx-nya
-> sendiri) yang dirujuk di dokumen ini ada kembali di `docker-compose*.yml`
-> (Task 1e) — tapi tetap arsip/rujukan desain, bukan klien yang di-ship. Klien
-> yang di-ship adalah **Flutter web (PWA)** di `mobile/`, dijalankan di luar
-> Docker (`flutter run -d chrome` / `flutter build web`).
+> **Status klien (2026-08-07, ADR-0002):** service `frontend` (React, image nginx-nya
+> sendiri) mem-build **klien produksi** — React `frontend/` (React 19 + Vite). Flutter
+> `mobile/` = deprecated, cadangan demo sampai Gate D, dijalankan di luar Docker.
+> Lihat `docs/adr/0002-react-production-client.md`.
 
 # Fortunas AI — Docker Setup Guide
 
@@ -23,8 +22,8 @@ Tidak perlu install Python atau Ollama secara manual — semua berjalan di dalam
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│              Flutter web (PWA), luar Docker          │
-│              flutter run -d chrome                   │
+│         React web (PWA), dev di luar Docker          │
+│         cd frontend && npm run dev                   │
 └──────────────────────┬──────────────────────────────┘
                        │ http://localhost:8000
          ┌─────────────▼─────────────┐
@@ -50,10 +49,12 @@ Volumes:
   reports_data → daily briefing JSON
 ```
 
-> Diagram di atas menampilkan jalur yang dipakai untuk pengembangan (PWA di
-> luar Docker). `docker-compose.yml` juga punya service `fortunas_frontend`
-> (nginx + React build, port `3000:80`, `depends_on: backend`) — arsip/rujukan
-> desain (Task 1e), bukan bagian jalur ini dan bukan klien yang di-ship.
+> Diagram di atas menampilkan jalur pengembangan (Vite dev server di luar
+> Docker). `docker-compose.yml` juga punya service `fortunas_frontend`
+> (nginx + React build produksi, port `3000:80`, `depends_on: backend`) —
+> membangun klien produksi yang sama (ADR-0002). Catatan known-issue: nginx
+> compose ini belum mem-proxy `/media/` (gambar produk 404 lewat service ini;
+> perbaikannya dijadwalkan di Spec 2).
 
 > **Ollama sekarang ARSIP, bukan bagian default stack.** `docker compose up`
 > (tanpa flag tambahan) **tidak** menyalakan `fortunas_ollama` — servicenya
@@ -69,8 +70,8 @@ Volumes:
 > `backend:8000`), bukan lewat port yang dipublish ke host. `CORS_ORIGINS` di
 > file itu berisi placeholder (`http://localhost`, `http://127.0.0.1`) untuk
 > pemanggil yang menghubungi `:8000` langsung dari origin lain — sesuaikan
-> dengan origin asli tempat PWA benar-benar disajikan (mis. port dev
-> `flutter run -d chrome`). Di jalur deploy yang didukung
+> dengan origin asli tempat client benar-benar disajikan (mis. Vite dev
+> server `http://localhost:3000`). Di jalur deploy yang didukung
 > (`deploy/nginx-fortunas.conf`), PWA dan API disajikan same-origin sehingga
 > CORS tidak relevan sama sekali.
 
@@ -227,8 +228,8 @@ docker compose --profile archive exec ollama ollama list
 | http://localhost:8000/docs | Swagger UI backend (hanya di dev mode) |
 | http://localhost:11434 | Ollama API — hanya ada kalau `--profile archive` dipakai |
 
-Aplikasi Fortunas AI sendiri adalah PWA Flutter, dijalankan terpisah dari stack
-Docker ini (`cd mobile && flutter run -d chrome`).
+Untuk pengembangan client, jalankan Vite dev server terpisah dari stack Docker
+ini (`cd frontend && npm run dev`) — atau pakai service `frontend` compose (:3000).
 
 ---
 
@@ -272,7 +273,7 @@ make dev
 
 Perbedaan dengan mode production:
 - **Backend**: source code di-mount langsung → perubahan `.py` langsung efektif tanpa rebuild
-- Port `8000` sama-sama dibuka ke host di kedua mode (lihat catatan port & CORS di atas) — bisa akses Swagger di http://localhost:8000/docs, dan PWA (`flutter run -d chrome`) bisa connect ke `http://localhost:8000`
+- Port `8000` sama-sama dibuka ke host di kedua mode (lihat catatan port & CORS di atas) — bisa akses Swagger di http://localhost:8000/docs, dan client dev (`npm run dev`) bisa connect ke `http://localhost:8000`
 
 ```bash
 # Stop dev mode

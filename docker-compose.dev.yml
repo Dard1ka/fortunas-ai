@@ -1,8 +1,7 @@
 # ============================================================
 #  Fortunas AI — docker-compose.dev.yml
-#  Development mode: hot-reload backend + Vite dev server for the archived
-#  React frontend. The PWA (Flutter web, the shipped client) is not part of
-#  this compose file — run it separately (`cd mobile && flutter run -d chrome`).
+#  Development mode: hot-reload backend + Vite dev server for the React
+#  frontend (the production client — ADR-0002).
 #
 #  Usage:
 #    docker compose -f docker-compose.dev.yml up --build
@@ -60,11 +59,11 @@ services:
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
       KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
       # CORS_ORIGINS is for callers hitting :8000 *directly* from a different
-      # origin — the PWA (served separately, e.g. flutter run -d chrome's dev
-      # port) or Swagger UI. The frontend service below proxies /api through
-      # its own Vite dev server (same-origin from the browser's point of
-      # view), so it doesn't need an entry here. Replace these placeholder
-      # localhost origins with wherever you're actually serving the PWA from.
+      # origin — e.g. a Vite dev server run outside compose, or Swagger UI.
+      # The frontend service below proxies /api through its own Vite dev
+      # server (same-origin from the browser's point of view), so it doesn't
+      # need an entry here. Replace these placeholder localhost origins with
+      # wherever you're actually serving the client from.
       CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
     volumes:
       - ./app:/app/app                          # ← hot reload source
@@ -83,9 +82,9 @@ services:
       --reload
       --log-level debug
 
-  # ── Frontend (Vite dev server, archived React — design reference only) ──
+  # ── Frontend (Vite dev server, production React client — ADR-0002) ──
   frontend:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: fortunas_frontend_dev
     working_dir: /app
     volumes:

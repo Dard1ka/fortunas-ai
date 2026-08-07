@@ -2,10 +2,10 @@
 > single-tenant, tanpa auth). Untuk setup terkini lihat **Quick Start di [README.md](README.md)**
 > dan deploy di **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Disimpan sebagai arsip.
 >
-> Catatan tambahan: folder `frontend/` (React) yang dirujuk di dokumen ini
-> dipertahankan di repo sebagai arsip/rujukan desain (Task 1e) — tidak
-> dibangun, tidak dites, tidak di-gate CI. Klien yang di-ship tetap
-> **Flutter web (PWA)** di `mobile/` (`flutter build web`) — lihat README.md.
+> **Status klien (2026-08-07, ADR-0002):** React (`frontend/`) = klien produksi — dibangun,
+> dites, di-gate CI, target deploy `app.fortunas.id`. Flutter (`mobile/`) = **deprecated** —
+> tidak menerima fitur baru; tetap ada sebagai cadangan demo sampai Gate D (lihat
+> `docs/adr/0002-react-production-client.md`). Jangan bangun fitur baru di `mobile/`.
 
 # Fortunas AI — Panduan Setup
 
@@ -13,7 +13,7 @@ Panduan lengkap untuk menyiapkan Fortunas di mesin baru. Ikuti urut dari atas ke
 
 ## Quick Start (5 Menit)
 
-Untuk yang sudah punya Python 3.11/3.12, Flutter 3.32.x, dan Ollama jalan:
+Untuk yang sudah punya Python 3.11/3.12, Node ≥ 20.19, dan Ollama jalan:
 
 ```bash
 # Terminal 1 — Backend
@@ -26,31 +26,33 @@ pip install -r requirements.txt
 python -m app.knowledge.ingest      # sekali saja, generate chroma_db/
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — PWA (shell baru, paralel)
-cd mobile
-flutter pub get
-flutter run -d chrome
+# Terminal 2 — Web client React (shell baru, paralel)
+cd frontend
+npm ci
+npm run dev
 
 # Terminal 3 — Ollama (kalau belum nyala)
 ollama serve
 ```
 
-Kalau backend respons di `http://127.0.0.1:8000/health` dan PWA tampil di Chrome, setup sukses.
+Kalau backend respons di `http://127.0.0.1:8000/health` dan app tampil di `http://localhost:3000`, setup sukses.
 
-Urutan penting: Ollama → ingest (sekali) → uvicorn → flutter run.
+Urutan penting: Ollama → ingest (sekali) → uvicorn → npm run dev.
 
 ## 1. Prasyarat
 
 | Kebutuhan | Versi | Cek |
 |-----------|-------|-----|
 | Python | 3.11 atau 3.12 | `python --version` |
-| Flutter | 3.32.x | `flutter --version` |
+| Node.js | ≥ 20.19 (Vite 8) | `node --version` |
+| Flutter | 3.32.x — opsional, hanya cadangan demo `mobile/` (deprecated) | `flutter --version` |
 | Ollama | terbaru | `ollama --version` |
 | Akun Google Cloud | BigQuery aktif | service account JSON tersedia |
 
 Download link:
 - Python: https://www.python.org/downloads/
-- Flutter: https://docs.flutter.dev/get-started/install
+- Node.js: https://nodejs.org/en/download
+- Flutter (opsional): https://docs.flutter.dev/get-started/install
 - Ollama: https://ollama.com/download
 
 Setelah Ollama terinstal, pull model yang dipakai aplikasi:
@@ -71,7 +73,10 @@ Fortunas/
 │   ├── services/         # pipeline, report_store
 │   ├── knowledge/        # umkm_docs untuk RAG
 │   └── main.py           # entrypoint FastAPI
-├── mobile/               # Flutter — klien tunggal, di-build ke web (PWA)
+├── frontend/             # React 19 + Vite — klien produksi (PWA)
+│   ├── src/
+│   └── package.json
+├── mobile/               # Flutter — DEPRECATED, cadangan demo sampai Gate D (ADR-0002)
 │   ├── lib/
 │   └── pubspec.yaml
 ├── requirements.txt      # Python deps
@@ -183,24 +188,28 @@ Verifikasi cepat:
 curl http://127.0.0.1:8000/health
 ```
 
-## 4. Setup Client (Flutter Web / PWA)
+## 4. Setup Client (React Web / PWA)
 
-Dari folder `mobile/`:
+Dari folder `frontend/`:
 
 ```bash
-cd mobile
-flutter pub get
-flutter run -d chrome
+cd frontend
+npm ci
+npm run dev
 ```
 
-Pastikan backend sudah jalan di port 8000 — lihat `mobile/lib/api/client.dart` untuk konfigurasi base URL API (default `127.0.0.1:8000`, bisa dioverride via `--dart-define=FORTUNAS_API=...`).
+Pastikan backend sudah jalan di port 8000 — dev server memproxy `/api` ke `VITE_API_TARGET`
+(default `http://127.0.0.1:8000`, override via env var; lihat `frontend/vite.config.js`).
 
-Build produksi:
+Build produksi (identik dengan CI):
 ```bash
-flutter build web --release --no-web-resources-cdn
+npm ci && npm run build
 ```
 
-Hasil di `mobile/build/web/`.
+Hasil di `frontend/dist/`.
+
+> Cadangan demo Flutter (deprecated): `cd mobile && flutter pub get && flutter run -d chrome` —
+> hanya sampai Gate D, jangan tambah fitur di sana.
 
 ## 5. Verifikasi End-to-End
 
@@ -208,7 +217,7 @@ Urut saat pertama kali setup:
 
 1. Ollama nyala: `ollama list` menampilkan `qwen3:8b`.
 2. Backend nyala: `GET http://127.0.0.1:8000/health` balas `200`.
-3. PWA nyala: `flutter run -d chrome` menampilkan halaman Fortunas di browser.
+3. Client nyala: `npm run dev` (folder `frontend/`) menampilkan halaman Fortunas di `http://localhost:3000`.
 4. Mode **Tanya**: ajukan "Siapa customer yang paling sering beli?" — dapat respons lengkap dengan temuan + rekomendasi.
 5. Mode **Briefing Bisnis**: klik "Mulai Briefing" — 4 section selesai satu per satu + executive summary.
 6. Mode **Harian**: klik "Jalankan hari ini" — briefing tersimpan, muncul di riwayat setelah refresh.
@@ -257,8 +266,9 @@ lsof -i :8000
 ```
 Matikan proses atau ubah port backend (`--port 8001`).
 
-### PWA gagal build di `flutter build web`
-Jalankan `flutter clean && flutter pub get` lalu ulangi build.
+### Client gagal build di `npm run build`
+Pastikan Node ≥ 20.19 (`node --version`), lalu hapus `frontend/node_modules/` dan ulangi
+`npm ci && npm run build`. (Cadangan Flutter: `flutter clean && flutter pub get` lalu build ulang.)
 
 ### Briefing scheduler nyala tapi tidak eksekusi
 Cek `.env`:
@@ -277,7 +287,8 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 - [ ] **Tidak ada** file `.env` dalam zip / commit (template saja di SETUP.md)
 - [ ] **Tidak ada** file service account JSON dalam zip / commit
 - [ ] `requirements.txt` sudah di-update kalau ada tambahan `import` library baru — jalankan `pip freeze > requirements.txt` sebelum zip
-- [ ] `pubspec.yaml` ter-commit (deps Flutter, untuk reproducible install)
+- [ ] `frontend/package-lock.json` ter-commit (reproducible `npm ci`)
+- [ ] `pubspec.yaml` ter-commit (deps Flutter cadangan demo, sampai Gate D)
 - [ ] Dokumen baru di `app/knowledge/umkm_docs/` ter-commit (dipakai untuk ingest)
 
 ## 8. Pembagian Peran
@@ -288,11 +299,12 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 | Agent 2 | SQL Agent — mapping pertanyaan ke query BigQuery, guard SQL injection | `app/agents/sql_agent.py`, `app/queries.py`, `app/sql_guards.py`, `app/bigquery_service.py` | Teammate |
 | Agent 3 | RAG Agent — retrieval dokumen UMKM via Chroma + embedding model | `app/agents/rag_agent.py`, `app/knowledge/ingest.py`, `app/knowledge/umkm_docs/*.md` | Teammate |
 | Agent 4 | Insight Agent — generate summary/findings/recommendation via Ollama LLM | `app/agents/insight_agent.py`, `app/llm_service.py`, `app/prompt_builder.py` | Teammate |
-| Agent 5 | Client (Flutter web / PWA) | `mobile/lib/` | Steven |
+| Agent 5 | Client (React web / PWA) — `mobile/lib/` deprecated s/d Gate D | `frontend/src/` | Steven |
 
 Setiap perubahan di file agent pemilik masing-masing. Untuk kontrak data antar agent, koordinasi via `app/schemas.py`.
 
 ## 9. Stack Client
 
-Client sekarang adalah Flutter web (PWA), bukan React. Tema & tipografi ada di
-[mobile/lib/theme/tokens.dart](mobile/lib/theme/tokens.dart) (font `SpaceGrotesk` / `Inter` / `JetBrainsMono`).
+Client produksi adalah React 19 + Vite (`frontend/`, ADR-0002). Design tokens & tipografi ada di
+[frontend/src/theme/tokens.css](frontend/src/theme/tokens.css) (font `SpaceGrotesk` / `Inter` / `JetBrains Mono`).
+Padanan Flutter lama (deprecated s/d Gate D): `mobile/lib/theme/tokens.dart`.
