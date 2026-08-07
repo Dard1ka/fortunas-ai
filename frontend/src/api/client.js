@@ -88,6 +88,9 @@ export const api = {
   reportDaily:  (signal)              => request('/report/daily', { signal }),
   umkmTransactions: (limit = 200, signal) => request(`/umkm/transactions?limit=${limit}`, { signal }),
   reportRun:    (signal)              => request('/report/daily/run', { method: 'POST', signal, trackLatency: true }),
+  getDpa:       (signal)             => request('/umkm/dpa', { signal }),
+  putDpa:       (payload, signal)    =>
+    request('/umkm/dpa', { method: 'PUT', body: payload, signal }),
   checkoutConfirm: (payload, signal) =>
     request('/checkout/confirm', { method: 'POST', body: payload, signal, trackLatency: true }),
   productsSearch: (q, signal) =>
