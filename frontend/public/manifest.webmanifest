@@ -1,13 +1,13 @@
 {
   "name": "Fortunas AI",
   "short_name": "Fortunas",
-  "description": "UMKM Analytics berbasis RAG + Qwen3:8b lokal. Tanya bisnismu pakai suara atau ketik.",
+  "description": "Tanya bisnismu pakai suara atau teks. Jawaban langsung dari data transaksi tokomu sendiri.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FAF7F0",
-  "theme_color": "#FAF7F0",
+  "theme_color": "#6D5EF7",
   "lang": "id",
   "categories": ["business", "productivity", "finance"],
   "icons": [

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // HTTPS toggle:
 //   npm run dev          → http (faster startup; OK for desktop testing)
@@ -18,6 +19,18 @@ export default defineConfig({
     // it runs, so phones on the same WiFi can connect via HTTPS without a
     // scary cert warning. Only enabled when VITE_HTTPS=1.
     ...(useHttps ? [mkcert()] : []),
+    VitePWA({
+      registerType: 'autoUpdate',
+      // Manifest dikelola manual di public/manifest.webmanifest (satu sumber
+      // kebenaran yang juga di-test paritasnya) — plugin hanya membuat SW.
+      manifest: false,
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
+        navigateFallback: '/index.html',
+        // Jangan intersep /api dan /media — itu urusan backend/nginx.
+        navigateFallbackDenylist: [/^\/api\//, /^\/media\//],
+      },
+    }),
   ],
   test: {
     environment: 'jsdom',
