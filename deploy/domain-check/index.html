@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fortunas AI — Uji Domain &amp; Hosting</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Halaman uji rantai deploy Fortunas AI: DNS, HTTPS, secure context, service worker, mikrofon, dan backend API.">
+
+<!-- Favicon inline sebagai data URI. Bukan kosmetik: tanpa ini browser meminta
+     /favicon.ico dan gagal 404, lalu 404 palsu itu muncul di Network log orang
+     yang sedang mendiagnosa hosting. Alat diagnosa tidak boleh menambah bising. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%236D5EF7'/%3E%3Ctext x='16' y='23' font-family='sans-serif' font-size='20' font-weight='bold' fill='%23fff' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E">
+
+<!--
+  Fortunas AI — halaman uji domain & hosting.
+
+  TUJUAN: memisahkan pertanyaan "domain/hosting-ku benar?" dari "build-ku benar?".
+  Build Flutter web berukuran beberapa MB; kalau ia gagal tampil, penyebabnya
+  ambigu (DNS, docroot, sertifikat, atau build rusak). File statis ini menjawab
+  bagian pertama lebih dulu, dengan biaya satu file.
+
+  DUA ATURAN YANG TIDAK BOLEH DILANGGAR SAAT MENGEDIT FILE INI:
+
+  1. SEMUA PATH RELATIF. Di cPanel temporary URL (`/~fortunas2/`), path absolut
+     seperti `/style.css` menunjuk ke docroot server, BUKAN folder user — jadi
+     aset absolut 404 walau file-nya ada. Path relatif membuat halaman ini valid
+     baik di temporary URL maupun di domain sungguhan.
+
+  2. NOL REQUEST EKSTERNAL. CSS/JS/font semuanya inline. Alat diagnosa tidak
+     boleh punya dependensi yang bisa gagal sendiri — CDN yang down akan terlihat
+     seperti hosting yang down, dan itu justru menyesatkan.
+
+  Font brand (Space Grotesk / Inter / JetBrains Mono) di-bundle sebagai aset
+  Flutter dan tidak tersedia untuk file lepas; memuatnya dari Google Fonts akan
+  melanggar aturan 2. Karena itu di sini dipakai system font stack.
+
+  Warna mengikuti mobile/lib/theme/tokens.dart (neo-brutalist: cream, ink,
+  violet, lime) supaya halaman uji ini masih terasa Fortunas.
+
+  Cara pasang: lihat README.md di folder yang sama.
+-->
+
+<style>
+  :root {
+    /* Design tokens — port dari mobile/lib/theme/tokens.dart */
+    --bg: #FAF7F0;
+    --bg-alt: #F3EFE4;
+    --surface: #FFFFFF;
+    --surface-soft: #F7F4EC;
+    --ink: #1A1A22;
+    --ink-2: #2A2A35;
+    --ink-3: #5C5C6A;
+    --ink-4: #8B8B98;
+    --border-soft: #E5E0D2;
+    --violet: #6D5EF7;
+    --violet-deep: #4B3DD6;
+    --violet-soft: #EDEAFE;
+    --lime: #D4F56A;
+    --peach: #FFB4A2;
+    --sky: #9BD4FF;
+    --success: #1EB980;
+    --warning: #F5A623;
+    --error: #EF4444;
+    --pop: 4px 4px 0 var(--ink);
+    --pop-sm: 3px 3px 0 var(--ink);
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 18px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  /* App-nya light-only, tapi halaman ini sering dibuka tengah malam saat
+     debugging deploy. Mode gelap menjaga karakter brutalist: border tetap
+     tegas, cuma polaritas cream/ink yang ditukar. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141A;
+      --bg-alt: #1C1C24;
+      --surface: #1F1F28;
+      --surface-soft: #262631;
+      --ink: #EDEAE0;
+      --ink-2: #D8D4C8;
+      --ink-3: #A9A599;
+      --ink-4: #7C7A72;
+      --border-soft: #34343F;
+      --violet-soft: #2A2547;
+      --pop: 4px 4px 0 #000;
+      --pop-sm: 3px 3px 0 #000;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 24px 16px 56px;
+    background: var(--bg);
+    color: var(--ink-2);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  /* ── Header ──────────────────────────────────────────────── */
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+
+  .mark {
+    width: 46px; height: 46px; flex: 0 0 46px;
+    display: grid; place-items: center;
+    background: var(--violet); color: #fff;
+    border: 2px solid var(--ink); border-radius: var(--r-md);
+    box-shadow: var(--pop-sm);
+    font-size: 24px; font-weight: 800; letter-spacing: -1px;
+  }
+
+  h1 {
+    margin: 0; font-size: 22px; font-weight: 800;
+    letter-spacing: -0.6px; line-height: 1.15; color: var(--ink);
+  }
+
+  .sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+  .badge {
+    display: inline-block; margin: 14px 0 20px;
+    padding: 6px 12px;
+    background: var(--lime); color: #1A1A22;
+    border: 2px solid #1A1A22; border-radius: 999px;
+    box-shadow: 3px 3px 0 #1A1A22;
+    font-family: var(--mono); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+  }
+
+  /* ── Banner kesimpulan ───────────────────────────────────── */
+  .verdict {
+    padding: 16px 18px; margin-bottom: 22px;
+    background: var(--surface);
+    border: 2px solid var(--ink); border-radius: var(--r-lg);
+    box-shadow: var(--pop);
+  }
+  .verdict-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.3px; }
+  .verdict-body { font-size: 13.5px; color: var(--ink-3); margin-top: 4px; }
+  .verdict.ok    { background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
+  .verdict.warn  { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+  .verdict.fail  { background: color-mix(in srgb, var(--error) 12%, var(--surface)); }
+
+  /* ── Kartu cek ───────────────────────────────────────────── */
+  .checks { display: grid; gap: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 2px solid var(--ink); border-radius: var(--r-md);
+    box-shadow: var(--pop-sm);
+    padding: 14px 16px;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card-title { font-size: 14.5px; font-weight: 700; color: var(--ink); flex: 1 1 auto; }
+
+  .pill {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.9px; text-transform: uppercase;
+    padding: 4px 9px; border: 2px solid #1A1A22; border-radius: 999px;
+    color: #1A1A22; white-space: nowrap;
+  }
+  .pill.ok      { background: var(--lime); }
+  .pill.warn    { background: #FFD98A; }
+  .pill.fail    { background: var(--peach); }
+  .pill.info    { background: var(--sky); }
+  .pill.pending { background: var(--bg-alt); color: var(--ink-3); border-color: var(--border-soft); }
+
+  .val {
+    margin-top: 9px; font-family: var(--mono); font-size: 12px;
+    color: var(--ink); word-break: break-all;
+    background: var(--surface-soft); border: 1px solid var(--border-soft);
+    border-radius: var(--r-sm); padding: 8px 10px;
+  }
+  .note { margin-top: 8px; font-size: 12.5px; color: var(--ink-3); }
+  .note b { color: var(--ink-2); }
+
+  /* ── Uji backend manual ──────────────────────────────────── */
+  .manual { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=url] {
+    flex: 1 1 220px; min-width: 0;
+    font-family: var(--mono); font-size: 12px;
+    padding: 9px 11px; color: var(--ink);
+    background: var(--bg); border: 2px solid var(--ink); border-radius: var(--r-sm);
+  }
+  input[type=url]:focus { outline: 3px solid var(--violet); outline-offset: 1px; }
+
+  button {
+    font-family: var(--font); font-size: 13px; font-weight: 700;
+    padding: 9px 16px; cursor: pointer; color: #fff;
+    background: var(--violet);
+    border: 2px solid var(--ink); border-radius: var(--r-sm);
+    box-shadow: var(--pop-sm);
+    transition: transform .06s ease, box-shadow .06s ease;
+  }
+  button:hover { background: var(--violet-deep); }
+  button:active { transform: translate(3px, 3px); box-shadow: none; }
+  button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+  button.ghost { background: var(--surface); color: var(--ink); }
+
+  /* ── Footer ──────────────────────────────────────────────── */
+  .actions { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .copied { font-size: 12.5px; font-weight: 700; color: var(--success); }
+
+  .next {
+    margin-top: 26px; padding: 16px 18px;
+    background: var(--violet-soft);
+    border: 2px dashed var(--ink); border-radius: var(--r-md);
+    font-size: 13px; color: var(--ink-2);
+  }
+  .next h2 { margin: 0 0 8px; font-size: 14px; font-weight: 800; color: var(--ink); }
+  .next ol { margin: 0; padding-left: 20px; }
+  .next li { margin-bottom: 5px; }
+  .next code {
+    font-family: var(--mono); font-size: 11.5px;
+    background: var(--surface); border: 1px solid var(--border-soft);
+    border-radius: 5px; padding: 1px 5px;
+  }
+
+  footer { margin-top: 24px; font-size: 11.5px; color: var(--ink-4); text-align: center; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 19px; }
+    body { padding: 18px 12px 44px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark" aria-hidden="true">F</div>
+    <div>
+      <h1>Fortunas AI</h1>
+      <p class="sub">Platform Kecerdasan Bisnis untuk UMKM Indonesia</p>
+    </div>
+  </header>
+
+  <span class="badge">Halaman uji — bukan aplikasi</span>
+
+  <div class="verdict" id="verdict" role="status" aria-live="polite">
+    <div class="verdict-title">Menjalankan pemeriksaan…</div>
+    <div class="verdict-body">Enam cek sedang berjalan.</div>
+  </div>
+
+  <div class="checks" id="checks"></div>
+
+  <div class="actions">
+    <button id="copy">Salin laporan</button>
+    <button class="ghost" id="rerun">Ulangi pemeriksaan</button>
+    <span class="copied" id="copied" hidden>Tersalin ✓</span>
+  </div>
+
+  <div class="next">
+    <h2>Kalau semua hijau, langkah berikutnya</h2>
+    <ol>
+      <li>Build PWA: <code>cd mobile &amp;&amp; flutter build web --release</code></li>
+      <li>Upload isi <code>mobile/build/web/</code> ke docroot, menimpa <code>index.html</code> ini.</li>
+      <li>Backend FastAPI tetap di VPS. Shared hosting tidak bisa mem-proxy <code>/api/</code>; arahkan subdomain (mis. <code>api.&lt;domain&gt;</code>) ke VPS lalu jalankan certbot.</li>
+    </ol>
+  </div>
+
+  <footer id="stamp"></footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Kerangka cek ────────────────────────────────────────────
+  // Setiap cek adalah objek {id, title, status, value, note}. Status memakai
+  // empat tingkat, dan pembedaan warn-vs-fail di sini PENTING: menandai merah
+  // sesuatu yang normal (mis. backend absen di shared hosting) melatih tim
+  // mengabaikan warna merah. Merah hanya untuk yang benar-benar rusak.
+  var STATUS = { ok: 'OK', warn: 'PERHATIAN', fail: 'GAGAL', info: 'INFO', pending: 'MENUNGGU' };
+
+  var checks = [];
+  var byId = {};
+
+  function put(id, title, status, value, note) {
+    var c = byId[id];
+    if (!c) { c = { id: id, title: title }; byId[id] = c; checks.push(c); }
+    c.title = title;
+    c.status = status;
+    c.value = value == null ? '' : String(value);
+    c.note = note || '';
+    render();
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+    });
+  }
+
+  function render() {
+    var host = document.getElementById('checks');
+    host.innerHTML = checks.map(function (c) {
+      return '<div class="card">' +
+        '<div class="card-head">' +
+          '<span class="card-title">' + esc(c.title) + '</span>' +
+          '<span class="pill ' + c.status + '">' + STATUS[c.status] + '</span>' +
+        '</div>' +
+        (c.value ? '<div class="val">' + esc(c.value) + '</div>' : '') +
+        (c.note ? '<div class="note">' + c.note + '</div>' : '') +
+      '</div>';
+    }).join('') + manualHtml();
+    wireManual();
+    verdict();
+  }
+
+  function manualHtml() {
+    return '<div class="card">' +
+      '<div class="card-head"><span class="card-title">Uji backend lain (opsional)</span>' +
+      '<span class="pill info">MANUAL</span></div>' +
+      '<div class="note">Isi base URL backend, mis. <b>https://api.contoh.com</b>. ' +
+      'Yang dipanggil adalah <b>&lt;base&gt;/health</b>.</div>' +
+      '<div class="manual">' +
+        '<input type="url" id="mUrl" placeholder="https://api.contoh.com" ' +
+        'value="' + esc(manualUrl) + '" autocomplete="off" spellcheck="false">' +
+        '<button id="mGo">Tes</button>' +
+      '</div>' +
+      (manualResult ? '<div class="val">' + esc(manualResult) + '</div>' : '') +
+      '<div class="note">Catatan: kalau backend beda origin, kegagalan bisa berasal dari ' +
+      '<b>CORS</b>, bukan dari server yang mati. Cek ulang lewat terminal ' +
+      '(<b>curl</b>) sebelum menyimpulkan backend down.</div>' +
+    '</div>';
+  }
+
+  var manualUrl = '';
+  var manualResult = '';
+
+  function wireManual() {
+    var go = document.getElementById('mGo');
+    var inp = document.getElementById('mUrl');
+    if (!go || !inp) return;
+    go.onclick = function () {
+      manualUrl = inp.value.trim();
+      if (!manualUrl) { manualResult = 'URL kosong.'; render(); return; }
+      manualResult = 'Menghubungi…'; render();
+      var base = manualUrl.replace(/\/+$/, '');
+      probe(base + '/health').then(function (r) {
+        manualResult = describeProbe(base + '/health', r);
+        render();
+      });
+    };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') go.click(); };
+  }
+
+  function verdict() {
+    var el = document.getElementById('verdict');
+    var fails = checks.filter(function (c) { return c.status === 'fail'; });
+    var warns = checks.filter(function (c) { return c.status === 'warn'; });
+    var pend  = checks.filter(function (c) { return c.status === 'pending'; });
+
+    var cls, title, body;
+    if (pend.length) {
+      cls = ''; title = 'Menjalankan pemeriksaan…';
+      body = pend.length + ' cek masih berjalan.';
+    } else if (fails.length) {
+      cls = 'fail';
+      title = fails.length + ' hal rusak, ' + warns.length + ' perlu diperhatikan';
+      body = 'Yang gagal: ' + fails.map(function (c) { return c.title; }).join(', ') + '.';
+    } else if (warns.length) {
+      cls = 'warn';
+      title = 'Hosting tersaji, ' + warns.length + ' hal perlu diperhatikan';
+      body = 'Halaman ini berhasil dikirim server, jadi DNS/docroot untuk URL ini sudah benar. ' +
+             'Sisa: ' + warns.map(function (c) { return c.title; }).join(', ') + '.';
+    } else {
+      cls = 'ok';
+      title = 'Semua cek lolos';
+      body = 'Rantai domain → server → docroot → HTTPS siap. Aman untuk deploy build PWA.';
+    }
+    el.className = 'verdict ' + cls;
+    el.innerHTML = '<div class="verdict-title">' + esc(title) + '</div>' +
+                   '<div class="verdict-body">' + esc(body) + '</div>';
+  }
+
+  // ── Cek 1: identitas host ───────────────────────────────────
+  // Sumber kebingungan nomor satu saat deploy: tidak sadar sedang melihat
+  // temporary URL, bukan domain. Jadi ini cek pertama.
+  function checkHost() {
+    var h = location.hostname, p = location.pathname;
+    var kind, note;
+
+    if (location.protocol === 'file:') {
+      kind = 'Berkas lokal (file://)';
+      note = 'Belum di server. Upload ke docroot dulu; cek jaringan di bawah akan gagal, itu wajar.';
+    } else if (/^\/~/.test(p) || /neohosting\.id$/i.test(h) || /^web\d+/i.test(h)) {
+      kind = 'cPanel temporary URL';
+      note = 'Ini melewati DNS sepenuhnya (Apache mencocokkan lewat <b>path</b>, bukan header Host). ' +
+             'Berguna untuk menguji hosting <b>sebelum</b> domain aktif — tapi ia <b>tidak</b> membuktikan apa pun soal domain.';
+    } else if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') {
+      kind = 'Localhost';
+      note = 'Server lokal, bukan hosting produksi.';
+    } else {
+      kind = 'Domain kustom';
+      note = 'Halaman ini terkirim dari <b>' + esc(h) + '</b>, jadi DNS domain ini sudah ' +
+             'mengarah ke server yang benar dan docroot-nya tepat.';
+    }
+
+    put('host', 'Identitas host — ' + kind, 'info',
+        location.protocol + '//' + location.host + p, note);
+  }
+
+  // ── Cek 2: HTTPS & secure context ───────────────────────────
+  // Gerbang tunggal untuk service worker, prompt install, DAN getUserMedia
+  // (mikrofon → fitur voice). Tanpa ini, fitur voice mati total.
+  function checkSecure() {
+    var https = location.protocol === 'https:';
+    var secure = window.isSecureContext === true;
+
+    if (https && secure) {
+      put('tls', 'HTTPS & secure context', 'ok', 'https: · isSecureContext=true',
+          'Service worker, prompt install PWA, dan mikrofon semuanya diizinkan browser.');
+    } else if (secure) {
+      put('tls', 'HTTPS & secure context', 'warn',
+          location.protocol + ' · isSecureContext=true',
+          'Dianggap aman karena localhost/file, <b>bukan</b> karena TLS. Di domain sungguhan ini akan gagal.');
+    } else {
+      put('tls', 'HTTPS & secure context', 'fail',
+          location.protocol + ' · isSecureContext=false',
+          'HTTP polos. <b>Fitur voice mati</b>, service worker &amp; install PWA terkunci. ' +
+          'Terbitkan sertifikat: AutoSSL di cPanel (butuh DNS domain sudah mengarah ke server ini), ' +
+          'atau certbot di VPS.');
+    }
+  }
+
+  // ── Cek 3: Service Worker ───────────────────────────────────
+  function checkSW() {
+    var api = 'serviceWorker' in navigator;
+    if (api && window.isSecureContext) {
+      put('sw', 'Service Worker (PWA)', 'ok', 'navigator.serviceWorker tersedia',
+          'PWA bisa dipasang. Registrasi sungguhan dilakukan oleh build Flutter web, bukan halaman ini.');
+    } else if (api) {
+      put('sw', 'Service Worker (PWA)', 'fail', 'API ada, tapi terkunci konteks tidak aman',
+          'Browser menolak registrasi di luar secure context. Beresi HTTPS dulu.');
+    } else {
+      put('sw', 'Service Worker (PWA)', 'fail', 'navigator.serviceWorker tidak ada',
+          'Browser ini tidak mendukung service worker (atau mode privat membatasinya).');
+    }
+  }
+
+  // ── Cek 4: mikrofon ─────────────────────────────────────────
+  // Sengaja TIDAK memanggil getUserMedia: itu akan memunculkan prompt izin dan
+  // mengubah state permanen. Permissions API bisa membaca status tanpa memicu
+  // prompt, jadi halaman uji tetap tidak punya efek samping.
+  function checkMic() {
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getUserMedia !== 'function') {
+      put('mic', 'Mikrofon (fitur voice)', 'fail', 'navigator.mediaDevices.getUserMedia tidak tersedia',
+          window.isSecureContext
+            ? 'Browser tidak mendukungnya.'
+            : 'Chrome menyembunyikan API ini di origin tidak aman — akibat langsung dari HTTP polos di atas.');
+      return;
+    }
+    put('mic', 'Mikrofon (fitur voice)', 'pending', 'Membaca status izin…');
+
+    var done = function (state) {
+      var map = {
+        granted: ['ok', 'Izin sudah diberikan.'],
+        prompt:  ['ok', 'API siap; browser akan meminta izin saat fitur voice dipakai. Ini kondisi normal.'],
+        denied:  ['warn', 'Izin <b>diblokir</b> untuk origin ini. Reset lewat ikon kunci di address bar.']
+      };
+      var m = map[state] || ['ok', 'API tersedia; status izin tidak bisa dibaca browser ini.'];
+      put('mic', 'Mikrofon (fitur voice)', m[0], 'getUserMedia tersedia · izin: ' + state, m[1]);
+    };
+
+    try {
+      navigator.permissions.query({ name: 'microphone' })
+        .then(function (p) { done(p.state); })
+        .catch(function () { done('tidak diketahui'); });
+    } catch (e) {
+      done('tidak diketahui');
+    }
+  }
+
+  // ── Cek 5: server & protokol ────────────────────────────────
+  // HEAD ke diri sendiri: header `Server` membedakan Apache (cPanel shared)
+  // dari nginx (VPS) — bukti objektif kamu sedang melihat host yang mana.
+  // Sekaligus membandingkan jam server vs jam perangkat: selisih besar adalah
+  // penyebab klasik JWT "expired" padahal baru dibuat.
+  function checkServer() {
+    put('server', 'Server & protokol', 'pending', 'Mengambil header…');
+
+    if (location.protocol === 'file:') {
+      put('server', 'Server & protokol', 'warn', 'Tidak ada server (file://)',
+          'Buka halaman ini lewat http(s) untuk memeriksa header server.');
+      return;
+    }
+
+    fetch(location.href, { method: 'HEAD', cache: 'no-store' }).then(function (res) {
+      var srv = res.headers.get('server') || '(disembunyikan host)';
+      var dateHdr = res.headers.get('date');
+      // nextHopProtocol ("h2"/"http/1.1") kadang kosong — beberapa browser dan
+      // server lokal tidak melaporkannya. Coba entri navigasi dulu, lalu entri
+      // resource mana pun, lalu menyerah dengan jujur. Ini info tambahan, bukan
+      // penentu lolos/gagal, jadi ketidakhadirannya tidak boleh jadi warna merah.
+      var proto = '(tidak dilaporkan browser)';
+      try {
+        var nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.nextHopProtocol) {
+          proto = nav.nextHopProtocol;
+        } else {
+          var hit = performance.getEntriesByType('resource').filter(function (r) {
+            return r.nextHopProtocol;
+          })[0];
+          if (hit) proto = hit.nextHopProtocol;
+        }
+      } catch (e) { /* Navigation/Resource Timing tidak ada — abaikan */ }
+
+      var notes = [];
+      if (/apache/i.test(srv))        notes.push('<b>Apache</b> → shared hosting cPanel. Statis saja: tidak bisa mem-proxy <code>/api/</code>.');
+      else if (/nginx/i.test(srv))    notes.push('<b>nginx</b> → VPS Fortunas. Blok <code>/api/</code> mestinya aktif.');
+      else if (/litespeed/i.test(srv))notes.push('<b>LiteSpeed</b> → varian shared hosting, perilaku mirip Apache.');
+      else if (/cloudflare/i.test(srv)) notes.push('Lewat <b>Cloudflare</b>; header server asal tertutup proxy.');
+
+      if (dateHdr) {
+        var skew = Math.abs(Date.now() - new Date(dateHdr).getTime()) / 1000;
+        if (skew > 120) {
+          notes.push('Jam server &amp; perangkat selisih <b>' + Math.round(skew) +
+                     ' detik</b> — penyebab klasik JWT tertolak "expired". Periksa jam perangkatmu.');
+        }
+      }
+
+      put('server', 'Server & protokol', 'ok',
+          'Server: ' + srv + ' · HTTP: ' + proto + ' · status HEAD: ' + res.status,
+          notes.join(' '));
+    }).catch(function (err) {
+      put('server', 'Server & protokol', 'warn', 'Gagal: ' + err.message,
+          'Dokumen ini jelas terkirim (kamu sedang melihatnya), jadi kegagalan HEAD biasanya ' +
+          'karena ekstensi browser atau host yang memblokir metode HEAD — bukan hosting rusak.');
+    });
+  }
+
+  // ── Cek 6: backend API ──────────────────────────────────────
+  // Kontrak nginx Fortunas: `location /api/` proxy_pass ke 127.0.0.1:8000/
+  // dengan trailing slash, jadi /api/health → /health di backend.
+  // Di shared hosting proxy itu TIDAK ADA, dan itu normal → warn, bukan fail.
+  function probe(url) {
+    var t0 = performance.now();
+    return fetch(url, { cache: 'no-store' }).then(function (res) {
+      return res.text().then(function (body) {
+        return { ok: res.ok, status: res.status, ms: Math.round(performance.now() - t0),
+                 body: snippet(body) };
+      });
+    }).catch(function (err) {
+      return { error: err.message, ms: Math.round(performance.now() - t0) };
+    });
+  }
+
+  // Halaman error server (Apache/nginx/Python) membalas HTML panjang. Menumpahkan
+  // 160 karakter `<!DOCTYPE HTML>...` ke kartu bikin nilai penting (status &
+  // latensi) tenggelam. Health check sungguhan membalas JSON pendek, jadi hanya
+  // itu yang layak ditampilkan; HTML cukup diringkas jadi satu label.
+  function snippet(body) {
+    var t = String(body).replace(/\s+/g, ' ').trim();
+    if (!t) return '(body kosong)';
+    if (/^</.test(t)) return '(halaman HTML, bukan JSON — biasanya error page server)';
+    return t.slice(0, 120);
+  }
+
+  function describeProbe(url, r) {
+    if (r.error) return url + ' → gagal (' + r.error + ') setelah ' + r.ms + ' ms';
+    return url + ' → ' + r.status + ' dalam ' + r.ms + ' ms' + (r.body ? ' · ' + r.body : '');
+  }
+
+  function checkApi() {
+    put('api', 'Backend /api/health', 'pending', 'Menghubungi backend…');
+
+    if (location.protocol === 'file:') {
+      put('api', 'Backend /api/health', 'warn', 'Dilewati (file://)',
+          'Jalankan dari server untuk menguji proxy backend.');
+      return;
+    }
+
+    probe('/api/health').then(function (abs) {
+      if (abs.ok) {
+        put('api', 'Backend /api/health', 'ok', describeProbe('/api/health', abs),
+            'Proxy <code>/api/</code> → FastAPI hidup. Ini lapisan yang tidak bisa dibuktikan file statis biasa.');
+        return;
+      }
+      // Fallback relatif: berguna saat halaman disajikan dari subfolder
+      // (mis. temporary URL /~user/), di mana path absolut menunjuk ke docroot.
+      return probe('api/health').then(function (rel) {
+        if (rel.ok) {
+          put('api', 'Backend /api/health', 'ok', describeProbe('api/health', rel),
+              'Terjawab lewat path <b>relatif</b>, bukan <code>/api/health</code> absolut. ' +
+              'Di produksi kontraknya absolut — periksa konfigurasi nginx.');
+          return;
+        }
+        put('api', 'Backend /api/health', 'warn',
+            describeProbe('/api/health', abs) + '  |  ' + describeProbe('api/health', rel),
+            'Belum ada backend di host ini. Di <b>shared hosting ini kondisi normal</b> — Apache cPanel ' +
+            'tidak punya <code>proxy_pass</code>. Backend FastAPI berjalan di VPS; arahkan subdomain ' +
+            '<code>api.&lt;domain&gt;</code> ke VPS, atau uji manual di bawah.');
+      });
+    });
+  }
+
+  // ── Info perangkat (untuk laporan) ──────────────────────────
+  function checkClient() {
+    var vp = window.innerWidth + '×' + window.innerHeight;
+    var tz = '(tidak diketahui)';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* abaikan */ }
+    put('client', 'Perangkat penguji', 'info',
+        vp + ' · dpr ' + (window.devicePixelRatio || 1) + ' · ' + tz,
+        'Disertakan supaya laporan bisa dibaca anggota tim lain: ' + esc(navigator.userAgent));
+  }
+
+  // ── Laporan teks ────────────────────────────────────────────
+  function report() {
+    var lines = [
+      'LAPORAN UJI DOMAIN — FORTUNAS AI',
+      'URL   : ' + location.href,
+      'Waktu : ' + new Date().toString(),
+      ''
+    ];
+    checks.forEach(function (c) {
+      lines.push('[' + STATUS[c.status] + '] ' + c.title);
+      if (c.value) lines.push('    ' + c.value);
+    });
+    if (manualResult) lines.push('', '[MANUAL] ' + manualResult);
+    return lines.join('\n');
+  }
+
+  document.getElementById('copy').onclick = function () {
+    var text = report();
+    var flash = function () {
+      var el = document.getElementById('copied');
+      el.hidden = false;
+      setTimeout(function () { el.hidden = true; }, 2200);
+    };
+    // Clipboard API butuh secure context — dan halaman ini justru sering dibuka
+    // di HTTP saat mendiagnosa. Fallback textarea menjaga tombol tetap berguna.
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(flash, legacy);
+    } else { legacy(); }
+
+    function legacy() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); flash(); }
+      catch (e) { window.prompt('Salin manual (Ctrl+C):', text); }
+      document.body.removeChild(ta);
+    }
+  };
+
+  function runAll() {
+    checks = []; byId = {};
+    checkHost();
+    checkSecure();
+    checkSW();
+    checkMic();
+    checkServer();
+    checkApi();
+    checkClient();
+    document.getElementById('stamp').textContent =
+      'Halaman uji Fortunas AI · dijalankan ' + new Date().toLocaleString('id-ID') +
+      ' · file ini akan ditimpa oleh build PWA';
+  }
+
+  document.getElementById('rerun').onclick = runAll;
+  runAll();
+})();
+</script>
+</body>
+</html>

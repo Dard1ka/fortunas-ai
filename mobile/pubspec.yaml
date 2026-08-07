@@ -52,12 +52,6 @@ dependencies:
   # ── Pilih gambar produk (UMKM) — web & mobile ────────────
   image_picker: ^1.1.2
 
-  # ── Webview pembayaran Midtrans Snap (pelanggan) ─────────
-  # Sumber kebenaran pembayaran tetap webhook backend; webview hanya tempat
-  # pelanggan menyelesaikan bayar, lalu klien poll status. Tak jalan di Flutter
-  # Web (WKWebView/Android WebView only) — target mobile.
-  webview_flutter: ^4.10.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -66,19 +60,19 @@ dev_dependencies:
   # ── App launcher icon generator (uses assets/icons/app-icon.png) ──
   flutter_launcher_icons: ^0.14.1
 
-# ── Launcher icon configuration ─────────────────────────────
+# ── Launcher icon configuration — web only. Native android/ios targets were
+# removed (Task 1b), so their keys (android, ios, remove_alpha_ios,
+# background_color_ios, adaptive_icon_*) are gone too — those either pointed
+# the generator at now-deleted res/Assets.xcassets directories, or configured
+# Android-only adaptive icons / iOS-only alpha handling. `image_path` stays:
+# it's the source image the `web:` block still generates favicons/PWA icons
+# from. ──────────────────────────────────────────────────────
 flutter_launcher_icons:
-  android: true
-  ios: true
-  remove_alpha_ios: true
-  background_color_ios: "#FAF7F0"
+  image_path: "assets/icons/app-icon.png"
   web:
     generate: true
     background_color: "#FAF7F0"
     theme_color: "#6D5EF7"
-  image_path: "assets/icons/app-icon.png"
-  adaptive_icon_background: "#FAF7F0"
-  adaptive_icon_foreground: "assets/icons/app-icon.png"
 
 flutter:
   uses-material-design: true

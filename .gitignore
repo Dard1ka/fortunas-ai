@@ -12,7 +12,20 @@ venv/
 # ── Secrets & Credentials (CRITICAL — never commit) ─────────────
 .env
 .env.*
+# Varian nama TANPA titik atau dengan prefiks lain. Bukan paranoia:
+# 2026-08-07 sebuah file bernama `env` (tanpa titik) berisi API key asli
+# (OpenAI, Gemini, Meta, JWT_SECRET) lolos dari pola `.env*` di atas dan muncul
+# sebagai untracked di repo yang PUBLIC — satu `git add .` dari ter-commit dan
+# dipanen bot. Tidak pernah benar-benar ter-commit, tapi celahnya nyata.
+# Pola ini menutup KELAS kesalahannya, bukan cuma instansnya.
+env
+*.env
+# CATATAN: `env.*` SENGAJA TIDAK dipakai — ia akan menjaring
+# `app/migrations/env.py` (file Alembic yang wajib ter-track) dan merusak
+# migrasi untuk siapa pun yang clone baru. Kalau nanti perlu menutup
+# `env.local` dsb, tambahkan nama spesifiknya, jangan wildcard.
 !.env.example
+!deploy/.env.production.example
 credentials/
 secrets/
 *service-account*.json
@@ -67,13 +80,14 @@ mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/.packages
 mobile/pubspec.lock
-mobile/ios/Pods/
-mobile/android/.gradle/
-mobile/android/local.properties
-mobile/android/app/build/
 
-# ── Handover doc (berisi credential — JANGAN commit ke repo publik) ──
+# ── Handover doc (berisi credential/infra — JANGAN commit ke repo publik) ──
+# Baris HANDOVER.md pernah ada di commit 5943661 tapi TIDAK ikut ter-squash saat
+# PR #25 di-merge, jadi ia hilang dari main. Salinan kanonik file itu sekarang
+# hidup di folder induk Fortunas/ (di luar work tree) — pola ini disengaja:
+# file di luar repo tidak bisa ikut ter-commit walau .gitignore salah lagi.
 HANDOVER.txt
+HANDOVER.md
 
 # ── Submission archive itself ────────────────────────────────────
 fortunas-ai.zip

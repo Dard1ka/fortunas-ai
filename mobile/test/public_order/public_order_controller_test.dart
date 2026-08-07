@@ -156,33 +156,4 @@ void main() {
     expect(s.itemCount, 0);
   });
 
-  test('afterSnapReturn poll status → update order (paid langsung)', () async {
-    final api = FakeApi()
-      ..publicUmkmResult = _umkm
-      ..createPublicOrderResult = const PublicOrder(
-          id: 5, status: 'pending_payment', paymentProvider: 'midtrans',
-          paymentOrderId: 'ORD-5-x')
-      ..publicOrderStatusResult = const PublicOrder(
-          id: 5, status: 'paid', paymentProvider: 'midtrans',
-          paymentOrderId: 'ORD-5-x');
-    final c = _container(api);
-    final ctrl = c.read(publicOrderControllerProvider.notifier);
-    await ctrl.loadMenu('KDS-001');
-    ctrl.increment(_umkm.products[0]);
-    await ctrl.createOrder(customerName: 'Budi', customerPhone: '0812');
-    // gap 0 supaya test tak menunggu; status sudah paid → tak retry.
-    await ctrl.afterSnapReturn(gap: Duration.zero);
-    expect(api.lastStatusPoid, 'ORD-5-x');
-    final s = c.read(publicOrderControllerProvider);
-    expect(s.polling, false);
-    expect(s.order?.status, 'paid');
-  });
-
-  test('afterSnapReturn tanpa pesanan → tak memanggil API', () async {
-    final api = FakeApi();
-    final c = _container(api);
-    await c.read(publicOrderControllerProvider.notifier)
-        .afterSnapReturn(gap: Duration.zero);
-    expect(api.lastStatusPoid, isNull);
-  });
 }

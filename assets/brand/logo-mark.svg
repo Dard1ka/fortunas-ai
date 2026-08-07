@@ -1,0 +1,12 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fortunas AI brand mark — rotated "F" tile, neo-brutalist with pop shadow.
+       Transparent background so it can be placed inline on any surface. -->
+  <g transform="translate(256 256)">
+    <!-- offset pop shadow -->
+    <rect x="-150" y="-135" width="300" height="270" rx="68" fill="#0E0E14" transform="rotate(-4) translate(20 20)"/>
+    <!-- main tile -->
+    <rect x="-150" y="-135" width="300" height="270" rx="68" fill="#0E0E14" transform="rotate(-4)"/>
+    <!-- F letter -->
+    <text x="0" y="55" font-family="Space Grotesk, system-ui, sans-serif" font-weight="700" font-size="240" fill="#D4F56A" text-anchor="middle" transform="rotate(-4)">F</text>
+  </g>
+</svg>

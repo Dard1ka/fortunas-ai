@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSpeechRecognition from '../voice/useSpeechRecognition.js';
 import ScreenHeader from '../ui/ScreenHeader.jsx';
@@ -21,9 +21,14 @@ export default function HomeScreen({ onVoice }) {
   // Voice-untuk-bertanya: dikte pertanyaan ke kotak input (BEDA dari mic bawah
   // yang membuka flow tambah transaksi). Tap mic → ngomong → tap lagi untuk stop.
   const ask = useSpeechRecognition({ lang: 'id-ID' });
-  useEffect(() => {
+  // Sinkron transkrip → input dilakukan saat render (pola resmi React untuk
+  // "state dari render sebelumnya") — setState di dalam effect memicu render
+  // kaskade dan ditolak react-hooks/set-state-in-effect.
+  const [appliedTranscript, setAppliedTranscript] = useState('');
+  if (ask.transcript !== appliedTranscript) {
+    setAppliedTranscript(ask.transcript);
     if (ask.transcript) setText(ask.transcript);
-  }, [ask.transcript]);
+  }
 
   const toggleVoiceAsk = () => {
     if (ask.isListening) {

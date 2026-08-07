@@ -19,9 +19,13 @@ trailing slash pada `proxy_pass` yang memotong prefiks `/api`.
 > **peninggalan era backend-only/IP** dan sudah digantikan; keduanya diberi
 > tanda di tempatnya masing-masing.
 
-> **Frontend React (`frontend/`) tidak dideploy** — arsip/rujukan desain saja
-> (lihat `frontend/README.md`). Client yang di-ship = Flutter di `mobile/`,
-> dirilis sebagai PWA (APK native tetap bisa dibangun untuk demo juri).
+> **Frontend React (`frontend/`) dipertahankan di repo sebagai arsip/rujukan
+> desain** (Task 1e, membatalkan sebagian penghapusan Task 1b) — tidak
+> dibangun, tidak dites, tidak di-gate CI, dan **tidak dideploy** di alur ini.
+> Client yang di-ship = Flutter di `mobile/`, dirilis sebagai PWA saja.
+> `mobile/android/` dan `mobile/ios/` (target native) tetap sudah dihapus
+> (Task 1b) — APK/appbundle **tidak bisa** dibangun lagi dari repo ini;
+> `flutter build web` adalah satu-satunya target build.
 
 ---
 
@@ -54,7 +58,7 @@ chown -R fortunas:fortunas /opt/fortunas-ai
 # install dulu rsync via Git Bash / WSL, atau pakai scp:
 scp -r "E:\Project LLM\Fortunas2\fortunas-ai" root@IP_VPS:/opt/fortunas-ai
 ```
-> JANGAN ikut upload `.venv`, `frontend/node_modules`. Boleh skip `chroma_db` (RAG opsional).
+> JANGAN ikut upload `.venv`, `mobile/build`, `mobile/.dart_tool`, `frontend/node_modules`, `frontend/dist` (folder `frontend/` ada di repo sebagai arsip/rujukan desain, tapi tidak dideploy — tidak relevan untuk VPS). Boleh skip `chroma_db` (RAG opsional).
 Lalu: `chown -R fortunas:fortunas /opt/fortunas-ai`
 
 ## 3. Virtualenv + dependencies

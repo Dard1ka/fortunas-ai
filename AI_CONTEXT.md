@@ -2,6 +2,13 @@
 > (auth/JWT, per-tenant BigQuery tables, Gemini LLM, VPS deploy). For current
 > context use [`memory.md`](memory.md) and [`README.md`](README.md); for setup
 > see README Quick Start and [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Kept for history.
+>
+> Also outdated as of Task 1b: `mobile/android/` and `mobile/ios/` (referenced
+> below as still present) have been removed from the repo. The single shipped
+> client is Flutter web (PWA), built from `mobile/` via `flutter build web`.
+> `frontend/` (React) is retained in the repo as an archive / design
+> reference (Task 1e reverted that part of Task 1b) — not built, not tested,
+> not CI-gated, and not the shipped client.
 
 # AI_CONTEXT.md — Fortunas AI
 
@@ -9,7 +16,7 @@
 >
 > **Last updated:** 2026-05-19 (v2.2 — Flutter migration in progress)
 >
-> **Active frontend:** `mobile/` (Flutter). The `frontend/` React PWA is **retained as legacy reference** until the Flutter app is device-verified — see `mobile/MIGRATION.md` for the rationale.
+> **Active frontend:** `mobile/` (Flutter), built to web only. The `frontend/` React PWA — described below as "retained as legacy reference" — is still retained, now explicitly as an archive / design reference (Task 1e, after a brief deletion in Task 1b); see `mobile/MIGRATION.md` for the original React → Flutter rationale.
 
 ---
 
@@ -42,7 +49,7 @@ This is the most important context for understanding the shape of v2.1. Get this
 | Dimension | Original (WA bot) | Current (PWA + voice) |
 |---|---|---|
 | Platform gatekeeper | Meta approval required | None |
-| Setup complexity | Twilio + webhook + Meta verification | `npm run dev` |
+| Setup complexity | Twilio + webhook + Meta verification | `flutter run -d chrome` (React/`npm` era client is gone — see Task 1b) |
 | Per-message cost | $0.005–$0.09 inbound | Rp 0 |
 | Data path | UMKM → Meta → Twilio → backend | UMKM → backend (direct) |
 | Onboarding step | Save bot's number, message it | Open URL, "Add to Home Screen" |
@@ -60,11 +67,11 @@ These are non-negotiable without explicit user confirmation. Substituting them i
 
 | Commitment | Reason |
 |---|---|
-| **LLM runs locally via Ollama (Qwen3:8b)** | Compliance with UU PDP No. 27/2022. Zero API token cost. LLM-stage data never leaves the server. |
+| ~~**LLM runs locally via Ollama (Qwen3:8b)**~~ — **superseded.** Active provider is **Gemini 2.5 Flash** (`app/llm_provider.py`, default `LLM_PROVIDER=gemini`); confirmed by team, not a bug. The Ollama/Qwen3 path is **archived, not deleted** — still fully wired, selectable via `LLM_PROVIDER=ollama` + `docker compose --profile archive up ollama`. | Original proposal reasoning (UU PDP compliance, zero token cost, data never leaves server) no longer holds for the active provider — see `PROPOSAL_VS_REALITA.md` in the parent folder for the paper-narrative consequence. |
 | **Embedding model: `paraphrase-multilingual-MiniLM-L12-v2`** | Supports Bahasa Indonesia + Javanese informal + code-switching. Pinned to `sentence-transformers==4.1.0` (v5+ breaks this model). |
 | **STT: Web Speech API (browser-native, NOT Whisper)** | Conscious MVP trade-off. Chrome/Edge route audio to Google/Microsoft cloud; Safari iOS 15+ is on-device. Whisper-based fully-local STT is on the v2.x roadmap — do not silently swap models without revisiting this. |
 | **Dual-layer staging (Sheets → BigQuery)** | Audit trail readable by humans + analytics warehouse. Ordering matters: Sheets first, then BigQuery. |
-| **Intent-routed RAG (4 analyses)** | Not generic NL→SQL. Each question routes to one of: `repeat_customer`, `high_value_customer`, `peak_hour`, `bundle_opportunity`. |
+| **Intent-routed RAG (originally 4 analyses, now 11)** | Not generic NL→SQL. The proposal's 4 were `repeat_customer`, `high_value_customer`, `peak_hour`, `bundle_opportunity`. Production has since added `top_product`, `revenue_trend`, `customer_segmentation`, `churn_risk`, `slow_moving_product`, `average_basket_size`, `demand_forecast` — see `app/analysis_registry.py` (11 entries, all `enabled: True`). |
 | **Web-based simulator (no WhatsApp Business API)** | Sidesteps Meta regional restriction. WhatsApp UX *aesthetic*, real channel via web/PWA. |
 
 Target metrics (don't lower without discussion):
@@ -89,11 +96,12 @@ Target metrics (don't lower without discussion):
 - **transformers** 4.57.6
 - **google-cloud-bigquery** 3.41 — DWH client
 - **gspread** 6.1.4 — Google Sheets client
-- **requests** 2.33.1 — used to call Ollama HTTP
+- **requests** 2.33.1 — used to call the LLM provider HTTP APIs (Gemini/OpenAI/Ollama)
 - **reportlab** 4.5+ — PDF overview generator
-- **Ollama** (external runtime) running `qwen3:8b` at `OLLAMA_BASE_URL`
+- **Gemini 2.5 Flash** (API, `GEMINI_API_KEY`) — the LLM provider actually in use
+- **Ollama** (external runtime, **archived**) — `qwen3:8b` at `OLLAMA_BASE_URL`; only started if you deliberately select `LLM_PROVIDER=ollama` (compose profile `archive`)
 
-### Mobile (`mobile/pubspec.yaml`) — **active frontend for v2.2+**
+### Mobile (`mobile/pubspec.yaml`) — **the only shipped client (web/PWA only as of Task 1b)**
 - **Flutter** 3.27+ · **Dart** 3.6+
 - **flutter_riverpod** 2.6 — state management
 - **go_router** 14.6 — routing
@@ -104,14 +112,19 @@ Target metrics (don't lower without discussion):
 - **fl_chart** 0.69 — charts (reserved for v2.3 KPI deep-dive)
 - **intl** 0.19 — Rp / date formatting
 
-### Frontend (`frontend/package.json`) — **legacy v2.1, kept as fallback**
-- **React** 19.2.4 + **Vite** 8.0.4
-- **react-router-dom** 7.x
-- Lives in `frontend/`. Not actively developed; do not add features here. The Flutter app at `mobile/` is the active mobile target.
+### Frontend — **archived (Task 1e, after a brief deletion in Task 1b)**
+- React 19 + Vite (`frontend/package.json`, `react-router-dom`) is retained in
+  the repo as an archive / design reference (`frontend/README.md`) — not
+  built, not tested, not CI-gated. The folder and the nginx Docker image that
+  serves it (`docker/frontend/`) are both present again; the shipped client
+  is still Flutter web only.
 
 ### Infra
-- **Docker** + Docker Compose v2 (production stack)
-- **nginx:alpine** — production frontend serving + `/api/*` reverse proxy to backend:8000
+- **Docker** + Docker Compose v2 (production stack) — `backend` and an
+  archived `frontend` (nginx + React build) by default; `ollama` is still
+  defined in `docker-compose.yml` but sits behind `profiles: ["archive"]`, so
+  it does not start unless you run `docker compose --profile archive up
+  ollama` on purpose. See `DOCKER.md` for the current port-exposure caveat.
 
 ### Dataset
 - **UCI Online Retail** (Chen, 2015) — ±1M rows seeded into BigQuery table `fortunasai.fortunas_ai.online_retail`
@@ -131,17 +144,17 @@ fortunas-ai/
 │   │                             #   wa_pipeline_structured (NEW v2.1),
 │   │                             #   voice_parser (NEW v2.1),
 │   │                             #   wa_parser, wa_validator, report_store
-│   ├── analysis_registry.py      # intent → analysis mapping (4 entries)
+│   ├── analysis_registry.py      # intent → analysis mapping (11 entries, all enabled)
 │   ├── bigquery_service.py       # BQ client factory
 │   ├── intent_mapper.py          # Bahasa Indonesia question → intent rule classifier
-│   ├── llm_service.py            # Ollama wrapper + JSON repair helpers
+│   ├── llm_service.py            # provider-agnostic LLM call + JSON repair helpers (llm_provider.py does the gemini/openai/ollama switch)
 │   ├── prompt_builder.py         # Builds the LLM prompt with RAG context + SQL rows
-│   ├── queries.py                # 4 BigQuery SQL templates (parameterized)
+│   ├── queries.py                # 11 BigQuery SQL templates (parameterized)
 │   ├── schemas.py                # ALL Pydantic models — single source of truth for I/O contracts
 │   ├── schema_context.py         # BQ table schema description for LLM prompts
 │   ├── sql_guards.py             # Blocks raw SQL interpolation
 │   └── main.py                   # FastAPI app factory + lifespan + scheduler hooks
-├── mobile/                       # Flutter app — ACTIVE FRONTEND (v2.2+)
+├── mobile/                       # Flutter app — THE ONLY SHIPPED CLIENT, web/PWA only
 │   ├── pubspec.yaml              # stack per design hand-off spec
 │   ├── lib/
 │   │   ├── main.dart             # runApp + system UI overlay
@@ -154,12 +167,15 @@ fortunas-ai/
 │   │   └── voice/                # voice_flow (state machine), speech_controller,
 │   │                             #   voice_idle/listening/parsed/success,
 │   │                             #   big_mic_button, waveform, typed_transcript
-│   ├── MIGRATION.md              # React → Flutter mapping reference
+│   ├── MIGRATION.md              # React → Flutter mapping reference (dated; android/ios since removed)
 │   └── README.md                 # quick start
-├── frontend/                     # React PWA — LEGACY v2.1, kept as fallback reference
-│   ├── src/                      # screens/, ui/, voice/, api/, theme/
-│   └── package.json              # do not add features here; mobile/ is the active target
-├── docker/                       # Dockerfile, entrypoint.sh, nginx.conf
+│   # NOTE: mobile/android/ and mobile/ios/ (native platform targets) were
+│   # removed in Task 1b — only mobile/web/ is built and shipped.
+├── frontend/                     # React 19 + Vite — ARCHIVED (Task 1e, after a
+│                                 #   brief deletion in Task 1b): not built, not
+│                                 #   tested, not CI-gated, not the shipped client.
+│                                 #   See frontend/README.md.
+├── docker/                       # backend/ (Dockerfile, entrypoint.sh), ollama/, frontend/ (nginx + React build, archived)
 ├── docs/                         # Fortunas-AI-Overview.pdf + generate_pdf.py + LinkedIn drafts
 ├── docker-compose.yml            # production stack
 ├── docker-compose.dev.yml        # hot-reload dev stack
@@ -178,6 +194,13 @@ fortunas-ai/
 ## 4b. Speech-to-Text — honest architectural disclosure
 
 This deserves its own section because the surface-level pitch ("data never leaves the server") has a real exception at the STT step. Be transparent about it in any user-facing material you generate.
+
+> **Task 1b/1e note:** this section documents the React-era implementation
+> (`frontend/src/voice/useSpeechRecognition.js`). That file is retained in the
+> repo — `frontend/` is archived, not deleted (Task 1e reverted Task 1b's
+> deletion) — but the code path is not built, not run, and not shipped. The
+> trade-off reasoning is kept for history. Current voice input lives in the
+> Flutter app (`mobile/lib/voice/`) via the `speech_to_text` package (see §3).
 
 ### What we actually use
 
@@ -226,6 +249,15 @@ Until that ships, anyone documenting the system should describe STT as "browser-
 
 ## 5. Request flows (end-to-end)
 
+> **Task 1b/1e note:** the frontend-side steps below (screen names, routes,
+> the Vite proxy) describe the React client, which is no longer the shipped
+> one and are stale as a result — the code itself is still in the repo,
+> archived (`frontend/`, Task 1e reverted Task 1b's deletion), just not
+> built/run/shipped. The backend-side steps (`app/api/routes/*` →
+> `app/services/pipeline.py` → intent mapping → BigQuery → RAG → LLM) remain
+> accurate — only the client calling these endpoints changed (Flutter web,
+> `mobile/lib/api/client.dart`).
+
 ### Flow A: "Ask a business question" — `POST /ask`
 
 ```
@@ -239,8 +271,11 @@ Backend app/api/routes/ask.py
   └─ run_ask() in app/services/pipeline.py
        │
        ├─ intent_mapper.map_question_to_analysis(question)
-       │     → returns one of: repeat_customer | high_value_customer
-       │                       | peak_hour | bundle_opportunity | "unknown"
+       │     → returns one of the 11 keys in app/analysis_registry.py
+       │                       (repeat_customer, high_value_customer, peak_hour,
+       │                        bundle_opportunity, top_product, revenue_trend,
+       │                        customer_segmentation, churn_risk, slow_moving_product,
+       │                        average_basket_size, demand_forecast) | "unknown"
        │
        ├─ rag_agent.query(question, n_results=4)
        │     → ChromaDB semantic search over umkm_docs/
@@ -254,7 +289,9 @@ Backend app/api/routes/ask.py
        │     → assembles few-shot Bahasa Indonesia prompt with rows + context
        │
        ├─ insight_agent.generate(prompt)
-       │     → llm_service.call_ollama() → Qwen3:8b JSON response
+       │     → llm_service.llm_generate() → app/llm_provider.py routes to the
+       │       active provider (Gemini 2.5 Flash by default; Ollama/Qwen3:8b
+       │       archived, selectable via LLM_PROVIDER=ollama) → JSON response
        │     → llm_service._repair_output() coerces shape:
        │          { summary, top_findings[≤3], recommendation[≤3] }
        │
@@ -282,9 +319,10 @@ Backend app/api/routes/voice.py → voice_parser.parse_transcript()
   │     If all critical fields present → return confidence=0.92, source='regex'
   │
   └─ TIER 2: llm_parse() — fallback for messy free-form transcripts
-        Calls Ollama with JSON-schema prompt for Qwen3:8b.
+        Calls the active LLM provider (app/llm_provider.py — Gemini 2.5 Flash
+        by default; Ollama/Qwen3:8b archived) with a JSON-schema prompt.
         Returns confidence based on field completeness, source='llm'.
-        On Ollama failure → return None → empty fallback.
+        On provider failure → return None → empty fallback.
        │
        returns VoiceParseResponse {
          invoice, product, qty, unit_price, total,
@@ -313,17 +351,16 @@ Backend app/api/routes/voice.py → wa_pipeline_structured.process_structured_tr
   ├─ wa_validator.check_duplicate_in_bq(Invoice, StockCode)
   │     → if duplicate, reject
   │
-  ├─ sheets_service.append_transaction() — Sheets staging (audit trail FIRST)
-  │     → returns row_number
+  ├─ excel_upload._insert_in_batches([payload]) — straight to BigQuery, NO
+  │     Sheets staging (docstring: "langsung ke BigQuery (tanpa Sheets)").
+  │     The Sheets dual-layer staging from the original single-tenant design
+  │     (`app/services/sheets_service.py`) is still used by the legacy
+  │     `/wa/simulate` path (`app/services/wa_pipeline.py`) but NOT by this
+  │     tenant-scoped voice flow.
   │
-  ├─ excel_upload._insert_in_batches([payload]) — BigQuery insert
-  │
-  ├─ sheets_service.update_bq_status(row, 'success'|'failed', error)
-  │     → close the loop on the audit trail
-  │
-  └─ returns VoiceTransactionResponse {
-       ok, status, reply, invoice, row_number
-     }
+  └─ returns VoiceTransactionResponse { ok, status, reply, invoice }
+       (row_number stays null on this path — it's a legacy field kept for
+        schema compatibility with the Sheets-backed /wa/simulate flow)
   ▼
 Frontend VoiceSuccess (confirmation animation + ROI nudge)
   └─ localStorage push for HistoryScreen display
@@ -338,7 +375,7 @@ APScheduler (BRIEFING_CRON_HOUR:MINUTE, default 06:00 Asia/Jakarta)
        │
        └─ pipeline.run_full_briefing()
             │
-            └─ for each of the 4 analyses in ANALYSIS_REGISTRY:
+            └─ for each enabled analysis in ANALYSIS_REGISTRY (11 today):
                   run_briefing_section()
                   ├─ sql_agent.run(analysis_type)
                   ├─ rag_agent.query(label, n_results=3)
@@ -349,7 +386,7 @@ APScheduler (BRIEFING_CRON_HOUR:MINUTE, default 06:00 Asia/Jakarta)
                      }
             │
             └─ build_deterministic_executive_summary(successful)
-                  composes 2-3 sentence high-level summary from the 4 sections
+                  composes 2-3 sentence high-level summary from the successful sections
        │
        └─ report_store.save_report() → app/data/daily_reports.json
 ```
@@ -363,10 +400,11 @@ Frontend `BriefingScreen` reads `GET /report/daily` to display saved latest + hi
 
 | Method | Path | Purpose | Request | Response |
 |---|---|---|---|---|
-| GET  | `/health` | Liveness + Ollama check | — | `{status, ollama: {...}}` |
+| GET  | `/health` | Liveness + RAG check | — | `{status, rag_enabled}` |
+| GET  | `/llm/health` | Active LLM provider health (Gemini by default) | — | `{status, provider, model, ...}` |
 | POST | `/ask` | NL question → insight | `AskRequest` | `AskResponse` |
 | POST | `/route` | Intent classify only (no SQL/LLM) | `AskRequest` | `{mapped_analysis, supported}` |
-| GET  | `/briefing` | Run 4 analyses + exec summary | — | `BriefingResponse` |
+| GET  | `/briefing` | Run all 11 analyses + exec summary | — | `BriefingResponse` |
 | GET  | `/briefing/stream` | Same, but SSE per-section | — | `text/event-stream` |
 | GET  | `/report/daily` | Saved latest briefing + history | — | `DailyReportResponse` |
 | POST | `/report/daily/run` | Run + save | — | `DailyReportResponse` |
@@ -409,9 +447,9 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 
 6. **APScheduler in dev with `--reload`.** uvicorn's reload spawns a fresh process each code change; the scheduler restarts too. Briefing job will run only after the next cron tick post-restart. Verify by checking timestamps in `app/data/daily_reports.json`.
 
-7. **CORS in Docker vs local.** `app/core/config.py` allows `localhost:3000`, `127.0.0.1:3000`, `:5173`. In Docker production, nginx serves frontend so requests are same-origin — no CORS issue. In dev, Vite proxy strips `/api` so backend sees `/ask` not `/api/ask`.
+7. **CORS.** `app/core/config.py` (`CORS_ORIGINS` env var) defaults to `localhost:3000`, `127.0.0.1:3000`, `:5173` — these match the *archived* React dev server's ports (`frontend/`, Task 1e restored it after Task 1b's deletion; Vite dev server listens on `:3000` in `docker-compose.dev.yml`, `:5173` via a bare local `npm run dev`), not the shipped Flutter client. The `nginx`-serves-frontend same-origin scenario (`docker-compose.yml`'s `frontend` service) exists again too, but that's the archived/design-reference path — not the supported deploy (`deploy/nginx-fortunas.conf`, where the PWA and API share an origin instead). Whatever origin actually serves the Flutter web build (`flutter run -d chrome`'s dev port, or the deployed PWA's domain) needs to be in `CORS_ORIGINS` if it isn't already.
 
-8. **`get_*_agent()` are `lru_cache`d in `app/core/deps.py`.** If you change `.env` (especially BigQuery or Ollama settings), restart uvicorn — the cache doesn't observe env changes.
+8. **`get_*_agent()` are `lru_cache`d in `app/core/deps.py`.** If you change `.env` (especially BigQuery or LLM provider settings — `LLM_PROVIDER`, `GEMINI_API_KEY`, `OLLAMA_*`), restart uvicorn — the cache doesn't observe env changes.
 
 9. **WA pipeline is still wired** in `app/main.py` even though the new mobile UI doesn't expose it. This is intentional: `wa_pipeline.retry_failed_rows` is the APScheduler hook that re-tries `failed`/`pending` Sheets rows. Removing the route would break that job. Leave it.
 
@@ -433,9 +471,9 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
    }
    ```
 3. Extend the rule set in `app/intent_mapper.py` so questions like *"berapa pesanan yang batal?"* map to the new key.
-4. If the prompt structure differs from the four existing analyses, extend `app/prompt_builder.py`.
+4. If the prompt structure differs from the 11 existing analyses, extend `app/prompt_builder.py`.
 5. Optionally add a Markdown doc to `app/knowledge/umkm_docs/` and run `POST /ingest?reset=true` to refresh RAG.
-6. Add `ICON_FOR_ANALYSIS` and `COLOR_FOR_ANALYSIS` entries in `frontend/src/screens/BriefingScreen.jsx` so the KPI card renders.
+6. Add entries to the `_iconFor`/`_colorFor` maps in `mobile/lib/screens/briefing_screen.dart` so the KPI card renders. (Historical note: this used to be `frontend/src/screens/BriefingScreen.jsx`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Adding a new API route
 
@@ -443,13 +481,14 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 2. Define request/response Pydantic models in `app/schemas.py` (not in the route file).
 3. Register in `app/main.py:create_app()` via `app.include_router(<name>.router)`.
 4. Put business logic in `app/services/<name>_service.py` if it's >30 LOC.
-5. Add client method to `frontend/src/api/client.js`.
+5. Add client method to `mobile/lib/api/client.dart`. (Historical note: this used to also touch `frontend/src/api/client.js`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Adding a new screen
 
-1. Create `frontend/src/screens/<Name>Screen.jsx`. Reuse `ScreenHeader`, `Pill`, `Icon` etc.
-2. Add a route entry in `frontend/src/App.jsx` (`<Route path="..." element={...} />`).
-3. Update `frontend/src/ui/BottomNav.jsx` `ITEMS` array if it deserves a tab.
+1. Create `mobile/lib/screens/<name>_screen.dart`. Reuse `ScreenHeader`, `Pill`, `Icon` etc. from `mobile/lib/ui/`.
+2. Add a route entry in `mobile/lib/app.dart` (go_router).
+3. Update `mobile/lib/ui/bottom_nav.dart` if it deserves a tab.
+(Historical note: this recipe used to target `frontend/src/screens/*.jsx`, `App.jsx`, `BottomNav.jsx`; the React client is no longer the shipped one — it's kept in the repo as an archive (`frontend/`, Task 1b removed it, Task 1e restored it) but isn't built/run/shipped — see day-18 handoff.)
 
 ### Generating the overview PDF
 
@@ -472,61 +511,54 @@ pip install -r requirements.txt
 python -m app.knowledge.ingest          # one-time, builds chroma_db/
 uvicorn app.main:app --reload --port 8000
 
-# Mobile (Flutter) — ACTIVE FRONTEND
+# Client (Flutter web / PWA) — the only shipped client
 # Install Flutter SDK first: https://docs.flutter.dev/get-started/install
 cd mobile
-flutter create . --platforms=android,ios,web   # one-time, scaffolds android/ ios/ web/
 flutter pub get
 flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
+# Production build: flutter build web --release --no-web-resources-cdn
 
-# Legacy React PWA (only if you need to compare or fallback)
-cd frontend
-npm install
-npm run dev                             # http://localhost:3000
-
-# Ollama (separate terminal)
+# Ollama (OPTIONAL — only if you deliberately set LLM_PROVIDER=ollama;
+# the default provider is Gemini and needs no local model server at all)
 ollama pull qwen3:8b                    # one-time, ~4.8 GB download
 ollama serve
 ```
 
-### Viewing the mobile app
+### Viewing the app
 
-Active frontend is **Flutter** (in `mobile/`). The React PWA in `frontend/` is legacy.
+The single shipped client is **Flutter web (PWA)** (in `mobile/`). As of Task 1b,
+`mobile/android/` and `mobile/ios/` (native platform targets) have been removed
+from the repo — only the web target is built and shipped. `frontend/` (the
+React client) was also removed by Task 1b, then restored by Task 1e as an
+archive / design reference — it is back in the repo but still not built, not
+tested, and not shipped:
 
-Three ways to preview the Flutter app:
+```bash
+cd mobile
+flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
+```
 
-1. **Chrome / web build** (fastest, no emulator needed):
-   ```bash
-   cd mobile
-   flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
-   ```
-   Flutter compiles to WASM + canvas. Note: `speech_to_text` does not work in web — voice flow falls back to text input. For mic testing use a real device or emulator.
+Note: `speech_to_text` has limited support in web — voice flow falls back to
+text input on browsers/conditions where it isn't available.
 
-2. **Android emulator** (preferred for voice testing):
-   ```bash
-   flutter run -d emulator-5554 --dart-define=FORTUNAS_API=http://10.0.2.2:8000
-   ```
-   `10.0.2.2` is the emulator's alias for the host's localhost.
-
-3. **Physical phone over USB**:
-   ```bash
-   flutter run --dart-define=FORTUNAS_API=http://192.168.40.6:8000
-   ```
-   Phone must be on same WiFi as the backend. USB debugging enabled. No HTTPS needed (Flutter app talks directly to backend; no browser cert restriction).
-
-See `mobile/README.md` and `mobile/MIGRATION.md` for full details.
+See `mobile/README.md` and `mobile/MIGRATION.md` for further details. (Historical
+note: `mobile/MIGRATION.md` predates the native-target removal and still refers
+to android/ios scaffolding — that's a dated record, left as-is intentionally.)
 
 ### Docker (recommended)
 ```bash
-make up                  # build + start all services
-make pull-model          # one-time: docker compose exec ollama ollama pull qwen3:8b
-# Frontend: http://localhost:3000   Backend: http://localhost:8000/docs
+make up                  # build + start the backend (Gemini by default — no Ollama needed)
+# Backend: http://localhost:8000/docs (PWA runs outside Docker — see above)
 make dev                 # hot-reload variant via docker-compose.dev.yml
+
+# Only if you deliberately want the archived local-LLM path (LLM_PROVIDER=ollama):
+# docker compose --profile archive up ollama
+# make pull-model          # one-time: docker compose --profile archive exec ollama ollama pull qwen3:8b
 ```
 
 ### Environment variables (`.env` at repo root)
 
-Required: `GOOGLE_APPLICATION_CREDENTIALS` (absolute path to BQ service-account JSON), `BIGQUERY_PROJECT_ID`, `BIGQUERY_DATASET`, `BIGQUERY_TABLE`. Optional but useful: `OLLAMA_BASE_URL` (in Docker: `http://ollama:11434`), `OLLAMA_MODEL`, `BRIEFING_*` scheduler, `WA_RETRY_ENABLED`. Full template in `SETUP.md` §3.4.
+Required: `GOOGLE_APPLICATION_CREDENTIALS` (absolute path to BQ service-account JSON), `BIGQUERY_PROJECT_ID`, `BIGQUERY_DATASET`, `BIGQUERY_TABLE`, and `GEMINI_API_KEY` (the active LLM provider — `LLM_PROVIDER` defaults to `gemini`). Optional: `OLLAMA_BASE_URL` (in Docker: `http://ollama:11434`) and `OLLAMA_MODEL` only matter if you set `LLM_PROVIDER=ollama` to use the archived local path; also `BRIEFING_*` scheduler, `WA_RETRY_ENABLED`. Full template in `SETUP.md` §3.4.
 
 ### Submission packaging (only when explicitly requested)
 ```bash
@@ -553,7 +585,8 @@ curl -X POST http://localhost:8000/voice/parse \
   -H "Content-Type: application/json" \
   -d '{"transcript":"Invoice 489438, sabun cuci, qty 10, harga delapan ribu lima ratus"}'
 
-# Full ask (requires Ollama running)
+# Full ask (requires the active LLM provider reachable — Gemini API by default,
+# i.e. GEMINI_API_KEY set; only requires Ollama running if LLM_PROVIDER=ollama)
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -d '{"question":"Pelanggan mana yang paling sering beli bulan ini?"}'
@@ -565,8 +598,8 @@ curl -X POST http://localhost:8000/ask \
 
 - **UMKM** — Usaha Mikro, Kecil, dan Menengah. Indonesian MSME (Micro, Small, Medium Enterprise).
 - **RAG** — Retrieval-Augmented Generation. Inject retrieved docs into LLM prompt for grounding.
-- **Intent-routed RAG** — Specific to this project: question is first classified to one of 4 pre-built analyses (not free-form NL-to-SQL).
-- **Dual-layer staging** — Sheets first (audit trail readable by humans), then BigQuery (analytics). Auto-retry on BQ failure.
+- **Intent-routed RAG** — Specific to this project: question is first classified to one of 11 pre-built analyses (not free-form NL-to-SQL).
+- **Dual-layer staging** — Sheets first (audit trail readable by humans), then BigQuery (analytics), with auto-retry on BQ failure. This is the original single-tenant design, still live for the legacy `/wa/simulate` path (`app/services/wa_pipeline.py`). The current tenant-scoped voice flow (`wa_pipeline_structured.py`) writes straight to BigQuery — no Sheets layer.
 - **UU PDP No. 27/2022** — Indonesian Personal Data Protection Law. Local LLM execution is part of the compliance posture.
 - **WA pipeline** — `app/services/wa_pipeline.py`. Originally for WhatsApp Business API; now mostly a service layer reused by the new voice flow.
 - **Neo-brutalism** — Design language used in the v2.1 UI: hard 1.5-2px borders, pop shadows `4px 4px 0 ink`, no soft shadows.

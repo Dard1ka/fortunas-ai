@@ -178,28 +178,6 @@ class PublicOrderController extends AutoDisposeNotifier<PublicOrderState> {
     }
   }
 
-  /// Dipanggil setelah webview Snap ditutup. Poll status beberapa kali karena
-  /// webhook Midtrans bisa tiba beberapa detik setelah pelanggan selesai bayar
-  /// — status mungkin masih `pending_payment` tepat saat webview ditutup.
-  /// Berhenti lebih awal begitu status bergerak dari `pending_payment`.
-  Future<void> afterSnapReturn(
-      {int retries = 3, Duration gap = const Duration(seconds: 2)}) async {
-    final poid = state.order?.paymentOrderId;
-    if (poid == null || poid.isEmpty) return;
-    state = state.copyWith(polling: true, clearError: true);
-    try {
-      final api = ref.read(apiProvider);
-      var fresh = await api.getPublicOrderStatus(poid);
-      for (var i = 0; i < retries && fresh.status == 'pending_payment'; i++) {
-        await Future.delayed(gap);
-        fresh = await api.getPublicOrderStatus(poid);
-      }
-      state = state.copyWith(polling: false, order: fresh);
-    } catch (e) {
-      state = state.copyWith(polling: false, errorMessage: humanizeError(e));
-    }
-  }
-
   /// Poll status terkini (tombol "Perbarui status" / setelah bayar).
   Future<void> refreshStatus() async {
     final poid = state.order?.paymentOrderId;

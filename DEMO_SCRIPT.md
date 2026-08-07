@@ -1,40 +1,48 @@
 # Fortunas AI — Demo Script
 
+> ⚠️ **Transisi klien (2026-08-07, ADR-0002):** jalur demo Flutter di bawah masih BERLAKU
+> sampai Gate D. Jalur demo React ditulis saat verifikasi Spec 2 R2; rewrite final dokumen ini
+> terjadi di PR Gate D.
+
+> **Catatan (Task 1d, 2026-08-07):** Setup di bawah ini sudah usang di dua hal —
+> **(1)** LLM aktif produksi sekarang **Gemini 2.5 Flash**, bukan Ollama/Qwen3
+> lokal (Ollama masih ada di `docker-compose.yml` tapi diarsipkan di balik
+> `profiles: ["archive"]`, dipilih sengaja lewat `LLM_PROVIDER=ollama`); dan
+> **(2)** klien React `frontend/` dipertahankan di repo sebagai arsip/rujukan
+> desain (Task 1e, membatalkan sebagian penghapusan Task 1b) — tidak dibangun,
+> tidak dites, tidak di-gate CI. Klien yang di-ship tetap **Flutter web (PWA)**
+> dari `mobile/`. Langkah di bawah ditulis ulang supaya cocok dengan repo saat
+> ini.
+
 ## Persiapan Sebelum Demo
 
-### 🐳 Cara 1: Docker (Recommended — v2.0.0+)
+### 🐳 Cara 1: Docker (backend saja — Gemini, tanpa Ollama)
 
 ```bash
-# Pastikan .env sudah diisi dan credentials/ ada
-docker compose up -d           # start semua services (background)
-docker compose ps              # cek semua container STATUS = running
+# Pastikan .env sudah diisi (GEMINI_API_KEY, JWT_SECRET, BIGQUERY_*) dan credentials/ ada
+docker compose up -d           # start backend (background)
+docker compose ps              # cek container fortunas_backend STATUS = running
 
-# Pull model jika belum pernah (sekali saja)
-docker compose exec ollama ollama pull qwen3:8b
-
-# Buka browser
-# http://localhost:3000
+# Jalankan PWA terpisah (bukan di dalam Docker):
+cd mobile
+flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
 ```
 
-> Model Qwen3:8b otomatis ter-load. Tunggu ~30 detik setelah container up sebelum demo.
+> Ollama TIDAK perlu dinyalakan untuk demo — LLM aktif adalah Gemini (API cloud).
+> Kalau memang mau demo jalur lokal arsip: `docker compose --profile archive up ollama`
+> + `make pull-model` + set `LLM_PROVIDER=ollama` di `.env`.
 
 ### ⚙️ Cara 2: Manual (tanpa Docker)
 
 ```bash
-# 1. Pastikan Ollama running dengan model qwen3:8b
-ollama serve
-ollama pull qwen3:8b   # jika belum ada
-
-# 2. Jalankan backend
-cd Fortunas
+# 1. Jalankan backend (Gemini API, tidak butuh Ollama)
+cd fortunas-ai
 .venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 
-# 3. Jalankan frontend (terminal baru)
-cd Fortunas/frontend
-npm run dev
-
-# 4. Buka browser: http://localhost:3000
+# 2. Jalankan PWA (terminal baru)
+cd mobile
+flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
 ```
 
 ---
@@ -106,7 +114,7 @@ npm run dev
 **Langkah**:
 1. Klik tab **"Briefing Bisnis"**
 2. Klik **"Mulai Briefing Otomatis"**
-3. Tunggu (~2-5 menit, semua 4 analisis + executive summary)
+3. Tunggu (~2-5 menit, seluruh 11 analisis terdaftar + executive summary — lihat `app/analysis_registry.py`)
 
 **Poin diskusi**:
 - "Ini yang membedakan Fortunas dari dashboard biasa"
@@ -121,5 +129,5 @@ npm run dev
 1. **Mulai dari masalah**: "UMKM punya data tapi tidak punya data analyst"
 2. **Demo yang smooth**: Buka semua skenario berurutan, jangan lompat-lompat
 3. **Briefing terakhir**: Ini wow-moment, simpan untuk penutup
-4. **Jika LLM lambat**: Jelaskan bahwa ini local LLM di laptop biasa, di production bisa lebih cepat
+4. **Jika LLM lambat**: LLM aktif adalah Gemini 2.5 Flash (API cloud) — lambat biasanya karena latensi jaringan, bukan komputasi lokal. Jalur lokal (Ollama/Qwen3) masih ada sebagai arsip kalau perlu demo tanpa API key.
 5. **Jika error**: Tunjukkan error handling yang graceful, jelaskan agent trace

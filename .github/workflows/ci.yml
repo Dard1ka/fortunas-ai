@@ -25,6 +25,33 @@ jobs:
       - name: Test (pytest smoke)
         run: python -m pytest tests/ -v
 
+  # Klien produksi React (ADR-0002). Nama job ini akan menjadi required check
+  # di Gate D — ⚠️ JANGAN GANTI STRING `name:` INI (aturan yang sama dengan
+  # job mobile di bawah).
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deps
+        run: npm ci
+      - name: Lint (eslint)
+        run: npm run lint
+      - name: Test (vitest, aktif setelah Spec 2)
+        run: npm test --if-present
+      # WAJIB byte-identik dengan perintah build di deploy/DEPLOY.md (kanal
+      # rilis) — gate CI harus mem-build persis artefak yang dideploy.
+      - name: Build (vite)
+        run: npm run build
+
   mobile:
     # ⚠️ JANGAN GANTI STRING `name:` INI.
     # Proteksi branch `main` mencocokkan required status check berdasarkan NAMA

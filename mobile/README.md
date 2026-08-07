@@ -1,6 +1,13 @@
+> ⚠️ **DEPRECATED (2026-08-07, ADR-0002):** klien produksi = React `frontend/`. Direktori ini
+> cadangan demo sampai Gate D dan TIDAK menerima fitur baru. Lihat
+> `docs/adr/0002-react-production-client.md`.
+
 # Fortunas AI · Mobile (Flutter)
 
-Mobile app for Fortunas AI, built with **Flutter 3.27+**. Replaces the React PWA from v2.1.
+Client for Fortunas AI, built with **Flutter 3.32.x**, shipped as a **PWA (web only)**.
+Originally replaced the React PWA from v2.1; the native Android/iOS targets that
+existed during the Flutter migration were removed in Task 1b — this is a
+web-only project now, and `flutter build web` is what actually ships.
 
 ## Quick start
 
@@ -9,17 +16,16 @@ Mobile app for Fortunas AI, built with **Flutter 3.27+**. Replaces the React PWA
 # https://docs.flutter.dev/get-started/install
 
 cd mobile
-flutter create . --platforms=android,ios,web   # scaffold native folders (first time only)
 flutter pub get
 
-# Run on the fastest target — Chrome (no emulator needed):
+# Run in Chrome (dev, hot reload):
 flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
 
-# Or run on physical Android device:
-flutter run --dart-define=FORTUNAS_API=http://192.168.40.6:8000
+# Production build (what actually ships):
+flutter build web --release --no-web-resources-cdn
 ```
 
-Backend (FastAPI + Ollama + BigQuery) needs to be running. See repo root `SETUP.md` and `DOCKER.md`.
+Backend (FastAPI + Gemini + BigQuery) needs to be running — Ollama is archived, not required (see `app/llm_provider.py`). See repo root `SETUP.md` and `DOCKER.md`.
 
 ## What this app is
 
@@ -55,15 +61,17 @@ The app reads `FORTUNAS_API` at compile time via `--dart-define`. Defaults to `h
 
 | Run target | Use this URL |
 |---|---|
-| Android emulator | `http://10.0.2.2:8000` (host's localhost from emulator) |
-| iOS simulator | `http://localhost:8000` |
-| Physical phone (same WiFi) | `http://<your-PC-IP>:8000` |
-| Production | `https://api.fortunas.example.com` |
+| Chrome, local backend | `http://127.0.0.1:8000` (the default) |
+| Chrome, backend on another machine (same network) | `http://<host-IP>:8000` |
+| Production | the deployed API origin (see `deploy/DEPLOY.md`) |
 
 ## Voice permission notes
 
-Android: `AndroidManifest.xml` needs `RECORD_AUDIO` (added automatically by `permission_handler` setup).
-iOS: `Info.plist` needs `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription`. Add after `flutter create .` generates the iOS folder.
+Web only: the browser prompts for microphone access on first use of
+`speech_to_text` (no manifest entries — those were Android/iOS-only and no
+longer apply). **HTTPS is required** — `getUserMedia` (and the voice feature
+with it) is blocked entirely outside a secure context. See
+`deploy/nginx-fortunas.conf` for the production HTTPS setup.
 
 ## Status
 

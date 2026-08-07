@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/logo-mark-256.png" alt="Fortunas AI" width="100"/>
+<img src="assets/brand/logo-mark.svg" alt="Fortunas AI" width="100"/>
 
 # Fortunas AI
 
@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Flutter](https://img.shields.io/badge/Flutter-mobile-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![React](https://img.shields.io/badge/React-19_+_Vite-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![BigQuery](https://img.shields.io/badge/BigQuery-Google_Cloud-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/bigquery)
 [![Gemini](https://img.shields.io/badge/LLM-Gemini_2.5_Flash-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5-FF6B35)](https://trychroma.com)
@@ -30,7 +30,9 @@ Fortunas AI bridges the gap between raw transaction data and actionable business
 > **"Siapa pelanggan paling setia bulan ini?"**
 > → Fortunas AI maps the intent, queries that tenant's BigQuery tables, enriches with RAG, and Gemini writes a grounded report (summary + findings + recommendations) — e.g. *"Sari (18103), Budi (18105)..."*.
 
-It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the final client is a **mobile app (Flutter)**, with a React web app for demos.
+It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the production client is the **React web app (PWA)** in `frontend/`, built via `npm run build`.
+
+> **Client status (2026-08-07, ADR-0002):** React (`frontend/`) = the production client — built, tested, CI-gated, deploy target `app.fortunas.id`. Flutter (`mobile/`) = **deprecated** — no new features; kept as the demo fallback until React reaches full parity and the team ratifies its removal (Gate D, see [`docs/adr/0002-react-production-client.md`](docs/adr/0002-react-production-client.md)). Do not build new features in `mobile/`.
 
 ---
 
@@ -40,13 +42,13 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 |---|---|
 | **Multi-tenant + Auth** | Email/password (bcrypt) + JWT. Each business sees only its own data. |
 | **Conversational Query** | Ask in natural Bahasa Indonesia → grounded insight (`/ask`) |
-| **4 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` |
-| **Daily Briefing** | On-demand per-tenant business summary (4 analyses + executive summary) |
+| **11 Auto-Analyses** | `repeat_customer` · `high_value_customer` · `peak_hour` · `bundle_opportunity` · `top_product` · `revenue_trend` · `customer_segmentation` · `churn_risk` · `slow_moving_product` · `average_basket_size` · `demand_forecast` (see `app/analysis_registry.py`) |
+| **Daily Briefing** | On-demand per-tenant business summary (all 11 analyses + executive summary) |
 | **🎤 Voice Input** | Speak transactions in Bahasa Indonesia → parsed → saved to that tenant's BigQuery |
 | **Customer naming** | Auto-assign numeric Customer ID per name; shown as `Nama (id)` |
 | **RAG Knowledge Base** | UMKM tips retrieved from ChromaDB to enrich recommendations |
 | **Pluggable LLM** | `LLM_PROVIDER` = `gemini` (default) · `openai` · `ollama` (local, zero-cost) |
-| **Mobile (Flutter)** | Final client — single codebase iOS + Android (auth WIP) |
+| **React Web (PWA)** | Production client — `frontend/` (React 19 + Vite), built via `npm run build` |
 
 ---
 
@@ -62,7 +64,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 ## 🏗 Architecture
 
 ```
-   Mobile (Flutter) / React (demo)
+   React Web (PWA — frontend/)
             │  HTTP + Authorization: Bearer <JWT>
             ▼
         nginx :80  ──►  uvicorn :8000  (FastAPI)
@@ -88,8 +90,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 | Layer | Technology |
 |---|---|
-| Mobile (final client) | Flutter + Dart (Riverpod, go_router, dio, speech_to_text) |
-| Web (demo) | React 19 + Vite 8 |
+| Client (PWA) | React 19 + Vite (`frontend/`, react-router, Web Speech API) — `mobile/` Flutter deprecated until Gate D |
 | Backend | FastAPI (async), Python 3.11/3.12 |
 | Auth | bcrypt + PyJWT (JWT), SQLite metadata |
 | LLM | Gemini 2.5 Flash (default) · switchable to OpenAI / Ollama-Qwen via `app/llm_provider.py` |
@@ -104,7 +105,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 > Credentials & full step-by-step (incl. VPS access) are in `HANDOVER.txt` (gitignored, internal). Project context: [`memory.md`](memory.md).
 
-**Prerequisites:** Python 3.11/3.12, Node 20+, a GCP service-account JSON (BigQuery), a Gemini API key.
+**Prerequisites:** Python 3.11/3.12, Node ≥ 20.19 (Vite 8), a GCP service-account JSON (BigQuery), a Gemini API key. (Flutter 3.32.x only if you need the deprecated `mobile/` demo fallback.)
 
 ```bash
 git clone https://github.com/Dard1ka/fortunas-ai.git
@@ -125,14 +126,16 @@ cp deploy/.env.production.example .env   # then edit: GEMINI_API_KEY, JWT_SECRET
 # Run backend
 .venv/Scripts/python -m uvicorn app.main:app --port 8000
 
-# Run web demo (separate terminal)
-cd frontend && npm install && npm run dev      # http://localhost:3000
+# Run the web client (separate terminal)
+cd frontend
+npm ci
+npm run dev                # Vite dev server :3000, /api proxied to :8000
 ```
 
-Then open `http://localhost:3000` → **Register** a business or **Login**. To point the web demo at a deployed backend instead of localhost:
+Then **Register** a business or **Login** in the app. To point the client at a deployed backend instead of localhost, set `VITE_API_TARGET=http://<host>:8000` for the dev server (proxy is server-side; see `frontend/vite.config.js`). For a production build:
 ```bash
-# in frontend/
-VITE_API_TARGET=http://<vps-ip> npm run dev      # PowerShell: $env:VITE_API_TARGET="http://<vps-ip>"; npm run dev
+cd frontend
+npm ci && npm run build    # → frontend/dist/ (release command; identical to CI)
 ```
 
 Minimal `.env`:
@@ -160,7 +163,7 @@ cd /opt/fortunas-ai && git pull && sudo systemctl restart fortunas-backend
 ```
 HTTPS (when a domain is available): certbot — see DEPLOY.md §9.
 
-> Docker files (`docker/`, `docker-compose*.yml`) remain in the repo but predate multi-tenant/auth — the supported path is now the VPS guide above.
+> Docker files (`docker/`, `docker-compose*.yml`) remain in the repo and have kept getting touched after the multi-tenant/auth rewrite — the `frontend` service builds and serves the production React client (ADR-0002); `ollama` stays archived behind a compose profile. They still don't reflect the current multi-tenant stack shape closely enough to be the supported deploy path, though — that's the VPS guide above.
 
 ---
 
@@ -174,7 +177,7 @@ Interactive docs: **`/docs`**. All data endpoints require `Authorization: Bearer
 | `POST` | `/auth/login` | — | Login → JWT |
 | `GET` | `/auth/me` | ✅ | Current account/tenant info |
 | `POST` | `/ask` | ✅ | NL question → grounded insight |
-| `GET` | `/briefing` | ✅ | Run 4 analyses + executive summary |
+| `GET` | `/briefing` | ✅ | Run all 11 analyses + executive summary |
 | `POST` | `/report/daily/run` | ✅ | Run + save daily briefing (per-tenant) |
 | `GET` | `/report/daily` | ✅ | Latest saved briefing + history |
 | `POST` | `/voice/parse` | ✅ | Voice transcript → structured preview |
@@ -208,8 +211,8 @@ fortunas-ai/
 │   ├── intent_mapper.py, analysis_registry.py, bigquery_service.py, schemas.py
 │   ├── knowledge/           # ingest.py + umkm_docs/ (RAG corpus)
 │   └── main.py
-├── frontend/                # React web demo (login, ask, briefing, voice, history, profile)
-├── mobile/                  # Flutter app (final client; auth WIP)
+├── frontend/                # React 19 + Vite — the production client (PWA)
+├── mobile/                  # Flutter app — DEPRECATED, demo fallback until Gate D (ADR-0002)
 ├── deploy/                  # DEPLOY.md, systemd unit, nginx conf, .env.production.example
 ├── scripts/                 # BQ maintenance utilities
 ├── memory.md                # project context (credential-free)
@@ -231,10 +234,11 @@ fortunas-ai/
 - [x] v1–v2 — RAG pipeline, BigQuery, Docker, React PWA + voice
 - [x] v3.0.0 — Flutter mobile app
 - [x] **v4.0.0 — Multi-tenant SaaS** (JWT auth, per-tenant tables, Gemini provider) + **VPS deploy**
-- [ ] Mobile app auth (login → JWT) — connect Flutter to the deployed API
-- [ ] HTTPS (domain + certbot) before mobile release
+- [x] Client auth (login → JWT) — shipped in both clients; production client = React (ADR-0002)
+- [ ] HTTPS (domain + certbot) before the React PWA release — the standing blocker
 - [ ] WhatsApp Business Cloud API (infra ready; blocked by Meta region restriction)
-- [ ] `demand_forecast` / `inventory_alert` analysis modules
+- [x] `demand_forecast` analysis module (shipped — see `app/analysis_registry.py`, now 11 analyses total)
+- [ ] `inventory_alert` analysis module
 
 ---
 

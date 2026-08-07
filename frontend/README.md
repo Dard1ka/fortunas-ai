@@ -1,30 +1,34 @@
-# `frontend/` — Archive / Design Reference (NOT the shipping client)
+# Fortunas AI — Web Client (Produksi)
 
-This React + Vite app is **archived**. It is **not** the app Fortunas AI ships to UMKM users.
+Klien produksi Fortunas AI: **React 19 + Vite** — stack yang di-commit proposal hibah.
+Status & rencana paritas: [`docs/adr/0002-react-production-client.md`](../docs/adr/0002-react-production-client.md).
 
-## What actually ships
+> Sampai Gate D (ADR-0002), `mobile/` (Flutter) masih ada sebagai cadangan demo — deprecated,
+> jangan tambah fitur di sana.
 
-The shipping client is the **Flutter app in `mobile/`**, released as a **PWA** (installable,
-service-worker-backed web app served same-origin behind nginx/HTTPS). See
-[`docs/handoff/day-16.md`](../docs/handoff/day-16.md) for the current PWA/responsive-shell
-architecture, and the repository root [`README.md`](../README.md) for the overall project
-layout.
+## Menjalankan
 
-## Why this folder is kept instead of deleted
+```bash
+npm ci          # sekali, atau setelah lockfile berubah
+npm run dev     # dev server :3000, proxy /api → VITE_API_TARGET (default 127.0.0.1:8000)
+npm run lint    # eslint 9
+npm run build   # produksi → dist/ (perintah rilis; identik dengan CI)
+```
 
-This app's 6 screens and its Web Speech API voice flow
-(`src/voice/useSpeechRecognition.js`) remain the **design reference** the Flutter UMKM
-screens (`mobile/lib/screens/`, 13 screens) were built against. Deleting it would remove that
-reference with no replacement, so it stays in the repo as a read-only historical artifact.
+Node ≥ 20.19 (Vite 8). Backend lokal penuh tidak bisa jalan tanpa deps berat (chromadb) —
+untuk verifikasi live pakai `cross-env VITE_API_TARGET=<backend> npm run dev` (proxy
+server-side; tidak tergantung CORS).
 
-## What this means in practice
+## Peta singkat
 
-- **Not built.** No CI job runs `npm run build` or `vite build` against this folder.
-- **Not tested.** No CI job runs tests against this folder.
-- **Not gated by CI** at all — `.github/workflows/ci.yml` has no job referencing `frontend/`.
-- Nothing here should be assumed to compile against current dependency versions; `package.json`
-  and `node_modules` are exactly as they were left, not maintained going forward.
+- `src/screens/` — Home, Result, Briefing, History, Profile, Login (+ layar baru per Spec 2)
+- `src/voice/` — dictation Web Speech API (id-ID) + alur transaksi suara
+- `src/api/client.js` — fetch wrapper: BASE `/api`, Bearer JWT, 401 → logout event
+- `src/theme/tokens.css` — design tokens neo-brutalist
+- `src/_legacy/` — UI v1, di luar build graph; referensi wiring backend, jangan dipakai fitur baru
 
-Do not build product features on top of this app. If you need to compare a Flutter UMKM screen
-against its original design intent, read the matching screen under `src/screens/` here, but make
-any actual UI changes in `mobile/lib/screens/`.
+## CI & deploy
+
+- CI: job `Frontend (lint + test + build)` di `.github/workflows/ci.yml` — build CI wajib
+  byte-identik dengan perintah rilis.
+- Deploy: `dist/` di-rsync ke docroot VPS same-origin `app.fortunas.id` (lihat `deploy/DEPLOY.md`).

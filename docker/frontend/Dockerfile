@@ -1,12 +1,15 @@
 # ============================================================
 #  Fortunas AI — Frontend Dockerfile (multi-stage)
+#  Builds the PRODUCTION React client (frontend/ — ADR-0002).
 #
-#  Stage 1 (builder): Node 20 — install deps + build React app
+#  Stage 1 (builder): Node 22 — install deps + build React app
+#                     (Vite 8 requires Node ^20.19 || >=22.12; pin 22 to
+#                     match the CI job "Frontend (lint + test + build)")
 #  Stage 2 (runner):  nginx:alpine — serve the built dist/
 # ============================================================
 
 # ── Stage 1: Build ───────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 

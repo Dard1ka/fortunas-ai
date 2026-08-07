@@ -1,19 +1,33 @@
 # ============================================================
 #  Fortunas AI — docker-compose.dev.yml
-#  Development mode: hot-reload backend + Vite dev server
+#  Development mode: hot-reload backend + Vite dev server for the React
+#  frontend (the production client — ADR-0002).
 #
 #  Usage:
 #    docker compose -f docker-compose.dev.yml up --build
 #
-#  Differences from production:
+#  Differences from production (docker-compose.yml):
 #    - Backend: source code mounted (--reload enabled)
 #    - Frontend: Vite dev server (not nginx) with HMR
-#    - Backend port 8000 is exposed directly
+#    - Backend port 8000 is exposed directly (production now does this too —
+#      see the CORS_ORIGINS note below in both files)
 # ============================================================
 
 services:
 
+  # ── ARSIP — tidak dipakai produksi ────────────────────────────────
+  # LLM aktif = Gemini 2.5 Flash via API (lihat app/llm_provider.py).
+  # Blok ini SENGAJA dipertahankan sebagai jejak migrasi: arsitektur LLM
+  # lokal ini pernah benar-benar dibangun dan masih dirujuk novelty #2 di
+  # proposal hibah. `profiles` membuatnya tidak ikut `docker compose up`,
+  # jadi tidak ada yang tanpa sengaja mengunduh model 4-5 GB untuk sesuatu
+  # yang tidak pernah dipanggil.
+  # Menjalankannya dengan sengaja:
+  #   docker compose -f docker-compose.dev.yml --profile archive up ollama
+  #   make pull-model
+  #   LLM_PROVIDER=ollama uvicorn app.main:app
   ollama:
+    profiles: ["archive"]
     image: ollama/ollama:latest
     container_name: fortunas_ollama_dev
     restart: unless-stopped
@@ -38,11 +52,19 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      # OLLAMA_BASE_URL: hanya terbaca kalau LLM_PROVIDER=ollama dipilih sengaja
+      # (service ollama di atas ada di profile "archive", tidak jalan default).
       OLLAMA_BASE_URL: http://ollama:11434
       CHROMA_DB_PATH: /data/chroma_db
       DAILY_REPORT_PATH: /data/reports/daily_reports.json
       KNOWLEDGE_DOCS_DIR: /app/app/knowledge/umkm_docs
-      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173"]'
+      # CORS_ORIGINS is for callers hitting :8000 *directly* from a different
+      # origin — e.g. a Vite dev server run outside compose, or Swagger UI.
+      # The frontend service below proxies /api through its own Vite dev
+      # server (same-origin from the browser's point of view), so it doesn't
+      # need an entry here. Replace these placeholder localhost origins with
+      # wherever you're actually serving the client from.
+      CORS_ORIGINS: '["http://localhost","http://127.0.0.1"]'
     volumes:
       - ./app:/app/app                          # ← hot reload source
       - chroma_data:/data/chroma_db
@@ -50,9 +72,6 @@ services:
       - ./credentials:/app/credentials:ro
     ports:
       - "8000:8000"                             # exposed for direct Swagger access
-    depends_on:
-      ollama:
-        condition: service_healthy
     networks:
       - fortunas_net
     # Override entrypoint to enable --reload
@@ -63,8 +82,9 @@ services:
       --reload
       --log-level debug
 
+  # ── Frontend (Vite dev server, production React client — ADR-0002) ──
   frontend:
-    image: node:20-alpine
+    image: node:22-alpine
     container_name: fortunas_frontend_dev
     working_dir: /app
     volumes:

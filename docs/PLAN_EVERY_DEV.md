@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED sebagian (2026-08-07, ADR-0002):** periode plan ini sudah lewat; keputusan
+> klien di dalamnya (Flutter web = klien tunggal) digantikan ADR-0002 (React = produksi).
+> Baris-baris lama TIDAK diedit — dokumen ini rekaman perencanaan.
+
 # Fortunas AI — Plan Rotasi 3 Developer (Estafet Harian)
 
 > **Model:** 3 developer bekerja **bergantian per hari** (relay/estafet)
@@ -115,11 +119,11 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 |---|---|---|
 | **Python 3.12** | Backend | ✅ |
 | **Flutter SDK 3.27+** | Mobile | ✅ |
-| **Node 20+** | Frontend React (kalau perlu cek) | ✅ |
+| **Node 20+** (opsional) | Frontend React (`frontend/`) — dipertahankan di repo sebagai arsip/rujukan desain (Task 1e), tidak dibangun/dites/di-gate CI. Klien tunggal yang di-ship tetap Flutter web (PWA). | ❌ tidak wajib untuk alur MVP — hanya perlu kalau menyentuh arsip `frontend/` |
 | **PostgreSQL 15** atau Docker | DB lokal | ✅ |
 | **Git + GitHub CLI (`gh`)** | Version control | ✅ |
 | **VS Code** + extensions: Python, Dart, Flutter, GitLens | Editor | ✅ |
-| **Android Studio + AVD** | Test mobile | ✅ |
+| ~~**Android Studio + AVD**~~ | ~~Test mobile~~ — **superseded**: `mobile/android/` dan `mobile/ios/` sudah dihapus (Task 1b, pivot PWA-only), tidak ada target native untuk di-emulate lagi. Test cukup via `flutter run -d chrome`. | ❌ tidak perlu lagi |
 | **DBeaver** | DB GUI | ✅ |
 | **Postman / Bruno** | API testing | ✅ |
 | **Chrome / Edge** | Frontend test + Web Speech API | ✅ |
@@ -285,8 +289,11 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 1. Baca handoff Hari 5
 2. Buat Firebase project `fortunas-ai-mobile` di console
 3. Enable Phone Authentication + Cloud Messaging
-4. Tambah app Android — download `google-services.json` → `mobile/android/app/`
-5. Tambah app iOS — download `GoogleService-Info.plist` → `mobile/ios/Runner/`
+4. ~~Tambah app Android — download `google-services.json` → `mobile/android/app/`~~
+5. ~~Tambah app iOS — download `GoogleService-Info.plist` → `mobile/ios/Runner/`~~
+   (steps 4-5 **superseded**: never executed per the "Aktual" note above —
+   dev-token path was used instead — and `mobile/android/`/`mobile/ios/` have
+   since been removed from the repo entirely, Task 1b PWA-only pivot)
 6. Place service account JSON di `credentials/firebase-admin.json` (gitignored)
 7. Update `mobile/pubspec.yaml`: tambah `firebase_core`, `firebase_auth`
 8. Init Firebase di `mobile/lib/main.dart`
@@ -331,7 +338,10 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 **Steps:**
 1. Baca handoff Hari 7
 2. Update `mobile/pubspec.yaml`: tambah `mobile_scanner`, `permission_handler`
-3. Permission camera di `mobile/android/app/src/main/AndroidManifest.xml`
+3. ~~Permission camera di `mobile/android/app/src/main/AndroidManifest.xml`~~
+   (**superseded**: per `docs/ROADMAP.md`, the shipped scan screen — PR #17,
+   Day 10 — used manual token input; camera `mobile_scanner` was deferred, and
+   `mobile/android/` has since been removed from the repo entirely, Task 1b)
 4. `mobile/lib/screens/umkm/scan_customer_screen.dart` — camera scanner UI
 5. On detect → POST `/umkm/customer/scan/validate`
 6. **Backend:** Endpoint `POST /umkm/customer/scan/validate`:
@@ -557,8 +567,11 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 2. Fix bugs critical + high mobile
 3. Performance: lazy load list panjang, image cache
 4. Final konsistensi visual (warna, font, spacing) di semua screen
-5. Build release APK debug-mode untuk testing
-6. Test APK install di device fisik
+5. ~~Build release APK debug-mode untuk testing~~
+6. ~~Test APK install di device fisik~~
+   (steps 5-6 **superseded**: `mobile/android/` dan `mobile/ios/` sudah dihapus
+   dari repo — pivot PWA-only, 2026-08-06. Ganti dengan `flutter build web
+   --release --no-web-resources-cdn` dan test di browser.)
 7. Tulis `docs/handoff/day-17.md`
 
 **Deliverable:** Branch `fix/mob-bugs` merged
@@ -608,24 +621,33 @@ Karena rotasi, **SEMUA dev harus full-stack**. Tools wajib di laptop masing-masi
 ### 🗓 Hari 20 (Jum 2026-07-24) — Dev B + Dev C (kerja bareng) 🎉
 **Goal:** Submission package terkirim ke MIS Grant.
 
-**Tools dipakai:** Build APK · `pwsh package.ps1` · MIS Grant portal
+> ⚠️ **Superseded (pivot PWA-only, 2026-08-06):** `mobile/android/` dan
+> `mobile/ios/` sudah dihapus dari repo — APK/appbundle **tidak bisa** dibangun
+> lagi. "Build APK" di steps Dev B di bawah harus dibaca sebagai `flutter build
+> web --release --no-web-resources-cdn`; submission menyertakan link PWA
+> ter-deploy, bukan file APK.
+
+**Tools dipakai:** ~~Build APK~~ `flutter build web` · `pwsh package.ps1` · MIS Grant portal
 
 **Steps Dev B (Mobile build):**
-1. Build release APK production: `flutter build apk --release`
-2. Build appbundle: `flutter build appbundle --release` (untuk Play Store kalau perlu)
-3. Test install APK di device fisik
-4. Smoke test full flow di APK release
+1. ~~Build release APK production (native Android `--release` build)~~
+2. ~~Build appbundle (native Android bundle, untuk Play Store kalau perlu)~~
+3. ~~Test install APK di device fisik~~
+4. ~~Smoke test full flow di APK release~~
+   (steps 1-4 **superseded** — lihat catatan di atas: build target sekarang
+   `flutter build web --release --no-web-resources-cdn`, smoke test di browser
+   / PWA ter-deploy, bukan APK)
 
 **Steps Dev C (Backend + Package):**
 1. Final smoke test production VPS
 2. Tag git: `v5.0.0-mvp-submission` di `main`
 3. Package zip: `pwsh ./package.ps1`
 4. Verifikasi zip exclude: `.env`, `credentials/`, `.git`, `node_modules`, `.venv`, `chroma_db/`, `HANDOVER.txt`, `CLAUDE.md`
-5. Sertakan: APK release, dokumentasi PDF, demo video, README
+5. Sertakan: ~~APK release~~ build PWA (`mobile/build/web/`), dokumentasi PDF, demo video, README
 
 **Bersama:**
 1. Submit ke MIS Grant portal
-2. Sertakan link demo + APK + GitHub repo (private invite jury)
+2. Sertakan link demo + ~~APK~~ link PWA ter-deploy + GitHub repo (private invite jury)
 3. Celebrate 🥳 + retro singkat
 4. Tulis `docs/handoff/day-20.md` sebagai laporan final
 
@@ -708,9 +730,9 @@ Karena 3 dev pakai infra yang sama:
 - [ ] Customer bisa lihat riwayat transaksi cross-UMKM
 - [ ] UMKM bisa fill DPA (text)
 - [ ] DPA jadi constraint AI di `/ask`
-- [x] Briefing punya 5 analisis (4 lama + `top_product`)
+- [x] Briefing punya 5 analisis (4 lama + `top_product`) — sejak itu bertambah lagi, total sekarang **11** (`app/analysis_registry.py`)
 - [ ] Backend HTTPS aktif dengan domain
-- [ ] APK release build terinstall di device fisik
+- [ ] ~~APK release build terinstall di device fisik~~ — **superseded** (pivot PWA-only, 2026-08-06): `mobile/android/`/`mobile/ios/` dihapus, tidak ada APK lagi. Ganti kriteria: PWA (`flutter build web`) ter-deploy dan bisa diinstall via "Add to Home Screen".
 - [ ] Dokumentasi lengkap (README, guides, demo script)
 - [ ] Submission package terkirim ke MIS Grant portal
 
