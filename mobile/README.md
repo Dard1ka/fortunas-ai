@@ -1,3 +1,7 @@
+> ⚠️ **DEPRECATED (2026-08-07, ADR-0002):** klien produksi = React `frontend/`. Direktori ini
+> cadangan demo sampai Gate D dan TIDAK menerima fitur baru. Lihat
+> `docs/adr/0002-react-production-client.md`.
+
 # Fortunas AI · Mobile (Flutter)
 
 Client for Fortunas AI, built with **Flutter 3.32.x**, shipped as a **PWA (web only)**.

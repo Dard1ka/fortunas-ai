@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED sebagian (2026-08-07, ADR-0002):** periode plan ini sudah lewat; keputusan
+> klien di dalamnya (Flutter web = klien tunggal) digantikan ADR-0002 (React = produksi).
+> Baris-baris lama TIDAK diedit — dokumen ini rekaman perencanaan.
+
 # Fortunas AI — Plan Rotasi 3 Developer (Estafet Harian)
 
 > **Model:** 3 developer bekerja **bergantian per hari** (relay/estafet)

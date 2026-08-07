@@ -1,5 +1,9 @@
 # Fortunas AI — Demo Script
 
+> ⚠️ **Transisi klien (2026-08-07, ADR-0002):** jalur demo Flutter di bawah masih BERLAKU
+> sampai Gate D. Jalur demo React ditulis saat verifikasi Spec 2 R2; rewrite final dokumen ini
+> terjadi di PR Gate D.
+
 > **Catatan (Task 1d, 2026-08-07):** Setup di bawah ini sudah usang di dua hal —
 > **(1)** LLM aktif produksi sekarang **Gemini 2.5 Flash**, bukan Ollama/Qwen3
 > lokal (Ollama masih ada di `docker-compose.yml` tapi diarsipkan di balik

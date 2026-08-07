@@ -4,6 +4,11 @@
 > **Update:** 27 Juni 2026 · **Sumber kebenaran kode:** `github.com/Dard1ka/fortunas-ai` @ `main`
 > **Detail harian:** lihat [`PLAN_EVERY_DEV.md`](./PLAN_EVERY_DEV.md)
 
+> **2026-08-07 (ADR-0002):** arah klien dibalik — React `frontend/` = klien produksi; Flutter
+> `mobile/` deprecated menunggu Gate D (paritas penuh + ratifikasi tim). Anotasi "klien tunggal =
+> Flutter web (PWA)" di bagian-bagian bawah adalah rekaman keputusan lama yang telah digantikan —
+> sengaja tidak diedit. Lihat [`adr/0002-react-production-client.md`](./adr/0002-react-production-client.md).
+
 ---
 
 ## TL;DR
