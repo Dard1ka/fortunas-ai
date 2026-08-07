@@ -121,10 +121,19 @@ pengalaman customer tetap konsisten di semua device.
 
 ```bash
 cd mobile
-flutter build web --release
+# --no-web-resources-cdn WAJIB — tanpanya CanvasKit diambil dari gstatic.com,
+# bukan dari origin sendiri (lihat §Angka payload). Harus identik dengan CI.
+flutter build web --release --no-web-resources-cdn
 # lalu serve build/web dari HTTP server apa pun, mis.:
 python -m http.server 8099 --directory build/web
 ```
+
+> **Jebakan cache browser.** HTTP cache browser adalah lapisan TERPISAH dari service
+> worker dan Cache API. Ia akan menyajikan `main.dart.js` lama untuk build yang sudah
+> diganti di disk, dan membersihkan SW + Cache API **tidak menolong**. Kalau hasilnya
+> terlihat seperti kode lama, serve dari **port yang belum pernah dipakai** — itu
+> origin baru, jadi tidak ada entri cache untuknya. Ini memakan waktu nyata saat
+> branch ini dikerjakan.
 
 Cek di browser: 390px (compact, bottom nav), 800px (medium, rail 76 ikon-saja), 1440px
 (expanded, rail 200 + konten 840), dan `/#/customer/login` (harus tetap kolom 430px terbingkai

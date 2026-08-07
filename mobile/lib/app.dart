@@ -62,8 +62,13 @@ const double kPhoneFrameWidth = kPhoneOnlyFrameWidth;
 ///    dipusatkan di tengah viewport. (`Scaffold` sendiri kebal: ia memakai
 ///    `constraints.biggest`. Lihat catatan di `ui/adaptive_shell.dart`.)
 /// 2. `GoRouterState.of(context)` di [build] butuh `ModalRoute` route ini di
-///    atas context-nya. Di `MaterialApp.builder` — di atas Navigator — ia
-///    melempar `GoError`, bukan diam-diam salah.
+///    atas context-nya. **JANGAN mengangkat [PhoneFrame] ke
+///    `MaterialApp.builder`.** `WidgetsApp` memasang `builder` DI ATAS
+///    `Router`, sedangkan `InheritedGoRouter` dipasang DI BAWAHnya lewat
+///    `builderWithNav` (go_router `router.dart:248-249`) — jadi
+///    `GoRouter.maybeOf` mengembalikan null, `location` jadi `''`, dan
+///    **setiap** route termasuk `/customer/*` diam-diam dibingkai sebagai UMKM.
+///    Gagalnya senyap, bukan melempar: tidak ada yang akan memberi tahu.
 class PhoneFrame extends StatelessWidget {
   final Widget child;
   const PhoneFrame({super.key, required this.child});
