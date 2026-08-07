@@ -30,10 +30,7 @@ app/data/*.db
 *.pyo
 
 # ── Node.js ──────────────────────────────────────────────────────
-frontend/node_modules/
 node_modules/
-frontend/dist/
-frontend/.vite/
 npm-debug.log*
 
 # ── IDE ──────────────────────────────────────────────────────────
@@ -67,10 +64,6 @@ mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/.packages
 mobile/pubspec.lock
-mobile/ios/Pods/
-mobile/android/.gradle/
-mobile/android/local.properties
-mobile/android/app/build/
 
 # ── Handover doc (berisi credential/infra — JANGAN commit ke repo publik) ──
 # Baris HANDOVER.md pernah ada di commit 5943661 tapi TIDAK ikut ter-squash saat

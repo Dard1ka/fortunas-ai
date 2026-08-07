@@ -42,7 +42,7 @@ docs: update SETUP.md with GPU requirements for Qwen3
 | SQL Agent + BigQuery | Steven | `app/agents/sql_agent.py`, `app/queries.py`, `app/bigquery_service.py` |
 | RAG Agent + Embeddings | Filo | `app/agents/rag_agent.py`, `app/knowledge/ingest.py` |
 | Insight Agent + LLM | Michael | `app/agents/insight_agent.py`, `app/llm_service.py`, `app/prompt_builder.py` |
-| Frontend (React) | Darrel | `frontend/src/` |
+| Client (Flutter web / PWA) | Team (rotasi) | `mobile/lib/` |
 
 For cross-module changes, open a PR and request review from the module owner.
 
@@ -50,7 +50,7 @@ For cross-module changes, open a PR and request review from the module owner.
 
 - [ ] `pip install -r requirements.txt` still works clean
 - [ ] `uvicorn app.main:app` starts without error
-- [ ] `npm run build` in `frontend/` passes
+- [ ] `flutter analyze --no-fatal-infos` and `flutter test` pass in `mobile/`
 - [ ] No `.env` or `*.json` credentials in staged files: `git diff --cached --name-only`
 - [ ] `requirements.txt` updated if you added new imports: `pip freeze > requirements.txt`
 
@@ -59,5 +59,5 @@ For cross-module changes, open a PR and request review from the module owner.
 - `.env` (real credentials)
 - `credentials/*.json` (service account)
 - `chroma_db/` (local vector store)
-- `frontend/node_modules/` or `.venv/`
+- `node_modules/` or `.venv/`
 - Any file containing real API tokens or phone numbers

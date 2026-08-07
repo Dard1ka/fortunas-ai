@@ -63,23 +63,6 @@ services:
       --reload
       --log-level debug
 
-  frontend:
-    image: node:20-alpine
-    container_name: fortunas_frontend_dev
-    working_dir: /app
-    volumes:
-      - ./frontend:/app                         # ← live Vite HMR
-      - /app/node_modules                       # anonymous volume (avoid overwriting)
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_BASE=/api
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
-    depends_on:
-      - backend
-    networks:
-      - fortunas_net
-
 volumes:
   ollama_data:
   chroma_data:

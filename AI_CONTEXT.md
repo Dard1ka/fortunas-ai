@@ -2,6 +2,11 @@
 > (auth/JWT, per-tenant BigQuery tables, Gemini LLM, VPS deploy). For current
 > context use [`memory.md`](memory.md) and [`README.md`](README.md); for setup
 > see README Quick Start and [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Kept for history.
+>
+> Also outdated as of Task 1b: `mobile/android/`, `mobile/ios/`, and `frontend/`
+> (all referenced below as still present) have been removed from the repo. The
+> single shipped client is Flutter web (PWA), built from `mobile/` via
+> `flutter build web`.
 
 # AI_CONTEXT.md — Fortunas AI
 
@@ -9,7 +14,7 @@
 >
 > **Last updated:** 2026-05-19 (v2.2 — Flutter migration in progress)
 >
-> **Active frontend:** `mobile/` (Flutter). The `frontend/` React PWA is **retained as legacy reference** until the Flutter app is device-verified — see `mobile/MIGRATION.md` for the rationale.
+> **Active frontend:** `mobile/` (Flutter), built to web only. The `frontend/` React PWA — described below as "retained as legacy reference" — has since been **deleted** (Task 1b); see `mobile/MIGRATION.md` for the original React → Flutter rationale.
 
 ---
 
@@ -93,7 +98,7 @@ Target metrics (don't lower without discussion):
 - **reportlab** 4.5+ — PDF overview generator
 - **Ollama** (external runtime) running `qwen3:8b` at `OLLAMA_BASE_URL`
 
-### Mobile (`mobile/pubspec.yaml`) — **active frontend for v2.2+**
+### Mobile (`mobile/pubspec.yaml`) — **the only shipped client (web/PWA only as of Task 1b)**
 - **Flutter** 3.27+ · **Dart** 3.6+
 - **flutter_riverpod** 2.6 — state management
 - **go_router** 14.6 — routing
@@ -104,14 +109,15 @@ Target metrics (don't lower without discussion):
 - **fl_chart** 0.69 — charts (reserved for v2.3 KPI deep-dive)
 - **intl** 0.19 — Rp / date formatting
 
-### Frontend (`frontend/package.json`) — **legacy v2.1, kept as fallback**
-- **React** 19.2.4 + **Vite** 8.0.4
-- **react-router-dom** 7.x
-- Lives in `frontend/`. Not actively developed; do not add features here. The Flutter app at `mobile/` is the active mobile target.
+### Frontend — **removed (Task 1b)**
+- Used to be React 19 + Vite (`frontend/package.json`, `react-router-dom`). The
+  folder and the nginx Docker image that served it were deleted;
+  the client is Flutter web only now.
 
 ### Infra
-- **Docker** + Docker Compose v2 (production stack)
-- **nginx:alpine** — production frontend serving + `/api/*` reverse proxy to backend:8000
+- **Docker** + Docker Compose v2 (production stack) — backend + Ollama only now
+  that the `frontend`/nginx service is gone; see `DOCKER.md` for the current
+  port-exposure caveat.
 
 ### Dataset
 - **UCI Online Retail** (Chen, 2015) — ±1M rows seeded into BigQuery table `fortunasai.fortunas_ai.online_retail`
@@ -141,7 +147,7 @@ fortunas-ai/
 │   ├── schema_context.py         # BQ table schema description for LLM prompts
 │   ├── sql_guards.py             # Blocks raw SQL interpolation
 │   └── main.py                   # FastAPI app factory + lifespan + scheduler hooks
-├── mobile/                       # Flutter app — ACTIVE FRONTEND (v2.2+)
+├── mobile/                       # Flutter app — THE ONLY SHIPPED CLIENT, web/PWA only
 │   ├── pubspec.yaml              # stack per design hand-off spec
 │   ├── lib/
 │   │   ├── main.dart             # runApp + system UI overlay
@@ -154,12 +160,11 @@ fortunas-ai/
 │   │   └── voice/                # voice_flow (state machine), speech_controller,
 │   │                             #   voice_idle/listening/parsed/success,
 │   │                             #   big_mic_button, waveform, typed_transcript
-│   ├── MIGRATION.md              # React → Flutter mapping reference
+│   ├── MIGRATION.md              # React → Flutter mapping reference (dated; android/ios since removed)
 │   └── README.md                 # quick start
-├── frontend/                     # React PWA — LEGACY v2.1, kept as fallback reference
-│   ├── src/                      # screens/, ui/, voice/, api/, theme/
-│   └── package.json              # do not add features here; mobile/ is the active target
-├── docker/                       # Dockerfile, entrypoint.sh, nginx.conf
+│   # NOTE: mobile/android/ and mobile/ios/ (native platform targets) were
+│   # removed in Task 1b — only mobile/web/ is built and shipped.
+├── docker/                       # backend/ (Dockerfile, entrypoint.sh), ollama/ — frontend/ removed in Task 1b
 ├── docs/                         # Fortunas-AI-Overview.pdf + generate_pdf.py + LinkedIn drafts
 ├── docker-compose.yml            # production stack
 ├── docker-compose.dev.yml        # hot-reload dev stack
@@ -178,6 +183,12 @@ fortunas-ai/
 ## 4b. Speech-to-Text — honest architectural disclosure
 
 This deserves its own section because the surface-level pitch ("data never leaves the server") has a real exception at the STT step. Be transparent about it in any user-facing material you generate.
+
+> **Task 1b note:** this section documents the React-era implementation
+> (`frontend/src/voice/useSpeechRecognition.js`), since deleted along with the
+> rest of `frontend/`. The trade-off reasoning is kept for history; the code
+> path itself no longer exists. Current voice input lives in the Flutter app
+> (`mobile/lib/voice/`) via the `speech_to_text` package (see §3).
 
 ### What we actually use
 
@@ -225,6 +236,12 @@ Until that ships, anyone documenting the system should describe STT as "browser-
 ---
 
 ## 5. Request flows (end-to-end)
+
+> **Task 1b note:** the frontend-side steps below (screen names, routes, the
+> Vite proxy) describe the removed React client and are stale. The
+> backend-side steps (`app/api/routes/*` → `app/services/pipeline.py` →
+> intent mapping → BigQuery → RAG → LLM) remain accurate — only the client
+> calling these endpoints changed (Flutter web, `mobile/lib/api/client.dart`).
 
 ### Flow A: "Ask a business question" — `POST /ask`
 
@@ -409,7 +426,7 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 
 6. **APScheduler in dev with `--reload`.** uvicorn's reload spawns a fresh process each code change; the scheduler restarts too. Briefing job will run only after the next cron tick post-restart. Verify by checking timestamps in `app/data/daily_reports.json`.
 
-7. **CORS in Docker vs local.** `app/core/config.py` allows `localhost:3000`, `127.0.0.1:3000`, `:5173`. In Docker production, nginx serves frontend so requests are same-origin — no CORS issue. In dev, Vite proxy strips `/api` so backend sees `/ask` not `/api/ask`.
+7. **CORS.** `app/core/config.py` (`CORS_ORIGINS` env var) defaults to `localhost:3000`, `127.0.0.1:3000`, `:5173` — leftover from the removed React dev server ports. The `nginx`-serves-frontend same-origin scenario no longer applies (Task 1b removed that Docker service). Whatever origin actually serves the Flutter web build (`flutter run -d chrome`'s dev port, or the deployed PWA's domain) needs to be in `CORS_ORIGINS` if it isn't already.
 
 8. **`get_*_agent()` are `lru_cache`d in `app/core/deps.py`.** If you change `.env` (especially BigQuery or Ollama settings), restart uvicorn — the cache doesn't observe env changes.
 
@@ -435,7 +452,7 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 3. Extend the rule set in `app/intent_mapper.py` so questions like *"berapa pesanan yang batal?"* map to the new key.
 4. If the prompt structure differs from the four existing analyses, extend `app/prompt_builder.py`.
 5. Optionally add a Markdown doc to `app/knowledge/umkm_docs/` and run `POST /ingest?reset=true` to refresh RAG.
-6. Add `ICON_FOR_ANALYSIS` and `COLOR_FOR_ANALYSIS` entries in `frontend/src/screens/BriefingScreen.jsx` so the KPI card renders.
+6. Add entries to the `_iconFor`/`_colorFor` maps in `mobile/lib/screens/briefing_screen.dart` so the KPI card renders. (Historical note: this used to be `frontend/src/screens/BriefingScreen.jsx`; the React client was removed — see Task 1b, day-18 handoff.)
 
 ### Adding a new API route
 
@@ -443,13 +460,14 @@ All Pydantic models live in `app/schemas.py`. Don't define route-local models �
 2. Define request/response Pydantic models in `app/schemas.py` (not in the route file).
 3. Register in `app/main.py:create_app()` via `app.include_router(<name>.router)`.
 4. Put business logic in `app/services/<name>_service.py` if it's >30 LOC.
-5. Add client method to `frontend/src/api/client.js`.
+5. Add client method to `mobile/lib/api/client.dart`. (Historical note: this used to also touch `frontend/src/api/client.js`; the React client was removed — see Task 1b, day-18 handoff.)
 
 ### Adding a new screen
 
-1. Create `frontend/src/screens/<Name>Screen.jsx`. Reuse `ScreenHeader`, `Pill`, `Icon` etc.
-2. Add a route entry in `frontend/src/App.jsx` (`<Route path="..." element={...} />`).
-3. Update `frontend/src/ui/BottomNav.jsx` `ITEMS` array if it deserves a tab.
+1. Create `mobile/lib/screens/<name>_screen.dart`. Reuse `ScreenHeader`, `Pill`, `Icon` etc. from `mobile/lib/ui/`.
+2. Add a route entry in `mobile/lib/app.dart` (go_router).
+3. Update `mobile/lib/ui/bottom_nav.dart` if it deserves a tab.
+(Historical note: this recipe used to target `frontend/src/screens/*.jsx`, `App.jsx`, `BottomNav.jsx`; the React client was removed — see Task 1b, day-18 handoff.)
 
 ### Generating the overview PDF
 
@@ -472,55 +490,42 @@ pip install -r requirements.txt
 python -m app.knowledge.ingest          # one-time, builds chroma_db/
 uvicorn app.main:app --reload --port 8000
 
-# Mobile (Flutter) — ACTIVE FRONTEND
+# Client (Flutter web / PWA) — the only shipped client
 # Install Flutter SDK first: https://docs.flutter.dev/get-started/install
 cd mobile
-flutter create . --platforms=android,ios,web   # one-time, scaffolds android/ ios/ web/
 flutter pub get
 flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
-
-# Legacy React PWA (only if you need to compare or fallback)
-cd frontend
-npm install
-npm run dev                             # http://localhost:3000
+# Production build: flutter build web --release --no-web-resources-cdn
 
 # Ollama (separate terminal)
 ollama pull qwen3:8b                    # one-time, ~4.8 GB download
 ollama serve
 ```
 
-### Viewing the mobile app
+### Viewing the app
 
-Active frontend is **Flutter** (in `mobile/`). The React PWA in `frontend/` is legacy.
+The single shipped client is **Flutter web (PWA)** (in `mobile/`). As of Task 1b,
+`mobile/android/` and `mobile/ios/` (native platform targets) and `frontend/`
+(the React client) have been removed from the repo — only the web target is
+built and shipped:
 
-Three ways to preview the Flutter app:
+```bash
+cd mobile
+flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
+```
 
-1. **Chrome / web build** (fastest, no emulator needed):
-   ```bash
-   cd mobile
-   flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
-   ```
-   Flutter compiles to WASM + canvas. Note: `speech_to_text` does not work in web — voice flow falls back to text input. For mic testing use a real device or emulator.
+Note: `speech_to_text` has limited support in web — voice flow falls back to
+text input on browsers/conditions where it isn't available.
 
-2. **Android emulator** (preferred for voice testing):
-   ```bash
-   flutter run -d emulator-5554 --dart-define=FORTUNAS_API=http://10.0.2.2:8000
-   ```
-   `10.0.2.2` is the emulator's alias for the host's localhost.
-
-3. **Physical phone over USB**:
-   ```bash
-   flutter run --dart-define=FORTUNAS_API=http://192.168.40.6:8000
-   ```
-   Phone must be on same WiFi as the backend. USB debugging enabled. No HTTPS needed (Flutter app talks directly to backend; no browser cert restriction).
-
-See `mobile/README.md` and `mobile/MIGRATION.md` for full details.
+See `mobile/README.md` and `mobile/MIGRATION.md` for further details. (Historical
+note: `mobile/MIGRATION.md` predates the native-target removal and still refers
+to android/ios scaffolding — that's a dated record, left as-is intentionally.)
 
 ### Docker (recommended)
 ```bash
 make up                  # build + start all services
 make pull-model          # one-time: docker compose exec ollama ollama pull qwen3:8b
-# Frontend: http://localhost:3000   Backend: http://localhost:8000/docs
+# Backend: http://localhost:8000/docs (PWA runs outside Docker — see above)
 make dev                 # hot-reload variant via docker-compose.dev.yml
 ```
 

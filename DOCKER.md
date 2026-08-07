@@ -1,11 +1,16 @@
 > ⚠️ **USANG (pra-v4.0).** Stack Docker ini mendahului multi-tenant + auth, dan
 > bukan jalur deploy yang didukung sekarang. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 > (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
+>
+> Catatan tambahan: service `frontend` (React, dulu di-build dari image nginx-nya sendiri) yang dirujuk
+> di dokumen ini sudah dihapus dari repo dan dari `docker-compose*.yml`. Klien
+> yang di-ship sekarang adalah **Flutter web (PWA)** di `mobile/`, dijalankan
+> di luar Docker (`flutter run -d chrome` / `flutter build web`).
 
 # Fortunas AI — Docker Setup Guide
 
 Panduan lengkap menjalankan Fortunas AI menggunakan Docker.
-Tidak perlu install Python, Node.js, atau Ollama secara manual — semua berjalan di dalam container.
+Tidak perlu install Python atau Ollama secara manual — semua berjalan di dalam container.
 
 ---
 
@@ -13,16 +18,10 @@ Tidak perlu install Python, Node.js, atau Ollama secara manual — semua berjala
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    Browser                           │
-│              http://localhost:3000                   │
+│              Flutter web (PWA), luar Docker          │
+│              flutter run -d chrome                   │
 └──────────────────────┬──────────────────────────────┘
-                       │ port 3000
-         ┌─────────────▼─────────────┐
-         │   fortunas_frontend       │
-         │   nginx:alpine            │
-         │   /api/* → backend:8000   │  ← strip /api prefix
-         └─────────────┬─────────────┘
-                       │ internal network (fortunas_net)
+                       │ HTTP (lihat catatan port di bawah)
          ┌─────────────▼─────────────┐
          │   fortunas_backend        │
          │   FastAPI + RAG pipeline  │
@@ -40,6 +39,12 @@ Volumes:
   chroma_data  → vector embeddings
   reports_data → daily briefing JSON
 ```
+
+> **Catatan port:** dengan service `frontend`/nginx dihapus, `docker-compose.yml`
+> (production) tidak lagi mem-publish port host untuk backend. Untuk akses dari
+> host (mis. dari PWA yang jalan via `flutter run -d chrome`), pakai
+> `docker-compose.dev.yml` (mem-publish `8000:8000`) atau tambahkan mapping
+> `ports: ["8000:8000"]` sendiri di service `backend`.
 
 ---
 
@@ -115,10 +120,9 @@ make up
 ```
 
 Proses pertama kali akan:
-1. Download base images (python:3.11-slim, nginx:alpine, ollama/ollama) — ~1–2 GB
-2. Install semua Python & Node dependencies — ~5 menit
-3. Build React app
-4. Start semua services
+1. Download base images (python:3.11-slim, ollama/ollama) — ~1–2 GB
+2. Install semua Python dependencies — ~5 menit
+3. Start semua services
 
 Log yang normal saat startup:
 ```
@@ -163,9 +167,11 @@ docker compose exec ollama ollama list
 
 | URL | Keterangan |
 |---|---|
-| http://localhost:3000 | Aplikasi Fortunas AI (React + chat simulator) |
 | http://localhost:8000/docs | Swagger UI backend (hanya di dev mode) |
 | http://localhost:11434 | Ollama API (hanya untuk debugging) |
+
+Aplikasi Fortunas AI sendiri adalah PWA Flutter, dijalankan terpisah dari stack
+Docker ini (`cd mobile && flutter run -d chrome`).
 
 ---
 
@@ -209,8 +215,7 @@ make dev
 
 Perbedaan dengan mode production:
 - **Backend**: source code di-mount langsung → perubahan `.py` langsung efektif tanpa rebuild
-- **Frontend**: Vite dev server dengan HMR (Hot Module Replacement) → perubahan React langsung tampil
-- **Backend port 8000** dibuka ke host → bisa akses Swagger di http://localhost:8000/docs
+- **Backend port 8000** dibuka ke host → bisa akses Swagger di http://localhost:8000/docs, dan PWA (`flutter run -d chrome`) bisa connect ke `http://localhost:8000`
 
 ```bash
 # Stop dev mode
@@ -227,9 +232,6 @@ Fortunas/
 │   ├── backend/
 │   │   ├── Dockerfile        ← image backend FastAPI
 │   │   └── entrypoint.sh     ← startup script (wait Ollama → ingest → uvicorn)
-│   ├── frontend/
-│   │   ├── Dockerfile        ← multi-stage: Node build → nginx serve
-│   │   └── nginx.conf        ← proxy /api/* ke backend, SPA fallback
 │   └── ollama/
 │       └── pull-model.sh     ← helper script pull qwen3:8b
 │
@@ -269,11 +271,11 @@ make shell-backend
 ls /app/credentials/
 ```
 
-### "Port 3000 already in use"
+### "Port 8000 already in use" (mode dev)
 ```bash
-# Ganti port di docker-compose.yml:
+# Ganti port di docker-compose.dev.yml:
 ports:
-  - "3001:80"    # ubah 3000 ke port lain
+  - "8001:8000"    # ubah 8000 ke port lain
 ```
 
 ### Ingin reset semua data (chroma, reports)

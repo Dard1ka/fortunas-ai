@@ -52,12 +52,6 @@ dependencies:
   # ── Pilih gambar produk (UMKM) — web & mobile ────────────
   image_picker: ^1.1.2
 
-  # ── Webview pembayaran Midtrans Snap (pelanggan) ─────────
-  # Sumber kebenaran pembayaran tetap webhook backend; webview hanya tempat
-  # pelanggan menyelesaikan bayar, lalu klien poll status. Tak jalan di Flutter
-  # Web (WKWebView/Android WebView only) — target mobile.
-  webview_flutter: ^4.10.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,6 +1,10 @@
 > ⚠️ **USANG (pra-v4.0).** Panduan ini untuk versi lama (Ollama/Google Sheets,
 > single-tenant, tanpa auth). Untuk setup terkini lihat **Quick Start di [README.md](README.md)**
 > dan deploy di **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Disimpan sebagai arsip.
+>
+> Catatan tambahan: folder `frontend/` (React) yang dirujuk di dokumen ini sudah
+> dihapus dari repo. Klien yang di-ship sekarang adalah **Flutter web (PWA)** di
+> `mobile/` (`flutter build web`) — lihat README.md.
 
 # Fortunas AI — Panduan Setup
 
@@ -8,7 +12,7 @@ Panduan lengkap untuk menyiapkan Fortunas di mesin baru. Ikuti urut dari atas ke
 
 ## Quick Start (5 Menit)
 
-Untuk yang sudah punya Python 3.11/3.12, Node 20+, dan Ollama jalan:
+Untuk yang sudah punya Python 3.11/3.12, Flutter 3.32.x, dan Ollama jalan:
 
 ```bash
 # Terminal 1 — Backend
@@ -21,32 +25,31 @@ pip install -r requirements.txt
 python -m app.knowledge.ingest      # sekali saja, generate chroma_db/
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — Frontend (shell baru, paralel)
-cd Fortunas/frontend
-npm install
-npm run dev
+# Terminal 2 — PWA (shell baru, paralel)
+cd mobile
+flutter pub get
+flutter run -d chrome
 
 # Terminal 3 — Ollama (kalau belum nyala)
 ollama serve
 ```
 
-Buka `http://localhost:3000`. Kalau backend respons di `http://127.0.0.1:8000/health`, setup sukses.
+Kalau backend respons di `http://127.0.0.1:8000/health` dan PWA tampil di Chrome, setup sukses.
 
-Urutan penting: Ollama → ingest (sekali) → uvicorn → npm run dev.
+Urutan penting: Ollama → ingest (sekali) → uvicorn → flutter run.
 
 ## 1. Prasyarat
 
 | Kebutuhan | Versi | Cek |
 |-----------|-------|-----|
 | Python | 3.11 atau 3.12 | `python --version` |
-| Node.js | 20 atau 22 | `node --version` |
-| npm | 10+ | `npm --version` |
+| Flutter | 3.32.x | `flutter --version` |
 | Ollama | terbaru | `ollama --version` |
 | Akun Google Cloud | BigQuery aktif | service account JSON tersedia |
 
 Download link:
 - Python: https://www.python.org/downloads/
-- Node.js: https://nodejs.org/
+- Flutter: https://docs.flutter.dev/get-started/install
 - Ollama: https://ollama.com/download
 
 Setelah Ollama terinstal, pull model yang dipakai aplikasi:
@@ -67,9 +70,9 @@ Fortunas/
 │   ├── services/         # pipeline, report_store
 │   ├── knowledge/        # umkm_docs untuk RAG
 │   └── main.py           # entrypoint FastAPI
-├── frontend/             # React + Vite
-│   ├── src/
-│   └── package.json
+├── mobile/               # Flutter — klien tunggal, di-build ke web (PWA)
+│   ├── lib/
+│   └── pubspec.yaml
 ├── requirements.txt      # Python deps
 ├── .env                  # Config lokal (JANGAN di-commit / di-zip)
 └── SETUP.md              # File ini
@@ -179,24 +182,24 @@ Verifikasi cepat:
 curl http://127.0.0.1:8000/health
 ```
 
-## 4. Setup Frontend
+## 4. Setup Client (Flutter Web / PWA)
 
-Dari folder `frontend/`:
+Dari folder `mobile/`:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd mobile
+flutter pub get
+flutter run -d chrome
 ```
 
-Buka `http://localhost:3000`. Vite otomatis proxy request `/api/*` ke backend di port 8000 — pastikan backend sudah jalan.
+Pastikan backend sudah jalan di port 8000 — lihat `mobile/lib/api/client.dart` untuk konfigurasi base URL API (default `127.0.0.1:8000`, bisa dioverride via `--dart-define=FORTUNAS_API=...`).
 
 Build produksi:
 ```bash
-npm run build
+flutter build web --release --no-web-resources-cdn
 ```
 
-Hasil di `frontend/dist/`.
+Hasil di `mobile/build/web/`.
 
 ## 5. Verifikasi End-to-End
 
@@ -204,7 +207,7 @@ Urut saat pertama kali setup:
 
 1. Ollama nyala: `ollama list` menampilkan `qwen3:8b`.
 2. Backend nyala: `GET http://127.0.0.1:8000/health` balas `200`.
-3. Frontend nyala: `http://localhost:3000` tampil halaman Fortunas.
+3. PWA nyala: `flutter run -d chrome` menampilkan halaman Fortunas di browser.
 4. Mode **Tanya**: ajukan "Siapa customer yang paling sering beli?" — dapat respons lengkap dengan temuan + rekomendasi.
 5. Mode **Briefing Bisnis**: klik "Mulai Briefing" — 4 section selesai satu per satu + executive summary.
 6. Mode **Harian**: klik "Jalankan hari ini" — briefing tersimpan, muncul di riwayat setelah refresh.
@@ -242,7 +245,7 @@ Buka `.env`, pastikan baris `GOOGLE_APPLICATION_CREDENTIALS=` berisi path absolu
 ### "Connection refused" saat panggil Ollama
 Ollama belum nyala. Jalankan `ollama serve` di terminal terpisah.
 
-### Port 3000 / 8000 sudah dipakai
+### Port 8000 sudah dipakai
 Cari proses yang pakai:
 ```bash
 # Windows
@@ -251,10 +254,10 @@ netstat -ano | findstr :8000
 # macOS / Linux
 lsof -i :8000
 ```
-Matikan proses atau ubah port (`--port 8001` untuk backend, `--port 3001` untuk frontend via `vite.config.js`).
+Matikan proses atau ubah port backend (`--port 8001`).
 
-### Frontend build gagal di `npm run build`
-Hapus `node_modules/` dan `package-lock.json`, lalu `npm install` ulang.
+### PWA gagal build di `flutter build web`
+Jalankan `flutter clean && flutter pub get` lalu ulangi build.
 
 ### Briefing scheduler nyala tapi tidak eksekusi
 Cek `.env`:
@@ -273,7 +276,7 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 - [ ] **Tidak ada** file `.env` dalam zip / commit (template saja di SETUP.md)
 - [ ] **Tidak ada** file service account JSON dalam zip / commit
 - [ ] `requirements.txt` sudah di-update kalau ada tambahan `import` library baru — jalankan `pip freeze > requirements.txt` sebelum zip
-- [ ] `package.json` + `package-lock.json` ter-commit (keduanya, untuk reproducible install)
+- [ ] `pubspec.yaml` ter-commit (deps Flutter, untuk reproducible install)
 - [ ] Dokumen baru di `app/knowledge/umkm_docs/` ter-commit (dipakai untuk ingest)
 
 ## 8. Pembagian Peran
@@ -284,14 +287,11 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 | Agent 2 | SQL Agent — mapping pertanyaan ke query BigQuery, guard SQL injection | `app/agents/sql_agent.py`, `app/queries.py`, `app/sql_guards.py`, `app/bigquery_service.py` | Teammate |
 | Agent 3 | RAG Agent — retrieval dokumen UMKM via Chroma + embedding model | `app/agents/rag_agent.py`, `app/knowledge/ingest.py`, `app/knowledge/umkm_docs/*.md` | Teammate |
 | Agent 4 | Insight Agent — generate summary/findings/recommendation via Ollama LLM | `app/agents/insight_agent.py`, `app/llm_service.py`, `app/prompt_builder.py` | Teammate |
-| Agent 5 | Frontend (React + Vite) | `frontend/src/App.jsx`, `frontend/src/App.css`, `frontend/src/index.css` | Steven |
+| Agent 5 | Client (Flutter web / PWA) | `mobile/lib/` | Steven |
 
 Setiap perubahan di file agent pemilik masing-masing. Untuk kontrak data antar agent, koordinasi via `app/schemas.py`.
 
-## 9. Stack Frontend
+## 9. Stack Client
 
-- **Display**: `Cormorant Garamond` — judul, exec summary, ringkasan besar
-- **Body**: `Outfit` — seluruh UI teks
-- Palette dark + gold accent, glass-surface rounded cards
-
-File: [src/index.css](frontend/src/index.css) untuk variabel global & tema, [src/App.css](frontend/src/App.css) untuk komponen. Font di-load dari Google Fonts via [index.html](frontend/index.html).
+Client sekarang adalah Flutter web (PWA), bukan React. Tema & tipografi ada di
+[mobile/lib/theme/tokens.dart](mobile/lib/theme/tokens.dart) (font `SpaceGrotesk` / `Inter` / `JetBrainsMono`).

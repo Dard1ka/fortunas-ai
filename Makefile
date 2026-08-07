@@ -6,7 +6,7 @@
 #  Example: make up
 # ============================================================
 
-.PHONY: help up down logs build restart shell-backend shell-frontend \
+.PHONY: help up down logs build restart shell-backend \
         pull-model ingest clean dev dev-down ps zip
 
 # ── Default target ───────────────────────────────────────────
@@ -62,9 +62,6 @@ logs:
 logs-backend:
 	docker compose logs -f backend
 
-logs-frontend:
-	docker compose logs -f frontend
-
 logs-ollama:
 	docker compose logs -f ollama
 
@@ -96,9 +93,6 @@ ingest:
 shell-backend:
 	docker compose exec backend bash
 
-shell-frontend:
-	docker compose exec frontend sh
-
 shell-ollama:
 	docker compose exec ollama bash
 
@@ -113,12 +107,10 @@ clean:
 # Build a clean zip for grant submission. Excludes:
 #   - CLAUDE.md      (assistant-only context, not part of source)
 #   - .git/          (git history)
-#   - node_modules/  (frontend deps)
 #   - credentials/   (service account JSON)
 #   - .env           (secrets)
 #   - .venv/         (Python venv)
 #   - chroma_db/     (locally-built vector index)
-#   - frontend/dist  (built artifacts, regenerated on install)
 #   - _decoded_*     (mockup exploration artifacts)
 #   - docs/          (internal overview PDF + Claude plan files — not for handoff)
 #   - package.ps1    (packaging script itself — teammate uses `make zip`)
@@ -131,12 +123,10 @@ zip:
 		-x "fortunas-ai/CLAUDE.md" \
 		-x "fortunas-ai/.git/*" \
 		-x "fortunas-ai/node_modules/*" \
-		-x "fortunas-ai/frontend/node_modules/*" \
 		-x "fortunas-ai/credentials/*" \
 		-x "fortunas-ai/.env" \
 		-x "fortunas-ai/.venv/*" \
 		-x "fortunas-ai/chroma_db/*" \
-		-x "fortunas-ai/frontend/dist/*" \
 		-x "fortunas-ai/_decoded_assets/*" \
 		-x "fortunas-ai/_decoded_mobile.html" \
 		-x "fortunas-ai/fortunas-ai.zip" \

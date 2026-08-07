@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/logo-mark-256.png" alt="Fortunas AI" width="100"/>
+<img src="mobile/assets/icons/logo-mark.svg" alt="Fortunas AI" width="100"/>
 
 # Fortunas AI
 
@@ -30,7 +30,7 @@ Fortunas AI bridges the gap between raw transaction data and actionable business
 > **"Siapa pelanggan paling setia bulan ini?"**
 > → Fortunas AI maps the intent, queries that tenant's BigQuery tables, enriches with RAG, and Gemini writes a grounded report (summary + findings + recommendations) — e.g. *"Sari (18103), Budi (18105)..."*.
 
-It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the final client is a **mobile app (Flutter)**, with a React web app for demos.
+It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the single shipped client is a **Flutter web app (PWA)**, built from `mobile/` via `flutter build web`.
 
 ---
 
@@ -46,7 +46,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 | **Customer naming** | Auto-assign numeric Customer ID per name; shown as `Nama (id)` |
 | **RAG Knowledge Base** | UMKM tips retrieved from ChromaDB to enrich recommendations |
 | **Pluggable LLM** | `LLM_PROVIDER` = `gemini` (default) · `openai` · `ollama` (local, zero-cost) |
-| **Mobile (Flutter)** | Final client — single codebase iOS + Android (auth WIP) |
+| **Flutter Web (PWA)** | Single shipped client — `mobile/` compiled to web via `flutter build web` |
 
 ---
 
@@ -62,7 +62,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 ## 🏗 Architecture
 
 ```
-   Mobile (Flutter) / React (demo)
+   Flutter Web (PWA)
             │  HTTP + Authorization: Bearer <JWT>
             ▼
         nginx :80  ──►  uvicorn :8000  (FastAPI)
@@ -88,8 +88,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 | Layer | Technology |
 |---|---|
-| Mobile (final client) | Flutter + Dart (Riverpod, go_router, dio, speech_to_text) |
-| Web (demo) | React 19 + Vite 8 |
+| Client (PWA) | Flutter web (Dart, Riverpod, go_router, dio, speech_to_text) |
 | Backend | FastAPI (async), Python 3.11/3.12 |
 | Auth | bcrypt + PyJWT (JWT), SQLite metadata |
 | LLM | Gemini 2.5 Flash (default) · switchable to OpenAI / Ollama-Qwen via `app/llm_provider.py` |
@@ -104,7 +103,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 > Credentials & full step-by-step (incl. VPS access) are in `HANDOVER.txt` (gitignored, internal). Project context: [`memory.md`](memory.md).
 
-**Prerequisites:** Python 3.11/3.12, Node 20+, a GCP service-account JSON (BigQuery), a Gemini API key.
+**Prerequisites:** Python 3.11/3.12, Flutter 3.32.x, a GCP service-account JSON (BigQuery), a Gemini API key.
 
 ```bash
 git clone https://github.com/Dard1ka/fortunas-ai.git
@@ -125,14 +124,16 @@ cp deploy/.env.production.example .env   # then edit: GEMINI_API_KEY, JWT_SECRET
 # Run backend
 .venv/Scripts/python -m uvicorn app.main:app --port 8000
 
-# Run web demo (separate terminal)
-cd frontend && npm install && npm run dev      # http://localhost:3000
+# Run the PWA (separate terminal)
+cd mobile
+flutter pub get
+flutter run -d chrome      # dev server with hot reload
 ```
 
-Then open `http://localhost:3000` → **Register** a business or **Login**. To point the web demo at a deployed backend instead of localhost:
+Then **Register** a business or **Login** in the app. To point the PWA at a deployed backend instead of localhost, pass `--dart-define=FORTUNAS_API=http://<host>:8000` (see `mobile/lib/api/client.dart`). For a production build:
 ```bash
-# in frontend/
-VITE_API_TARGET=http://<vps-ip> npm run dev      # PowerShell: $env:VITE_API_TARGET="http://<vps-ip>"; npm run dev
+cd mobile
+flutter build web --release --no-web-resources-cdn
 ```
 
 Minimal `.env`:
@@ -208,8 +209,7 @@ fortunas-ai/
 │   ├── intent_mapper.py, analysis_registry.py, bigquery_service.py, schemas.py
 │   ├── knowledge/           # ingest.py + umkm_docs/ (RAG corpus)
 │   └── main.py
-├── frontend/                # React web demo (login, ask, briefing, voice, history, profile)
-├── mobile/                  # Flutter app (final client; auth WIP)
+├── mobile/                  # Flutter app — the shipped client, built to web (PWA)
 ├── deploy/                  # DEPLOY.md, systemd unit, nginx conf, .env.production.example
 ├── scripts/                 # BQ maintenance utilities
 ├── memory.md                # project context (credential-free)
