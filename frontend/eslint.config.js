@@ -33,4 +33,12 @@ export default defineConfig([
       globals: { ...globals.node },
     },
   },
+  // Test files run under Vitest with globals:true (test/expect/vi) and may
+  // use Node APIs (fs) for static guards.
+  {
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.vitest },
+    },
+  },
 ])

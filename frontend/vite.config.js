@@ -19,6 +19,12 @@ export default defineConfig({
     // scary cert warning. Only enabled when VITE_HTTPS=1.
     ...(useHttps ? [mkcert()] : []),
   ],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    css: false,
+  },
   server: {
     // host: true → bind to 0.0.0.0 so phones on the same WiFi can reach the
     // dev server at http(s)://<your-LAN-IP>:3000.
