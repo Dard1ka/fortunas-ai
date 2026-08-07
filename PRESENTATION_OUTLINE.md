@@ -69,7 +69,7 @@ Client (Flutter Web PWA — dibangun dari mobile/, klien React lama sudah dihapu
 | Agent Logic | Intent routing + SQL agent |
 
 **Kenapa Gemini (bukan lagi Local LLM)?**
-- Kualitas jawaban Bahasa Indonesia lebih konsisten + tidak butuh RAM besar di sisi server
+- Keputusan tim (pertimbangan operasional, bukan hasil benchmark kualitas terukur): server tidak perlu nanggung ~4,8 GB model + RAM besar untuk Qwen3:8b
 - Jalur lokal (Ollama/Qwen3) tetap ada sebagai arsip — bisa diaktifkan lewat `LLM_PROVIDER=ollama` untuk skenario "data tidak keluar server"
 - Trade-off: klaim UU PDP "data tidak keluar server" tidak lagi berlaku untuk jalur default (Gemini adalah API cloud) — lihat `PROPOSAL_VS_REALITA.md` untuk konsekuensi narasi paper
 

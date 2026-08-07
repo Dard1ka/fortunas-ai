@@ -1,5 +1,8 @@
-> ⚠️ **USANG (pra-v4.0).** Stack Docker ini mendahului multi-tenant + auth, dan
-> bukan jalur deploy yang didukung sekarang. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
+> ⚠️ **Bukan jalur deploy yang didukung.** Stack Docker ini terus disentuh
+> setelah rewrite multi-tenant + auth (Task 1b menghapus service `frontend`,
+> Task 1c mengarsipkan `ollama`) — jadi bukan "mendahului multi-tenant", tapi
+> tetap tidak merepresentasikan bentuk stack multi-tenant saat ini secara
+> cukup dekat untuk jadi jalur deploy resmi. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 > (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
 >
 > Catatan tambahan: service `frontend` (React, dulu di-build dari image nginx-nya sendiri) yang dirujuk
@@ -139,20 +142,40 @@ Proses pertama kali akan:
 2. Install semua Python dependencies — ~5 menit
 3. Start service `backend` (satu-satunya service default; `ollama` di-skip karena `profiles: ["archive"]`)
 
-Log yang normal saat startup (default, tanpa profile archive — `entrypoint.sh` tetap mencoba nge-ping Ollama dulu, tapi lanjut jalan walau tidak ketemu karena LLM aktifnya Gemini, bukan Ollama):
+Log yang normal saat startup (default, `LLM_PROVIDER=gemini`, tanpa profile archive —
+`docker/backend/entrypoint.sh` mengecek `LLM_PROVIDER` **sebelum** mencoba
+menghubungi Ollama sama sekali, jadi tidak ada delay tunggu di jalur ini):
 ```
-fortunas_backend | [1/3] Waiting for Ollama at http://ollama:11434...
-fortunas_backend |    ... attempt 1/30, retrying in 5s   (berulang sampai 30x kalau ollama tidak dinyalakan)
-fortunas_backend | ⚠  Ollama not ready after 30 attempts. Starting anyway...
+fortunas_backend | [1/3] LLM_PROVIDER=gemini — skipping Ollama wait (not selected).
 fortunas_backend | [2/3] First boot — running knowledge base ingest...
 fortunas_backend | ✓ Knowledge base ingest complete.
 fortunas_backend | [3/3] Starting FastAPI (uvicorn)...
 fortunas_backend | INFO: Application startup complete.
 ```
-> Baris "Waiting for Ollama" ini kosmetik peninggalan desain lama — backend tidak
-> benar-benar butuh Ollama untuk jalan (LLM aktif = Gemini). Kalau kamu sengaja
-> menjalankan `docker compose --profile archive up ollama`, log-nya akan
-> `✓ Ollama is ready.` tanpa delay ~2.5 menit di atas.
+> **Sebelum diperbaiki (Task 1d, 2026-08-07), ini bukan perilakunya.**
+> `entrypoint.sh` dulu selalu mencoba ping Ollama dulu tanpa syarat — jadi tiap
+> `docker compose up` biasa (Ollama archived, service-nya tidak jalan) diam-diam
+> nunggu ~2,5 menit (30x percobaan, jeda 5 detik) sebelum akhirnya lanjut. Itu
+> justru mengulang masalah yang mau dihindari arsip: backend tetap berlaku
+> seolah Ollama aktif walau sudah dipindah ke profile arsip. Sudah digate di
+> `entrypoint.sh` supaya wait-loop-nya hanya jalan kalau `LLM_PROVIDER=ollama`
+> beneran dipilih.
+>
+> Kalau kamu sengaja menjalankan `docker compose --profile archive up ollama` +
+> `LLM_PROVIDER=ollama`, log-nya jadi (persis seperti sebelumnya, tidak diubah
+> untuk jalur ini):
+> ```
+> fortunas_backend | [1/3] LLM_PROVIDER=ollama — waiting for Ollama at http://ollama:11434...
+> fortunas_backend |    ... attempt 1/30, retrying in 5s   (berulang sampai 30x kalau ollama belum siap)
+> fortunas_backend | ✓ Ollama is ready.
+> ```
+> Catatan kecil: baris `✓ Ollama is ready.` ini tercetak tanpa syarat setelah
+> loop selesai — termasuk kalau loop-nya habis 30x percobaan tanpa pernah
+> berhasil (kasus itu juga akan menampilkan baris peringatan `⚠ Ollama not
+> ready after 30 attempts. Starting anyway...` tepat sebelumnya). Ini quirk
+> lama di skrip yang tidak disentuh task ini — kalau kamu melihat kedua baris
+> itu bersamaan, itu berarti Ollama memang belum siap walau pesannya bilang
+> "ready".
 
 ---
 
