@@ -26,7 +26,17 @@ jobs:
         run: python -m pytest tests/ -v
 
   mobile:
-    name: Mobile (analyze + test + build web)
+    # ⚠️ JANGAN GANTI STRING `name:` INI.
+    # Proteksi branch `main` mencocokkan required status check berdasarkan NAMA
+    # JOB secara harfiah. Mengubahnya membuat GitHub menunggu selamanya sebuah
+    # check yang tidak akan pernah dilaporkan, dan PR macet di `blocked` —
+    # bukan `dirty`, jadi tidak terlihat seperti masalah CI dan mudah salah
+    # didiagnosis. Sudah pernah terjadi: PR #26 sempat macet karena job ini
+    # di-rename, sementara `Backend (ruff + pytest)` lolos.
+    # Kalau nama ini memang mau diperbarui, ubah setelan required status check
+    # di Settings → Branches DALAM PERUBAHAN YANG SAMA (butuh hak admin repo).
+    # Isi job-nya kini: analyze + test + build web (lihat langkah-langkah di bawah).
+    name: Mobile (flutter analyze)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

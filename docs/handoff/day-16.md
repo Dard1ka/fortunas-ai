@@ -41,6 +41,16 @@ push/PR dipegang controller/tim, di luar scope task ini.
   `working-directory: mobile`. Flag `--no-web-resources-cdn` **wajib dan harus sama dengan
   runbook deploy** (lihat §Payload). Job backend (ruff + pytest, deps minimal
   tanpa torch/chromadb) byte-identik, tidak tersentuh.
+
+  > ⚠️ **Nama job `Mobile (flutter analyze)` sengaja TIDAK diubah**, meskipun sekarang
+  > isinya lebih dari analyze. Proteksi branch `main` mencocokkan required status check
+  > berdasarkan **nama job secara harfiah**. PR ini sempat macet di `blocked` karena
+  > job-nya di-rename: GitHub menunggu `Mobile (flutter analyze)` yang tidak akan pernah
+  > dilaporkan, sementara `Backend (ruff + pytest)` lolos. Yang menyesatkan, statusnya
+  > `blocked` dan **bukan** `dirty` — jadi tidak terlihat seperti masalah CI dan mudah
+  > disalahartikan sebagai "menunggu review". Kalau nama itu mau dirapikan, ubah setelan
+  > required status check di Settings → Branches **dalam perubahan yang sama** (butuh
+  > hak admin repo). Peringatan yang sama ada di komentar `ci.yml`.
 - **Font Inter disubset ke Latin** — lihat §Payload di bawah.
 
 ---
