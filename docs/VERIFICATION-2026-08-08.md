@@ -1,4 +1,11 @@
-# VERIFICATION — 2026-08-08 (R2, lingkup read-only)
+# VERIFICATION — 2026-08-08
+
+> **PEMBARUAN 2026-08-08 sore — deploy live + uji tulis SELESAI.** Lihat seksi
+> **"BAGIAN B — Live di `https://app.fortunas.id`"** di bawah. Bagian A (di bawah ini)
+> adalah verifikasi read-only sebelum deploy; dipertahankan apa adanya sebagai riwayat,
+> dan status BLOCKED-nya diperbarui di Bagian B.
+
+## BAGIAN A — R2 lingkup read-only (sebelum deploy)
 
 - **SHA:** `ccfa641` (main; PR #27–#31 merged) · **Frontend:** `frontend@4.1.0` (skema versi belum final dikonfirmasi)
 - **Lingkup:** porsi **read-only** dari R2 (spec 2 §8). Akun UMKM uji + izin tulis dari Steven **belum tersedia** →
@@ -161,7 +168,89 @@ sesuai desain alur OTP).
 
 ---
 
+---
+
+# BAGIAN B — Live di `https://app.fortunas.id` (deploy + uji tulis)
+
+## Izin & lingkup
+
+Steven memberi izin eksplisit di chat 2026-08-08: *"lakukan semuanya saya beri kamu izin, yg di
+blocked lakukan contoh yg buat login gitu, kamu lakukan aja dan bisa check di db atau servernya
+sendiri"* dan *"tolong deploy kan jg … ini untuk hosting, domain, vps, atau apapun gitu boleh
+kamu lakukan"*. Atas dasar itu: akun UMKM uji dibuat sendiri, transaksi & DPA ditulis ke tenant
+uji, dan deploy dieksekusi asisten via SSH. Akses SSH dibuka Steven (kunci `claude-deploy` di
+`~deploy/.ssh/authorized_keys`); user `deploy` punya sudo tanpa password.
+
+Akun uji: `tester-20260808@fortunas.id` / bisnis **"TOKO UJI - JANGAN DIPAKAI"** / workspace
+`toko_uji_jangan_dipakai` / kode publik `KDR-001`. Kredensial di
+`Fortunas/brainstorming/evidence/2026-08-08-live-test/akun-uji.local.md` (luar git).
+⚠ Tenant ini memprovisikan tabel BigQuery permanen — jangan dipakai untuk demo ke juri.
+
+## PROVEN — infrastruktur
+
+| # | Apa | Bukti |
+|---|---|---|
+| L1 | DNS `app.fortunas.id` → `103.93.134.22` | `curl -w %{remote_ip}` → `103.93.134.22` |
+| L2 | TLS Let's Encrypt terbit & valid | `certbot certonly --webroot` → "Successfully received certificate", expires **2026-11-06**, renewal timer aktif; `curl -w %{ssl_verify_result}` → `0` |
+| L3 | HTTP → HTTPS | `curl http://app.fortunas.id/` → `301` → `https://app.fortunas.id/` |
+| L4 | Backend di `main`, **11 analisis** (dari 4) | repo VPS `git log -1` → `844a8a4`; `/api/analyses` → `11` (kunci lengkap: repeat_customer … demand_forecast) |
+| L5 | Gemini + RAG hidup | `/llm/health` → `{"provider":"gemini","model":"gemini-2.5-flash"}`; `/rag/health` → `collection_count: 56` |
+| L6 | Header cache benar | `index.html`, `manifest.webmanifest`, `sw.js`, `registerSW.js` → `Cache-Control: no-cache` + HSTS; `/assets/index-ljFSdJ5N.js` → `public, immutable` + `max-age=31536000` |
+| L7 | SPA fallback (React Router path riil) | `/briefing /checkout /dpa /scan /customer/login` → semua `200` |
+| L8 | Swagger tidak publik | `/api/docs`, `/api/redoc`, `/api/openapi.json` → `404` bertiga |
+| L9 | **Demo IP lama tetap hidup** | `curl http://103.93.134.22/health` → `{"status":"ok"}` — config baru dipasang sebagai site nginx terpisah `fortunas-app`, site lama tak disentuh |
+| L10 | Halaman diagnosa hijau total | `domain-check-live.png`: "Semua cek lolos" — secure context, service worker, mikrofon, `/api/health` 200 dalam 62 ms |
+| L11 | Nol request pihak ketiga | `grep -R "fonts.googleapis" dist/` kosong sebelum unggah |
+
+## PROVEN — aplikasi (uji sebagai tester, browser riil)
+
+| # | Apa | Bukti |
+|---|---|---|
+| A1 | Register + provisioning tenant | Form daftar (nama bisnis, jenis, alamat, email, password) → masuk Beranda; workspace & tabel BigQuery ter-provisi (`live-01-home.png`) |
+| A2 | Kode publik UMKM terbit dari alamat | Profil menampilkan `KDR-001` (alamat "Jl. Uji Coba 1, Kediri") — `live-08-profile.png` |
+| A3 | Empty state jujur, bukan halusinasi | Tenant baru → "Analisis 'Analisis Pelanggan Loyal' berhasil dijalankan, tetapi tidak ada data yang cocok." (`live-02-result.png`) |
+| A4 | **Kasir multi-item menulis ke BigQuery** | 2 item (Kopi Susu 2×15.000, Roti Bakar 1×10.000) → "Transaksi tersimpan · 1 · 2 item · Rp 40.000" (`live-03-checkout.png`); total dihitung benar dan tombol simpan terkunci selama baris belum lengkap |
+| A5 | Data terbaca kembali dari BigQuery | `/api/umkm/transactions` → invoice `1`, 2 item, total `40000`, timestamp `2026-08-08 05:47:50+00:00` |
+| A6 | **Intent-routed RAG end-to-end** | "produk apa yang paling laris?" → `top_product`; rows: Kopi Susu (qty 2, omzet 30000), Roti Bakar (1, 10000); `agent_trace`: mapped → SQL → BigQuery 2 rows → RAG 4 chunks → sources *Inventory Management, Pricing Strategy* |
+| A7 | **Latency `/ask` = 3,4 detik** | diukur di browser (`Date.now()` sekitar fetch) — di bawah target p95 ≤ 5 detik |
+| A8 | Insight grounded | summary + 3 temuan mengutip angka persis dari data (Rp 30000, 2 unit) + 3 rekomendasi (`live-06-result-data.png`) |
+| A9 | **Briefing 11 seksi** | "11 analisis selesai" + 11 kartu (Pelanggan Loyal, Paling Bernilai, Jam Ramai, Bundling, Terlaris, Tren Omzet, Segmentasi RFM, Risiko Churn, Slow-Moving, Ukuran Keranjang, Prediksi Permintaan) + Temuan Utama dari data nyata (`live-07-briefing.png`) |
+| A10 | **DPA: password salah ditolak** | UI menampilkan alert "Konfirmasi password salah." (403 backend) |
+| A11 | DPA: simpan sukses | v1 tersimpan, chip larangan "menyarankan diskon di atas 50%" tampil, timestamp `2026-08-08T05:56:36+00:00` (`live-04-dpa.png`); `PUT /api/umkm/dpa` (skema `raw_text`) → `200` |
+| A12 | Intent router menolak pertanyaan di luar 11 analisis | "promo diskon 90%" → "Pertanyaan belum dikenali" + saran pertanyaan (`live-05-dpa-guard.png`) — perilaku benar, bukan error |
+
+## PROVEN — pengetatan keamanan
+
+| # | Apa | Bukti |
+|---|---|---|
+| S1 | `JWT_SECRET` dirotasi | nilai baru 64-hex digenerate on-box (`openssl rand -hex 32`), tidak pernah ditampilkan; backend restart sehat sesudahnya |
+| S2 | `CORS_ORIGINS` diketatkan | dari `*` → `https://app.fortunas.id` |
+| S3 | `FORTUNAS_DEV_AUTH` tidak aktif di produksi | `grep -c '^FORTUNAS_DEV_AUTH=' .env` → `0` |
+| S4 | Izin file rahasia | `.env` dan `credentials/*.json` → `-rw-------` (600) |
+| S5 | Backup sebelum perubahan | `~/fortunas-data-backup-20260808-1218.tgz`, `.env.bak-*`, config nginx lama di `/root/` |
+
+## BLOCKED tersisa (dengan pembuka)
+
+| # | Apa | Kenapa | Pembuka |
+|---|---|---|---|
+| C1 | Alur pelanggan (login HP → OTP → QR) + attach token ke Kasir + `/scan` membership | Butuh `FORTUNAS_DEV_AUTH=1` sementara (Firebase Phone Auth belum dipasang). Perintah untuk menyalakannya ditolak lapisan keamanan sesi ini — mengaktifkan flag dev di produksi memang perubahan yang layak dilakukan sadar oleh manusia | Steven jalankan toggle (perintah ada di handoff `day-24.md`) lalu beri tahu — asisten menguji dan mematikannya kembali; atau pasang Firebase (menghapus kebutuhan flag selamanya) |
+| C2 | Mikrofon/voice riil, install PWA Android/iOS, boot offline di HP | Butuh perangkat fisik | `docs/PANDUAN-CEK-MANUAL.md` — dijalankan Steven |
+| C3 | Enforcement pagar DPA saat jawaban melanggar | Larangan yang dipasang tidak terpicu oleh 11 analisis yang ada (pertanyaan promo ditolak intent router lebih dulu, lihat A12). Enforcement-nya sendiri sudah tertutup 74 test backend | Rancang kasus uji yang memetakan ke analisis DAN melanggar aturan (mis. larangan "menyebut nama pelanggan" + data pelanggan berulang) |
+| C4 | Rotasi `GEMINI_API_KEY`, `OPENAI_API_KEY`, `META_*` | Butuh login akun eksternal yang tidak dipegang asisten | Steven — masih TOP di `PENDING_EXTERNAL_SETUP.md` |
+
+## Catatan operasional
+
+- Akun ACME Let's Encrypt didaftarkan dengan email `steven.sanjaya@juaracapital.com` supaya ada
+  peringatan bila perpanjangan gagal. Ubah dengan `certbot update_account` bila tidak dikehendaki.
+- SSH VPS: user **`deploy`** (bukan `root`), sudo tanpa password. `root` login-by-password mati
+  (`PermitRootLogin prohibit-password`).
+- ⚠ **Kunci SSH Ivan bocor** (private key ter-screenshot di chat 2026-08-08) — rotasi wajib, lihat
+  `PENDING_EXTERNAL_SETUP.md`. Sampai selesai, kunci `KCIyx72s…` di `~deploy/.ssh/authorized_keys`
+  harus dianggap kompromi. Ada juga satu entri `claude-deploy` asing (`c47WfbJc…`) hasil salah
+  ketik saat bootstrap — tak ada yang memegang privat-nya, tapi sebaiknya dibersihkan.
+
 ## Riwayat pembaruan
 
-- **2026-08-08** — dokumen dibuat (lingkup read-only). Pembaruan berikutnya: saat akun uji tersedia (B1/B4),
-  pasca-redeploy backend (B2), pasca-R3 (B3/B5).
+- **2026-08-08 pagi** — dokumen dibuat (lingkup read-only, Bagian A).
+- **2026-08-08 sore** — Bagian B: deploy `app.fortunas.id` selesai + uji tulis sebagai tester.
+  B1/B2/B4/B5 dari Bagian A kini **PROVEN** (lihat L1–L11, A1–A12, S1–S5). Sisa: C1–C4.
