@@ -125,6 +125,18 @@ export default function LoginScreen({ onAuthed }) {
           </a>
         </div>
 
+        {/* Pesan tanpa akun — pintu masuk halaman order publik (Wave C area C,
+            paritas tombol login_public_order Flutter). */}
+        <div style={{ marginTop: 8, textAlign: 'center' }}>
+          <a
+            href="/order"
+            data-testid="login-public-order"
+            style={{ fontSize: 12, color: 'var(--violet-deep)', fontWeight: 600, textDecoration: 'none' }}
+          >
+            Pesan tanpa akun →
+          </a>
+        </div>
+
         <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12.5, color: 'var(--ink-3)' }}>
           {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
           <button

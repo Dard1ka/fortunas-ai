@@ -11,6 +11,7 @@ import OrdersScreen from './screens/OrdersScreen.jsx';
 import DpaScreen from './screens/DpaScreen.jsx';
 import ScanScreen from './screens/ScanScreen.jsx';
 import CustomerApp from './customer/CustomerApp.jsx';
+import PublicOrderScreen from './screens/PublicOrderScreen.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
 import AppShell from './ui/AppShell.jsx';
 import VoiceFlow from './voice/VoiceFlow.jsx';
@@ -47,6 +48,16 @@ export default function App() {
     return (
       <AppShell onVoice={() => {}}>
         <CustomerApp />
+      </AppShell>
+    );
+  }
+
+  // Halaman pesan publik: pelanggan ANONIM, tanpa login apa pun (paritas
+  // whitelist /order di auth_redirect Flutter). Phone-only route (shell.js).
+  if (pathname === '/order' || pathname.startsWith('/order/')) {
+    return (
+      <AppShell onVoice={() => {}}>
+        <PublicOrderScreen />
       </AppShell>
     );
   }
