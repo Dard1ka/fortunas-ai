@@ -31,7 +31,9 @@ export default function CustomerPointsScreen() {
     <div style={{ padding: '18px 18px 24px', display: 'grid', gap: 12, alignContent: 'start' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20 }}>Poin Saya</div>
-        <Button variant="text" onClick={load}>Muat ulang</Button>
+        {/* Arrow WAJIB: onClick={load} akan meneruskan click-event sebagai
+            AbortSignal ke fetch → TypeError senyap (temuan review). */}
+        <Button variant="text" onClick={() => load()}>Muat ulang</Button>
       </div>
 
       {/* Data basi menang: error hanya menggantikan konten bila data masih null. */}

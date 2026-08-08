@@ -50,6 +50,11 @@ function stubApi({ generateStatus = 200, generateBody = PROMO_RESP } = {}) {
   vi.stubGlobal('fetch', vi.fn(async (url, opts = {}) => {
     const u = String(url);
     const method = opts.method || 'GET';
+    // Browser nyata menolak signal non-AbortSignal dengan TypeError — jsdom
+    // stub tidak; tiru validasinya supaya bug onClick={load} tertangkap test.
+    if (opts.signal != null && !(opts.signal instanceof AbortSignal)) {
+      throw new TypeError("Failed to execute 'fetch': member signal is not of type AbortSignal.");
+    }
     calls.push({ url: u, method, body: opts.body });
     if (u === '/api/customer/home') return json(HOME);
     if (u === '/api/customer/points') return json(POINTS);
@@ -169,6 +174,26 @@ test('menu: tile QR + Poin & Promo ada, kalimat placeholder lama HILANG', async 
   expect(await screen.findByTestId('menu-tile-qr')).toBeInTheDocument();
   expect(screen.getByTestId('menu-tile-points')).toBeInTheDocument();
   expect(screen.queryByText(/menyusul di pembaruan berikutnya/)).not.toBeInTheDocument();
+});
+
+test('tombol Muat ulang poin & riwayat memicu fetch ULANG yang valid (regresi onClick={load})', async () => {
+  const calls = stubApi();
+  render(<MemoryRouter><CustomerPointsScreen /></MemoryRouter>);
+  await screen.findByText('42');
+  const before = calls.filter((c) => c.url === '/api/customer/points').length;
+  fireEvent.click(screen.getByRole('button', { name: 'Muat ulang' }));
+  await waitFor(() => {
+    expect(calls.filter((c) => c.url === '/api/customer/points').length).toBe(before + 1);
+  });
+
+  const calls2 = stubApi();
+  render(<MemoryRouter><CustomerHistoryScreen /></MemoryRouter>);
+  await screen.findByText('Kopi Susu');
+  const before2 = calls2.filter((c) => c.url === '/api/customer/transactions').length;
+  fireEvent.click(screen.getAllByRole('button', { name: 'Muat ulang' }).at(-1));
+  await waitFor(() => {
+    expect(calls2.filter((c) => c.url === '/api/customer/transactions').length).toBe(before2 + 1);
+  });
 });
 
 test('pemetaan segmen roda: nilai persis, duplikat, dan nilai di luar daftar', () => {

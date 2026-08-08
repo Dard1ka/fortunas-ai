@@ -192,9 +192,10 @@ export default function ProductsScreen() {
       setCategories(c.categories || []);
     } catch (err) {
       setError(err.message || 'Gagal memuat produk.');
-      if (products == null) setProducts([]);
+      // Data basi menang (paritas Flutter): reload gagal TIDAK mengosongkan
+      // daftar yang sudah tampil — functional update, bukan closure state.
+      setProducts((prev) => prev ?? []);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { load(); }, [load]);
