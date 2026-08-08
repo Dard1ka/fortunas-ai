@@ -14,14 +14,13 @@ export default function CustomerHistoryScreen() {
   const [resp, setResp] = useState(null);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      setResp(await api.customerTransactions());
-    } catch (err) {
+  // Gaya promise: setState hanya di callback .then/.catch — pola yang lolos
+  // lint react-hooks/set-state-in-effect (setState async, bukan sinkron).
+  const load = useCallback((signal) => api.customerTransactions(signal)
+    .then((r) => { setResp(r); setError(null); })
+    .catch((err) => {
       if (err.name !== 'AbortError') setError(err.message || 'Gagal memuat riwayat.');
-    }
-  }, []);
+    }), []);
 
   useEffect(() => { load(); }, [load]);
 

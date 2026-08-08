@@ -1,6 +1,6 @@
 // Order publik + QRIS statis (Wave C area C) — acceptance dari
 // public_order_controller_test.dart (9 test) + gate /order tanpa login.
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import PublicOrderScreen from './PublicOrderScreen.jsx';
 import App from '../App.jsx';

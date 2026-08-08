@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import CustomerApp from './CustomerApp.jsx';
 import CustomerPointsScreen from './CustomerPointsScreen.jsx';
 import CustomerHistoryScreen from './CustomerHistoryScreen.jsx';
-import { segmentIndexForAmount } from './CustomerPromoScreen.jsx';
+import { segmentIndexForAmount } from './promoWheel.js';
 import { setCustomerToken, clearCustomerToken, clearToken } from '../api/client.js';
 
 vi.mock('qrcode', () => ({

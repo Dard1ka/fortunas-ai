@@ -17,14 +17,13 @@ export default function CustomerPointsScreen() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      setData(await api.customerPoints());
-    } catch (err) {
+  // Gaya promise: setState hanya di callback .then/.catch — pola yang lolos
+  // lint react-hooks/set-state-in-effect (setState async, bukan sinkron).
+  const load = useCallback((signal) => api.customerPoints(signal)
+    .then((r) => { setData(r); setError(null); })
+    .catch((err) => {
       if (err.name !== 'AbortError') setError(err.message || 'Gagal memuat poin.');
-    }
-  }, []);
+    }), []);
 
   useEffect(() => { load(); }, [load]);
 

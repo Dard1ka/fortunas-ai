@@ -16,14 +16,13 @@ export default function CustomerHomeScreen() {
   const [home, setHome] = useState(null);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async (signal) => {
-    try {
-      setError(null);
-      setHome(await api.customerHome(signal));
-    } catch (err) {
+  // Gaya promise: setState hanya di callback .then/.catch — pola yang lolos
+  // lint react-hooks/set-state-in-effect (setState async, bukan sinkron).
+  const load = useCallback((signal) => api.customerHome(signal)
+    .then((r) => { setHome(r); setError(null); })
+    .catch((err) => {
       if (err.name !== 'AbortError') setError(err.message);
-    }
-  }, []);
+    }), []);
 
   useEffect(() => {
     const ctrl = new AbortController();

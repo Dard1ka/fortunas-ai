@@ -8,27 +8,10 @@ import { api } from '../api/client.js';
 // Spin wheel promo (paritas customer_promo_screen Flutter).
 // HASIL DITENTUKAN SERVER (weighted CSPRNG di /customer/promos/generate) —
 // roda hanya MENGANIMASIKAN hasil; RNG klien akan berbohong soal hasil.
-// 6 segmen visual (duplikasi 25rb/10rb kosmetik; default backend 4 segmen).
-const SEGMENTS = [100000, 50000, 25000, 10000, 25000, 10000];
+import { SEGMENTS, SEG_DEG, SPIN_MS, segmentIndexForAmount } from './promoWheel.js';
+
 const SEGMENT_LABEL = (v) => `Rp${Math.round(v / 1000)}rb`;
 const SEGMENT_COLORS = ['var(--violet)', 'var(--lime)', 'var(--sky)', 'var(--peach)', 'var(--lime-deep)', 'var(--surface-hover)'];
-const SEG_DEG = 360 / SEGMENTS.length;
-const SPIN_MS = 4000;
-
-// Nilai di luar daftar segmen → segmen bernilai TERDEKAT (perbaikan atas bug
-// indexOf Flutter yang mendarat di 100rb untuk nilai tak dikenal); kartu
-// menang SELALU menampilkan angka server, roda hanya aproksimasi visual.
-export function segmentIndexForAmount(amount) {
-  const exact = SEGMENTS.indexOf(amount);
-  if (exact >= 0) return exact;
-  let best = 0;
-  let bestDiff = Infinity;
-  SEGMENTS.forEach((v, i) => {
-    const d = Math.abs(v - amount);
-    if (d < bestDiff) { bestDiff = d; best = i; }
-  });
-  return best;
-}
 
 const dateOnly = (iso) => String(iso || '').split('T')[0];
 

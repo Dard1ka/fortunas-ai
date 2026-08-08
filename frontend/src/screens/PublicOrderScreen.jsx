@@ -94,7 +94,7 @@ export default function PublicOrderScreen() {
   const [phoneError, setPhoneError] = useState(null);
   const [qrisBroken, setQrisBroken] = useState(false);
 
-  const products = umkm?.products || [];
+  const products = useMemo(() => umkm?.products || [], [umkm]);
   const visibleProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return products;

@@ -104,7 +104,7 @@ test('error load tampil inline', async () => {
 test('busy per-kartu: saat satu kartu submitting, tombol kartu lain tetap aktif', async () => {
   let resolveAccept;
   const orders = [ORDER_PAID, ORDER_ACCEPTED];
-  vi.stubGlobal('fetch', vi.fn(async (url, opts = {}) => {
+  vi.stubGlobal('fetch', vi.fn(async (url) => {
     const u = String(url);
     if (/accept$/.test(u)) {
       await new Promise((r) => { resolveAccept = r; });
