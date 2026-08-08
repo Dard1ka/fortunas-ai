@@ -49,6 +49,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Gambar produk (image_url backend = /media/products/…) — same-origin di
+      // produksi (nginx `location ^~ /media/`); tanpa proxy ini katalog & menu
+      // publik tampak rusak di `npm run dev`. TANPA rewrite: path diteruskan utuh.
+      '/media': {
+        target: apiTarget,
+        changeOrigin: true,
+      },
     },
   },
 })
