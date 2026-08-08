@@ -1,7 +1,7 @@
 # Fortunas AI — API Contracts (v5.0 MVP)
 
 > **Status:** kontrak (Hari 1). Endpoint belum semua diimplementasi — lihat tag.
-> **Sumber Pydantic:** [`app/schemas.py`](../app/schemas.py) · **Mirror Dart:** [`mobile/lib/api/models.dart`](../mobile/lib/api/models.dart)
+> **Sumber Pydantic:** [`app/schemas.py`](../app/schemas.py)
 > **Auth:** header `Authorization: Bearer <jwt>` (kecuali bootstrap). Base URL dev: `http://127.0.0.1:8000`.
 
 **Legend:** 🟢 MVP-now · 🟡 MVP-thin (spin-wheel demo) · 🔵 v5.1 (kontrak saja, endpoint nanti).

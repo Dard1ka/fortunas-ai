@@ -32,7 +32,7 @@ Fortunas AI bridges the gap between raw transaction data and actionable business
 
 It is a **multi-tenant SaaS**: each business has its own isolated data, accessed via login. The backend is **deployed (FastAPI on a VPS)**; the production client is the **React web app (PWA)** in `frontend/`, built via `npm run build`.
 
-> **Client status (2026-08-07, ADR-0002):** React (`frontend/`) = the production client — built, tested, CI-gated, deploy target `app.fortunas.id`. Flutter (`mobile/`) = **deprecated** — no new features; kept as the demo fallback until React reaches full parity and the team ratifies its removal (Gate D, see [`docs/adr/0002-react-production-client.md`](docs/adr/0002-react-production-client.md)). Do not build new features in `mobile/`.
+> **Client status (2026-08-08, ADR-0002 — Gate D executed):** React (`frontend/`) is the **only** client — built, tested, CI-gated, live at `app.fortunas.id`. The Flutter `mobile/` app was removed at Gate D after React reached full feature parity (Wave C, PR #35); see [`docs/adr/0002-react-production-client.md`](docs/adr/0002-react-production-client.md). Its history remains in git if ever needed.
 
 ---
 
@@ -90,7 +90,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 | Layer | Technology |
 |---|---|
-| Client (PWA) | React 19 + Vite (`frontend/`, react-router, Web Speech API) — `mobile/` Flutter deprecated until Gate D |
+| Client (PWA) | React 19 + Vite (`frontend/`, react-router, Web Speech API) |
 | Backend | FastAPI (async), Python 3.11/3.12 |
 | Auth | bcrypt + PyJWT (JWT), SQLite metadata |
 | LLM | Gemini 2.5 Flash (default) · switchable to OpenAI / Ollama-Qwen via `app/llm_provider.py` |
@@ -105,7 +105,7 @@ It is a **multi-tenant SaaS**: each business has its own isolated data, accessed
 
 > Credentials & full step-by-step (incl. VPS access) are in `HANDOVER.txt` (gitignored, internal). Project context: [`memory.md`](memory.md).
 
-**Prerequisites:** Python 3.11/3.12, Node ≥ 20.19 (Vite 8), a GCP service-account JSON (BigQuery), a Gemini API key. (Flutter 3.32.x only if you need the deprecated `mobile/` demo fallback.)
+**Prerequisites:** Python 3.11/3.12, Node ≥ 20.19 (Vite 8), a GCP service-account JSON (BigQuery), a Gemini API key.
 
 ```bash
 git clone https://github.com/Dard1ka/fortunas-ai.git
@@ -212,7 +212,6 @@ fortunas-ai/
 │   ├── knowledge/           # ingest.py + umkm_docs/ (RAG corpus)
 │   └── main.py
 ├── frontend/                # React 19 + Vite — the production client (PWA)
-├── mobile/                  # Flutter app — DEPRECATED, demo fallback until Gate D (ADR-0002)
 ├── deploy/                  # DEPLOY.md, systemd unit, nginx conf, .env.production.example
 ├── scripts/                 # BQ maintenance utilities
 ├── memory.md                # project context (credential-free)

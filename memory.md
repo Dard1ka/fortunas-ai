@@ -9,11 +9,10 @@ Backend analitik UMKM Indonesia: pemilik usaha bertanya pakai Bahasa Indonesia (
 dijawab AI dari data transaksi mereka sendiri. **Multi-tenant SaaS** + sudah **deploy ke VPS**.
 Produk akhir = **web app + PWA (React 19 + Vite, di-build dari `frontend/` via `npm run build`)**.
 
-> **Status klien (2026-08-07, ADR-0002):** React (`frontend/`) = klien produksi — dibangun,
-> dites, di-gate CI (`Frontend (lint + test + build)`), target deploy `app.fortunas.id`.
-> Flutter (`mobile/`) = **deprecated** — cadangan demo sampai Gate D (paritas penuh +
-> ratifikasi tim), jangan tambah fitur di sana. Target native sudah dihapus dari repo.
-> Lihat `docs/adr/0002-react-production-client.md`.
+> **Status klien (2026-08-08, ADR-0002 — Gate D dieksekusi):** React (`frontend/`) =
+> satu-satunya klien — dibangun, dites, di-gate CI (`Frontend (lint + test + build)`),
+> live di `app.fortunas.id`. Flutter `mobile/` sudah DIHAPUS setelah paritas penuh
+> (Wave C, PR #35). Lihat `docs/adr/0002-react-production-client.md`.
 
 ## Stack
 - FastAPI (Python 3.11/3.12), uvicorn
@@ -61,7 +60,6 @@ Client (React web/PWA — frontend/) --Bearer JWT--> nginx :80 --> uvicorn :8000
 - `app/llm_service.py`, `app/prompt_builder.py` — insight + prompt
 - `app/agents/rag_agent.py`, `app/knowledge/ingest.py` — RAG
 - `frontend/src/` — React 19 + Vite (klien produksi, PWA)
-- `mobile/lib/` — Flutter (DEPRECATED, cadangan demo s/d Gate D — ADR-0002)
 - `deploy/` — DEPLOY.md, systemd unit, nginx conf, .env contoh
 - `scripts/` — util maintenance BQ
 

@@ -6,9 +6,9 @@
 > untuk jadi jalur deploy resmi. Gunakan **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 > (VPS: systemd + nginx) dan **[README.md](README.md)**. Disimpan sebagai arsip.
 >
-> **Status klien (2026-08-07, ADR-0002):** service `frontend` (React, image nginx-nya
-> sendiri) mem-build **klien produksi** — React `frontend/` (React 19 + Vite). Flutter
-> `mobile/` = deprecated, cadangan demo sampai Gate D, dijalankan di luar Docker.
+> **Status klien (2026-08-08, ADR-0002 — Gate D dieksekusi):** service `frontend`
+> (React, image nginx-nya sendiri) mem-build **satu-satunya klien** — React
+> `frontend/` (React 19 + Vite). `mobile/` (Flutter) sudah dihapus.
 > Lihat `docs/adr/0002-react-production-client.md`.
 
 # Fortunas AI — Docker Setup Guide

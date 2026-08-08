@@ -138,13 +138,9 @@ zip:
 		-x "fortunas-ai/chroma_db/*" \
 		-x "fortunas-ai/frontend/dist/*" \
 		-x "fortunas-ai/_decoded_assets/*" \
-		-x "fortunas-ai/_decoded_mobile.html" \
 		-x "fortunas-ai/fortunas-ai.zip" \
 		-x "fortunas-ai/docs/*" \
-		-x "fortunas-ai/package.ps1" \
-		-x "fortunas-ai/mobile/.dart_tool/*" \
-		-x "fortunas-ai/mobile/build/*" \
-		-x "fortunas-ai/mobile/pubspec.lock"
+		-x "fortunas-ai/package.ps1"
 	@echo "✓ fortunas-ai.zip ready."
 	@echo "  Verify CLAUDE.md is absent:"
 	@unzip -l fortunas-ai.zip | grep -i claude.md || echo "  (none — good)"

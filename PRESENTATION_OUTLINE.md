@@ -40,7 +40,7 @@ BigQuery (execute query, return rows)
 LLM Provider (Gemini 2.5 Flash aktif; Ollama/Qwen3 diarsipkan, lihat app/llm_provider.py) → insight + rekomendasi
   |
   v
-Client (React Web PWA — dibangun dari frontend/, React 19 + Vite; Flutter mobile/ deprecated s/d Gate D — ADR-0002)
+Client (React Web PWA — dibangun dari frontend/, React 19 + Vite — ADR-0002)
 ```
 
 ## 4. Core Features
@@ -61,7 +61,7 @@ Client (React Web PWA — dibangun dari frontend/, React 19 + Vite; Flutter mobi
 
 | Layer | Teknologi |
 |-------|-----------|
-| Client | React 19 + Vite Web (PWA) dari `frontend/` — Flutter `mobile/` deprecated s/d Gate D (ADR-0002) |
+| Client | React 19 + Vite Web (PWA) dari `frontend/` (ADR-0002) |
 | Backend | FastAPI (Python) |
 | Database | Google BigQuery |
 | AI/LLM | **Gemini 2.5 Flash** (API, aktif) · Ollama/Qwen3:8b lokal (arsip, `LLM_PROVIDER=ollama`) |

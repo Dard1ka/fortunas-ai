@@ -73,3 +73,18 @@ Centang = setuju (via approving review PR ini atau pernyataan tertulis yang di-l
 - [ ] Filo Alvian Ongky
 - [ ] Michael Ivan Santoso
 - [x] Go Steven Sanjaya (pengusul, 2026-08-07)
+
+## Status Gate D — DIEKSEKUSI (2026-08-08)
+
+Prasyarat paritas terpenuhi: Wave C ter-port penuh ke React (PR #35 — katalog
+produk, inbox pesanan, order publik + QRIS, loyalty/poin/promo/riwayat, voice
+multi-item; 140 test frontend) dan terverifikasi live di `app.fortunas.id`.
+Atas arahan langsung Go Steven Sanjaya (2026-08-08, tertulis di sesi kerja),
+`mobile/` dihapus di PR Gate D ini. Merge PR ini oleh anggota tim = persetujuan
+ratifikasi tambahan (centang kotak di atas saat me-review).
+
+**Sisa administratif (butuh admin repo — Dard1ka):** tukar required status
+checks di Settings → Branches (`Mobile (flutter analyze)` → keluar;
+`Frontend (lint + test + build)` → masuk), lalu hapus job stub `Mobile
+(flutter analyze)` di `ci.yml` dalam PR yang sama. Sampai saat itu, stub
+menjaga semua PR tetap bisa merge.

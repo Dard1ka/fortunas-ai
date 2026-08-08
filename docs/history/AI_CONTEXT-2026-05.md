@@ -1,3 +1,8 @@
+> **ARSIP SEJARAH (dipindah ke docs/history/ saat Gate D, 2026-08-08).** Dokumen ini
+> menggambarkan repo era Flutter (v2.2, Mei 2026) dan SUDAH TIDAK AKURAT — klien
+> produksi sekarang React `frontend/` dan `mobile/` telah dihapus (ADR-0002).
+> Jangan dipakai sebagai konteks; lihat README.md + memory.md + docs/.
+
 > ⚠️ **OUTDATED (pre-v4.0).** This file predates the multi-tenant SaaS rewrite
 > (auth/JWT, per-tenant BigQuery tables, Gemini LLM, VPS deploy). For current
 > context use [`memory.md`](memory.md) and [`README.md`](README.md); for setup
