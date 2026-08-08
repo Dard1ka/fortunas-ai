@@ -6,11 +6,15 @@
 
   Urutan aman:
     1. Hentikan proses lewat PID yang dicatat start.ps1 (.run\*.pid),
-       beserta anak-anaknya (uvicorn --reload memunculkan proses worker).
-    2. Cadangan: target proses lewat command line (uvicorn/http.server + port)
+       beserta anak-anaknya (uvicorn --reload dan npm run preview sama-sama
+       memunculkan proses anak).
+    2. Cadangan: target proses lewat command line (uvicorn/vite + port)
        lalu tree-kill sampai port 8000 + 5200 benar-benar bebas.
-  Tidak ada state aplikasi yang rusak oleh penghentian ini (data di Postgres,
-  server hanya melayani HTTP), jadi aman dijalankan kapan saja.
+       (vite preview yang masih hidup juga bikin `npm ci` gagal EPERM —
+       file native di node_modules terkunci.)
+  Tidak ada state aplikasi yang rusak oleh penghentian ini (data akun/tenant
+  di SQLite app/data/fortunas.db — atau Postgres bila DATABASE_URL di-set —
+  dan server hanya melayani HTTP), jadi aman dijalankan kapan saja.
 #>
 [CmdletBinding()]
 param(
@@ -33,13 +37,13 @@ function Stop-FromPidFile([string]$name, [string]$label) {
   }
 }
 
-function Free-Port([int]$Port, [string]$label, [string]$CmdPattern) {
+function Free-Port([int]$Port, [string]$label, [string]$ProcName, [string]$CmdPattern) {
   # Get-NetTCPConnection sering menautkan socket ke PID reloader yang SUDAH mati
   # (uvicorn --reload), sementara worker anak yang benar-benar memegang port masih
   # hidup -> kill-by-owner tak pernah membebaskan port. Jadi target proses lewat
-  # command line-nya (uvicorn/http.server + nomor port), tree-kill, ulang.
+  # command line-nya (uvicorn/vite + nomor port), tree-kill, ulang.
   for ($try = 0; $try -lt 5; $try++) {
-    $procs = Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+    $procs = Get-CimInstance Win32_Process -Filter "Name='$ProcName'" -ErrorAction SilentlyContinue |
       Where-Object { $_.CommandLine -and $_.CommandLine -match $CmdPattern -and $_.CommandLine -match "\b$Port\b" }
     $listen = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
     if (-not $procs -and -not $listen) { break }
@@ -60,8 +64,8 @@ Stop-FromPidFile 'frontend' 'Frontend'
 Start-Sleep -Milliseconds 400
 
 # Cadangan berdasarkan command line (kalau pid file hilang / proses lepas).
-Free-Port $BackendPort  'Backend'  'uvicorn'
-Free-Port $FrontendPort 'Frontend' 'http\.server'
+Free-Port $BackendPort  'Backend'  'python.exe' 'uvicorn'
+Free-Port $FrontendPort 'Frontend' 'node.exe'   'vite'
 
 $stillBackend  = Get-NetTCPConnection -LocalPort $BackendPort  -State Listen -ErrorAction SilentlyContinue
 $stillFrontend = Get-NetTCPConnection -LocalPort $FrontendPort -State Listen -ErrorAction SilentlyContinue

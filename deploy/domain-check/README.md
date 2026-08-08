@@ -5,10 +5,11 @@ build PWA di-upload. Nol dependency, nol request eksternal, semua path relatif.
 
 ## Kenapa ada
 
-Build Flutter web berukuran beberapa MB. Kalau ia gagal tampil di domain baru,
-penyebabnya ambigu: DNS belum mengarah, docroot salah, sertifikat belum
-diterbitkan, atau build-nya sendiri rusak. Halaman ini menjawab bagian
-"domain/hosting" lebih dulu, jadi kegagalan berikutnya pasti soal build.
+Build React (Vite) terdiri dari banyak file (index.html + aset ber-hash +
+service worker). Kalau ia gagal tampil di domain baru, penyebabnya ambigu: DNS
+belum mengarah, docroot salah, sertifikat belum diterbitkan, atau build-nya
+sendiri rusak. Halaman ini menjawab bagian "domain/hosting" lebih dulu, jadi
+kegagalan berikutnya pasti soal build.
 
 ## Yang diperiksa
 
@@ -52,14 +53,16 @@ menimpanya tanpa menyisakan cache basi di perangkat UMKM.
 ## Setelah semua hijau
 
 ```bash
-cd mobile
-flutter build web --release
-# upload isi mobile/build/web/ ke docroot — menimpa index.html ini
+cd frontend
+npm ci && npm run build
+# cek: grep -R "fonts.googleapis" dist/  → harus kosong
+# upload isi frontend/dist/ ke docroot — menimpa index.html ini
 ```
 
 Backend FastAPI **tidak** bisa berjalan di shared hosting (Apache cPanel tidak
-mem-proxy `/api/`). Pola produksinya: PWA statis di hosting/VPS, backend di VPS,
-subdomain `api.<domain>` diarahkan ke VPS lalu certbot.
+mem-proxy `/api/`). Pola produksi yang dipakai: PWA statis + backend di VPS yang
+sama, satu origin `app.fortunas.id` (nginx menyajikan `/` dan mem-proxy `/api/`
+— lihat `../nginx-fortunas.conf` dan `../DEPLOY.md`).
 
 ## Aturan saat mengedit file ini
 

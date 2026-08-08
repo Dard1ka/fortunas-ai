@@ -16,9 +16,9 @@
   Fortunas AI — halaman uji domain & hosting.
 
   TUJUAN: memisahkan pertanyaan "domain/hosting-ku benar?" dari "build-ku benar?".
-  Build Flutter web berukuran beberapa MB; kalau ia gagal tampil, penyebabnya
-  ambigu (DNS, docroot, sertifikat, atau build rusak). File statis ini menjawab
-  bagian pertama lebih dulu, dengan biaya satu file.
+  Build React (Vite) terdiri dari banyak file (index.html + aset ber-hash + SW);
+  kalau ia gagal tampil, penyebabnya ambigu (DNS, docroot, sertifikat, atau build
+  rusak). File statis ini menjawab bagian pertama lebih dulu, dengan biaya satu file.
 
   DUA ATURAN YANG TIDAK BOLEH DILANGGAR SAAT MENGEDIT FILE INI:
 
@@ -32,10 +32,10 @@
      seperti hosting yang down, dan itu justru menyesatkan.
 
   Font brand (Space Grotesk / Inter / JetBrains Mono) di-bundle sebagai aset
-  Flutter dan tidak tersedia untuk file lepas; memuatnya dari Google Fonts akan
-  melanggar aturan 2. Karena itu di sini dipakai system font stack.
+  ber-hash build React dan tidak tersedia untuk file lepas; memuatnya dari
+  Google Fonts akan melanggar aturan 2. Karena itu di sini dipakai system font stack.
 
-  Warna mengikuti mobile/lib/theme/tokens.dart (neo-brutalist: cream, ink,
+  Warna mengikuti frontend/src/theme/tokens.css (neo-brutalist: cream, ink,
   violet, lime) supaya halaman uji ini masih terasa Fortunas.
 
   Cara pasang: lihat README.md di folder yang sama.
@@ -260,9 +260,9 @@
   <div class="next">
     <h2>Kalau semua hijau, langkah berikutnya</h2>
     <ol>
-      <li>Build PWA: <code>cd mobile &amp;&amp; flutter build web --release</code></li>
-      <li>Upload isi <code>mobile/build/web/</code> ke docroot, menimpa <code>index.html</code> ini.</li>
-      <li>Backend FastAPI tetap di VPS. Shared hosting tidak bisa mem-proxy <code>/api/</code>; arahkan subdomain (mis. <code>api.&lt;domain&gt;</code>) ke VPS lalu jalankan certbot.</li>
+      <li>Build PWA: <code>cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</code></li>
+      <li>Upload isi <code>frontend/dist/</code> ke docroot, menimpa <code>index.html</code> ini.</li>
+      <li>Backend FastAPI tetap di VPS, satu origin dengan PWA: nginx menyajikan <code>/</code> dan mem-proxy <code>/api/</code> (lihat <code>deploy/DEPLOY.md</code>). Shared hosting tidak bisa mem-proxy <code>/api/</code> — halaman ini di shared hosting hanya menguji domain/docroot.</li>
     </ol>
   </div>
 
@@ -437,7 +437,7 @@
     var api = 'serviceWorker' in navigator;
     if (api && window.isSecureContext) {
       put('sw', 'Service Worker (PWA)', 'ok', 'navigator.serviceWorker tersedia',
-          'PWA bisa dipasang. Registrasi sungguhan dilakukan oleh build Flutter web, bukan halaman ini.');
+          'PWA bisa dipasang. Registrasi sungguhan dilakukan oleh build React (vite-plugin-pwa), bukan halaman ini.');
     } else if (api) {
       put('sw', 'Service Worker (PWA)', 'fail', 'API ada, tapi terkunci konteks tidak aman',
           'Browser menolak registrasi di luar secure context. Beresi HTTPS dulu.');

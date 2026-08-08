@@ -1,12 +1,20 @@
 <#
-  start.ps1 - Nyalakan backend (FastAPI/uvicorn) + frontend (Flutter web) Fortunas.
+  start.ps1 - Nyalakan backend (FastAPI/uvicorn) + frontend (React/Vite) Fortunas.
 
   Pemakaian:
     powershell -ExecutionPolicy Bypass -File scripts\start.ps1
-    powershell -ExecutionPolicy Bypass -File scripts\start.ps1 -Rebuild   # build ulang web dulu
+    powershell -ExecutionPolicy Bypass -File scripts\start.ps1 -Rebuild   # build ulang dist dulu
 
   - Backend  : http://127.0.0.1:8000  (uvicorn app.main:app --reload)
-  - Frontend : http://localhost:5200  (menyajikan mobile/build/web)
+  - Frontend : http://localhost:5200  (vite preview menyajikan frontend/dist)
+
+  Kenapa `vite preview`, bukan `python -m http.server`: React Router memakai
+  path riil (/briefing, /checkout, ...). http.server tidak punya SPA fallback,
+  jadi refresh/deep-link di rute mana pun balas 404. `vite preview` menyajikan
+  dist/ persis seperti nginx produksi (fallback ke index.html).
+
+  Untuk DEV harian dengan hot-reload, jangan pakai script ini —
+  cukup `cd frontend && npm run dev` (port 3000, proxy /api).
 
   PID + log disimpan di .run\ supaya stop.ps1 bisa mematikan dengan rapi.
 #>
@@ -20,15 +28,17 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root    = Split-Path -Parent $PSScriptRoot          # ...\fortunas-ai
 $Python  = Join-Path $Root '.venv\Scripts\python.exe'
-$WebDir  = Join-Path $Root 'mobile\build\web'
+$FrontDir = Join-Path $Root 'frontend'
+$DistDir  = Join-Path $FrontDir 'dist'
 $RunDir  = Join-Path $Root '.run'
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 
-function Free-Port([int]$Port, [string]$CmdPattern) {
-  # Target proses lewat command line (uvicorn/http.server + port) lalu tree-kill:
-  # andal terhadap uvicorn --reload yang meninggalkan worker anak + socket yatim.
+function Free-Port([int]$Port, [string]$ProcName, [string]$CmdPattern) {
+  # Target proses lewat command line (uvicorn/vite + port) lalu tree-kill:
+  # andal terhadap uvicorn --reload yang meninggalkan worker anak + socket
+  # yatim, dan terhadap `npm run preview` yang membungkus node beranak-pinak.
   for ($try = 0; $try -lt 5; $try++) {
-    $procs = Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+    $procs = Get-CimInstance Win32_Process -Filter "Name='$ProcName'" -ErrorAction SilentlyContinue |
       Where-Object { $_.CommandLine -and $_.CommandLine -match $CmdPattern -and $_.CommandLine -match "\b$Port\b" }
     $listen = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
     if (-not $procs -and -not $listen) { break }
@@ -44,23 +54,32 @@ function Free-Port([int]$Port, [string]$CmdPattern) {
 }
 
 if (-not (Test-Path $Python)) { throw "Python venv tidak ditemukan: $Python" }
+$Npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $Npm) { throw "npm tidak ditemukan di PATH (butuh Node >= 20.19)" }
 
-# Rebuild web (opsional)
+# Rebuild dist (opsional)
 if ($Rebuild) {
-  Write-Host "Membangun ulang Flutter web..." -ForegroundColor Cyan
-  Push-Location (Join-Path $Root 'mobile')
-  try { & flutter build web } finally { Pop-Location }
+  Write-Host "Membangun ulang React (vite build)..." -ForegroundColor Cyan
+  Push-Location $FrontDir
+  try { & $Npm run build; if ($LASTEXITCODE -ne 0) { throw "npm run build gagal (exit $LASTEXITCODE)" } }
+  finally { Pop-Location }
 }
-if (-not (Test-Path (Join-Path $WebDir 'main.dart.js'))) {
-  Write-Host "Build web belum ada. Menjalankan 'flutter build web'..." -ForegroundColor Cyan
-  Push-Location (Join-Path $Root 'mobile')
-  try { & flutter build web } finally { Pop-Location }
+if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
+  Write-Host "Build dist belum ada. Menjalankan 'npm run build'..." -ForegroundColor Cyan
+  Push-Location $FrontDir
+  try {
+    if (-not (Test-Path (Join-Path $FrontDir 'node_modules'))) {
+      Write-Host "  node_modules belum ada -> npm ci dulu..." -ForegroundColor Cyan
+      & $Npm ci; if ($LASTEXITCODE -ne 0) { throw "npm ci gagal (exit $LASTEXITCODE)" }
+    }
+    & $Npm run build; if ($LASTEXITCODE -ne 0) { throw "npm run build gagal (exit $LASTEXITCODE)" }
+  } finally { Pop-Location }
 }
 
 # Bersihkan port bekas sesi lama
 Write-Host "Menyiapkan port..." -ForegroundColor Cyan
-Free-Port $BackendPort  'uvicorn'
-Free-Port $FrontendPort 'http\.server'
+Free-Port $BackendPort  'python.exe' 'uvicorn'
+Free-Port $FrontendPort 'node.exe'   'vite'
 Start-Sleep -Milliseconds 500
 
 # Start backend
@@ -72,11 +91,13 @@ $backend = Start-Process -FilePath $Python `
   -RedirectStandardError  (Join-Path $RunDir 'backend.err.log')
 $backend.Id | Out-File -Encoding ascii (Join-Path $RunDir 'backend.pid')
 
-# Start frontend
+# Start frontend (vite preview menyajikan dist/ dengan SPA fallback).
+# ⚠ vite preview MENGUNCI file native di node_modules selama hidup —
+#   `npm ci` akan gagal EPERM kalau preview masih jalan; stop.ps1 dulu.
 Write-Host "Menyalakan frontend di :$FrontendPort ..." -ForegroundColor Cyan
-$frontend = Start-Process -FilePath $Python `
-  -ArgumentList @('-m','http.server',"$FrontendPort",'--directory',$WebDir) `
-  -WorkingDirectory $WebDir -PassThru -WindowStyle Hidden `
+$frontend = Start-Process -FilePath $Npm `
+  -ArgumentList @('run','preview','--','--port',"$FrontendPort",'--strictPort') `
+  -WorkingDirectory $FrontDir -PassThru -WindowStyle Hidden `
   -RedirectStandardOutput (Join-Path $RunDir 'frontend.out.log') `
   -RedirectStandardError  (Join-Path $RunDir 'frontend.err.log')
 $frontend.Id | Out-File -Encoding ascii (Join-Path $RunDir 'frontend.pid')
