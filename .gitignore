@@ -96,3 +96,8 @@ fortunas-ai.zip
 
 # Uploaded product images (runtime, not versioned)
 app/data/product_images/
+
+# QRIS statis: QR pembayaran nyata (PII) — dipasang manual di server, JANGAN di-commit
+frontend/public/payments/*.png
+frontend/public/payments/*.jpg
+frontend/public/payments/*.jpeg

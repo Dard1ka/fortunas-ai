@@ -33,6 +33,17 @@ export default function HomeScreen({ onVoice }) {
     return () => ctrl.abort();
   }, []);
 
+  // Badge inbox: hitung pesanan 'paid' (menunggu diterima) — count dari server,
+  // sekali per mount; loading/error diam-diam 0 (paritas pendingOrderCountProvider).
+  const [pendingOrders, setPendingOrders] = useState(0);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    api.listOrders('paid', ctrl.signal)
+      .then((r) => setPendingOrders(Number(r?.count) || 0))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
   // Voice-untuk-bertanya: dikte pertanyaan ke kotak input (BEDA dari mic bawah
   // yang membuka flow tambah transaksi). Tap mic → ngomong → tap lagi untuk stop.
   const ask = useSpeechRecognition({ lang: 'id-ID' });
@@ -331,6 +342,52 @@ export default function HomeScreen({ onVoice }) {
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>
               Multi-item · bisa tautkan pelanggan (QR)
+            </div>
+          </div>
+          <Icon name="chevron" size={18} stroke="var(--ink)" strokeWidth={2} />
+        </button>
+
+        {/* Pesanan Masuk (inbox order online, route /orders) — badge = jumlah
+            pesanan berstatus paid (menunggu diterima), sekali fetch per mount;
+            TANPA polling (paritas Flutter, push notif belum ada). */}
+        <button
+          type="button"
+          data-testid="home-orders"
+          onClick={() => navigate('/orders')}
+          style={{
+            width: '100%',
+            marginTop: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: 14,
+            background: 'var(--surface)',
+            color: 'var(--ink)',
+            border: '1.5px solid var(--ink)',
+            borderRadius: 18,
+            boxShadow: 'var(--shadow-pop-sm)',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: 'var(--lime)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="bolt" size={20} stroke="var(--ink)" strokeWidth={2.2} />
+          </div>
+          <div style={{ textAlign: 'left', flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14 }}>
+              Pesanan Masuk
+            </div>
+            <div style={{ fontSize: 11, color: pendingOrders > 0 ? 'var(--violet-deep)' : 'var(--ink-3)', fontWeight: pendingOrders > 0 ? 700 : 400, marginTop: 2 }}>
+              {pendingOrders > 0 ? `${pendingOrders} pesanan menunggu diterima` : 'Pesanan online dari pelanggan'}
             </div>
           </div>
           <Icon name="chevron" size={18} stroke="var(--ink)" strokeWidth={2} />

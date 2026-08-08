@@ -27,10 +27,23 @@ export default function CustomerMenuScreen() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)' }}>ID: {profile.customer_user_id}</div>
         )}
       </Card>
+      {/* Tile navigasi (paritas customer_menu_screen Flutter). */}
+      <Card style={{ display: 'grid', gap: 0, padding: 8 }}>
+        <button type="button" data-testid="menu-tile-qr" onClick={() => navigate('/customer/qr')} style={tile}>
+          QR Identitas Saya
+        </button>
+        <button type="button" data-testid="menu-tile-points" onClick={() => navigate('/customer/points')} style={{ ...tile, borderTop: '1px dashed var(--border-soft)' }}>
+          Poin & Promo
+        </button>
+      </Card>
+
       <Button variant="secondary" onClick={logout} style={{ color: 'var(--error)' }}>Keluar</Button>
-      <p style={{ fontSize: 11, color: 'var(--ink-4)', lineHeight: 1.5 }}>
-        Riwayat transaksi & poin per-toko menyusul di pembaruan berikutnya.
-      </p>
     </div>
   );
 }
+
+const tile = {
+  display: 'block', width: '100%', textAlign: 'left', padding: '13px 10px',
+  background: 'transparent', border: 'none', cursor: 'pointer',
+  fontFamily: 'var(--font-body)', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)',
+};

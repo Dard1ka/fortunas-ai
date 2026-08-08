@@ -6,9 +6,12 @@ import ResultScreen from './screens/ResultScreen.jsx';
 import HistoryScreen from './screens/HistoryScreen.jsx';
 import ProfileScreen from './screens/ProfileScreen.jsx';
 import CheckoutScreen from './screens/CheckoutScreen.jsx';
+import ProductsScreen from './screens/products/ProductsScreen.jsx';
+import OrdersScreen from './screens/OrdersScreen.jsx';
 import DpaScreen from './screens/DpaScreen.jsx';
 import ScanScreen from './screens/ScanScreen.jsx';
 import CustomerApp from './customer/CustomerApp.jsx';
+import PublicOrderScreen from './screens/PublicOrderScreen.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
 import AppShell from './ui/AppShell.jsx';
 import VoiceFlow from './voice/VoiceFlow.jsx';
@@ -49,6 +52,16 @@ export default function App() {
     );
   }
 
+  // Halaman pesan publik: pelanggan ANONIM, tanpa login apa pun (paritas
+  // whitelist /order di auth_redirect Flutter). Phone-only route (shell.js).
+  if (pathname === '/order' || pathname.startsWith('/order/')) {
+    return (
+      <AppShell onVoice={() => {}}>
+        <PublicOrderScreen />
+      </AppShell>
+    );
+  }
+
   if (!token) {
     return <LoginScreen onAuthed={() => setTokenState(getToken())} />;
   }
@@ -61,6 +74,8 @@ export default function App() {
           <Route path="/briefing" element={<BriefingScreen onVoice={() => setShowVoice(true)} />} />
           <Route path="/result"   element={<ResultScreen   onVoice={() => setShowVoice(true)} />} />
           <Route path="/checkout" element={<CheckoutScreen />} />
+          <Route path="/products" element={<ProductsScreen />} />
+          <Route path="/orders"   element={<OrdersScreen />} />
           <Route path="/dpa"      element={<DpaScreen />} />
           <Route path="/scan"     element={<ScanScreen />} />
           <Route path="/history"  element={<HistoryScreen  onVoice={() => setShowVoice(true)} />} />

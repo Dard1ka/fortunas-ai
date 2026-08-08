@@ -45,10 +45,12 @@ export function voiceHistoryKey() {
   return `fortunas_voice_${getPrefix() || 'anon'}`;
 }
 
-async function request(path, { method = 'GET', body, signal, trackLatency = false, auth = true, role = 'umkm' } = {}) {
+async function request(path, { method = 'GET', body, signal, trackLatency = false, auth = true, role = 'umkm', form = false } = {}) {
   const started = trackLatency ? performance.now() : 0;
   const headers = {};
-  if (body) headers['Content-Type'] = 'application/json';
+  // form=true → body FormData dikirim apa adanya TANPA Content-Type manual
+  // (browser yang menulis boundary multipart). Hanya dipakai POST /umkm/products.
+  if (body && !form) headers['Content-Type'] = 'application/json';
   const token = role === 'customer' ? getCustomerToken() : getToken();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
@@ -58,7 +60,7 @@ async function request(path, { method = 'GET', body, signal, trackLatency = fals
       method,
       signal,
       headers: Object.keys(headers).length ? headers : undefined,
-      body: body ? JSON.stringify(body) : undefined,
+      body: form ? body : (body ? JSON.stringify(body) : undefined),
     });
   } catch (err) {
     if (err?.name === 'AbortError') throw err;
@@ -128,4 +130,46 @@ export const api = {
     request('/voice/parse', { method: 'POST', body: { transcript }, signal }),
   // /voice/transaction: jalur tulis legacy backend — UI kini menulis lewat
   // /checkout/confirm (K5, ADR-0002); method client-nya dihapus (nol pemakai).
+
+  // ── Katalog produk UMKM (Wave C area A) ──
+  listProducts:   (signal)            => request('/umkm/products', { signal }),
+  // createProduct menerima FormData (name, description, image WAJIB,
+  // + stock/price/category_id hanya bila non-null) — lihat form:true di request().
+  createProduct:  (formData, signal)  => request('/umkm/products', { method: 'POST', body: formData, form: true, signal }),
+  deleteProduct:  (id, signal)        => request(`/umkm/products/${id}`, { method: 'DELETE', signal }),
+  // stock/price null = "tak dilacak" / "belum diset" (tri-state, BUKAN 0).
+  setStock:       (id, stock, signal) => request(`/umkm/products/${id}/stock`, { method: 'PATCH', body: { stock }, signal }),
+  setPrice:       (id, price, signal) => request(`/umkm/products/${id}/price`, { method: 'PATCH', body: { price }, signal }),
+  autoCategorize: (signal)            => request('/umkm/products/auto-categorize', { method: 'POST', signal }),
+  listCategories: (signal)            => request('/umkm/categories', { signal }),
+  createCategory: (name, signal)      => request('/umkm/categories', { method: 'POST', body: { name }, signal }),
+  // Respons DELETE kategori/produk = dict polos ({status, deleted, reassigned}),
+  // bukan model schemas.py — jangan asumsikan bentuk lain.
+  deleteCategory: (id, signal)        => request(`/umkm/categories/${id}`, { method: 'DELETE', signal }),
+
+  // ── Inbox pesanan UMKM (Wave C area B) ──
+  // status: undefined → default backend (paid+accepted); 'all' → semua;
+  // nilai lain → satu status. Query HANYA dikirim bila status ada.
+  listOrders:     (status, signal)    => request(`/umkm/orders${status ? `?status=${encodeURIComponent(status)}` : ''}`, { signal }),
+  acceptOrder:    (id, signal)        => request(`/umkm/orders/${id}/accept`, { method: 'POST', signal }),
+  rejectOrder:    (id, signal)        => request(`/umkm/orders/${id}/reject`, { method: 'POST', signal }),
+  completeOrder:  (id, signal)        => request(`/umkm/orders/${id}/complete`, { method: 'POST', signal }),
+
+  // ── Order publik pelanggan anonim (Wave C area C) ──
+  // SEMUA /public/* wajib auth:false — Bearer tidak boleh menempel (paritas
+  // AuthInterceptor Flutter); 401 di jalur ini tidak boleh menghapus sesi.
+  getPublicUmkm:  (code, signal)      => request(`/public/umkm/${encodeURIComponent(code)}`, { signal, auth: false }),
+  createPublicOrder: (code, payload, signal) =>
+    request(`/public/umkm/${encodeURIComponent(code)}/orders`, { method: 'POST', body: payload, signal, auth: false }),
+  getPublicOrderStatus: (poid, signal) =>
+    request(`/public/orders/${encodeURIComponent(poid)}`, { signal, auth: false }),
+  confirmPublicOrderPayment: (poid, signal) =>
+    request(`/public/orders/${encodeURIComponent(poid)}/confirm-payment`, { method: 'POST', signal, auth: false }),
+
+  // ── Loyalty customer (Wave C area D — Bearer = customer token) ──
+  customerPoints:        (signal)         => request('/customer/points', { signal, role: 'customer' }),
+  customerPromos:        (signal)         => request('/customer/promos', { signal, role: 'customer' }),
+  customerGeneratePromo: (tenantId, signal) =>
+    request('/customer/promos/generate', { method: 'POST', body: { tenant_id: tenantId }, signal, role: 'customer' }),
+  customerTransactions:  (signal)         => request('/customer/transactions', { signal, role: 'customer' }),
 };

@@ -8,11 +8,18 @@ import CustomerProfileScreen from './CustomerProfileScreen.jsx';
 import CustomerHomeScreen from './CustomerHomeScreen.jsx';
 import CustomerQrScreen from './CustomerQrScreen.jsx';
 import CustomerMenuScreen from './CustomerMenuScreen.jsx';
+import CustomerHistoryScreen from './CustomerHistoryScreen.jsx';
+import CustomerPointsScreen from './CustomerPointsScreen.jsx';
+import CustomerPromoScreen from './CustomerPromoScreen.jsx';
 
+// 5 tab (paritas customer_bottom_nav Flutter): Beranda · Riwayat · QR (tengah,
+// ditonjolkan) · Poin · Profil. /customer/promo SENGAJA di luar nav.
 const TABS = [
-  { id: 'home', label: 'Beranda', icon: 'home', path: '/customer/home' },
-  { id: 'qr',   label: 'QR Saya', icon: 'sparkle', path: '/customer/qr' },
-  { id: 'menu', label: 'Menu',    icon: 'user', path: '/customer/menu' },
+  { id: 'home',    label: 'Beranda', icon: 'home',    path: '/customer/home' },
+  { id: 'history', label: 'Riwayat', icon: 'history', path: '/customer/history' },
+  { id: 'qr',      label: 'QR Saya', icon: 'sparkle', path: '/customer/qr' },
+  { id: 'points',  label: 'Poin',    icon: 'coin',    path: '/customer/points' },
+  { id: 'menu',    label: 'Profil',  icon: 'user',    path: '/customer/menu' },
 ];
 
 function CustomerNav() {
@@ -28,7 +35,7 @@ function CustomerNav() {
         background: 'var(--surface)',
         borderTop: '2px solid var(--border)',
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: `repeat(${TABS.length}, 1fr)`,
         padding: '8px 6px max(env(safe-area-inset-bottom), 10px)',
       }}
     >
@@ -56,7 +63,9 @@ function CustomerNav() {
 }
 
 // Gate rute customer: butuh customer token (TERPISAH dari sesi UMKM).
-function Gated({ children }) {
+// nav={false} untuk layar penuh tanpa bottom-nav (promo — paritas Flutter
+// yang menaruh /customer/promo di luar ShellRoute).
+function Gated({ children, nav = true }) {
   const [token, setTokenState] = useState(getCustomerToken());
   useEffect(() => {
     const onLogout = () => setTokenState('');
@@ -67,7 +76,7 @@ function Gated({ children }) {
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1 }}>{children}</div>
-      <CustomerNav />
+      {nav && <CustomerNav />}
     </div>
   );
 }
@@ -79,8 +88,11 @@ export default function CustomerApp() {
       <Route path="/customer/otp"     element={<CustomerOtpScreen />} />
       <Route path="/customer/profile" element={<CustomerProfileScreen />} />
       <Route path="/customer/home"    element={<Gated><CustomerHomeScreen /></Gated>} />
+      <Route path="/customer/history" element={<Gated><CustomerHistoryScreen /></Gated>} />
       <Route path="/customer/qr"      element={<Gated><CustomerQrScreen /></Gated>} />
+      <Route path="/customer/points"  element={<Gated><CustomerPointsScreen /></Gated>} />
       <Route path="/customer/menu"    element={<Gated><CustomerMenuScreen /></Gated>} />
+      <Route path="/customer/promo/:tenantId" element={<Gated nav={false}><CustomerPromoScreen /></Gated>} />
       <Route path="*"                 element={<Navigate to="/customer/login" replace />} />
     </Routes>
   );
