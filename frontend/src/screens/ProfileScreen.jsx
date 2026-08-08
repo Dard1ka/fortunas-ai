@@ -93,6 +93,19 @@ export default function ProfileScreen({ onLogout }) {
         ) : null}
       </Card>
 
+      {/* Kelola Produk — pintu masuk katalog (Wave C area A; paritas tombol
+          profile_products_button Flutter). */}
+      <div style={{ margin: '0 18px 14px' }}>
+        <Button
+          variant="secondary"
+          data-testid="profile-products-button"
+          onClick={() => navigate('/products')}
+          style={{ width: '100%' }}
+        >
+          Kelola Produk
+        </Button>
+      </div>
+
       {/* Pagar AI (DPA) — batasan yang wajib dipatuhi AI (MVP-5) */}
       <div style={{ margin: '0 18px 12px' }}>
         <button
