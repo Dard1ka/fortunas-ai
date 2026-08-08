@@ -57,7 +57,11 @@ export default function VoiceSuccess({ tx }) {
         Tersimpan!
       </h2>
       <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 6, maxWidth: 280, lineHeight: 1.5 }}>
-        {tx?.invoice ? `${tx.invoice} · ${formatRp(tx.total)} ` : ''}
+        {tx?.invoice
+          ? `${tx.invoice} · ${tx.items?.length ?? 0} item · ${formatRp(
+              (tx.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.unit_price) || 0), 0),
+            )} `
+          : ''}
         sudah tercatat di Google Sheets dan BigQuery.
       </p>
 

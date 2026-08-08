@@ -7,6 +7,7 @@ import VoiceParsed from './VoiceParsed.jsx';
 import VoiceSuccess from './VoiceSuccess.jsx';
 import useSpeechRecognition, { isSpeechRecognitionSupported } from './useSpeechRecognition.js';
 import { api, voiceHistoryKey } from '../api/client.js';
+import { parseTransaction } from './transactionParser.js';
 
 // States: idle → listening → parsing → parsed → success
 const TITLE_FOR_STATE = {
@@ -27,7 +28,7 @@ function pushVoiceHistory(tx) {
   } catch { /* non-fatal */ }
 }
 
-export default function VoiceFlow({ onClose }) {
+export default function VoiceFlow({ onClose, parseDelayMs = 650 }) {
   const [state, setState] = useState('idle');
   const [tx, setTx] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -57,37 +58,41 @@ export default function VoiceFlow({ onClose }) {
       return;
     }
     setState('parsing');
-    try {
-      const parsed = await api.voiceParse(transcript);
-      // Normalize keys (backend may return snake_case)
-      setTx({
-        invoice: parsed.invoice ?? '',
-        product: parsed.product ?? '',
-        qty: parsed.qty ?? 0,
-        unit_price: parsed.unit_price ?? parsed.unitPrice ?? 0,
-        total: parsed.total ?? (Number(parsed.qty || 0) * Number(parsed.unit_price || parsed.unitPrice || 0)),
-        customer: parsed.customer ?? '',
-        country: parsed.country ?? 'Indonesia',
-        confidence: parsed.confidence ?? null,
-      });
-      setState('parsed');
-    } catch (err) {
-      setError(err.message || 'Gagal mengurai transkrip.');
-      setState('listening');
-    }
+    // Parser LOKAL multi-item (Wave C area E) — tanpa jaringan, menggantikan
+    // POST /voice/parse yang single-item. Jeda singkat mempertahankan UX
+    // "AI MEMBACA…" (paritas delay 650ms Flutter).
+    if (parseDelayMs > 0) await new Promise((r) => setTimeout(r, parseDelayMs));
+    const parsed = parseTransaction(transcript);
+    // Parser gagal total → SATU baris kosong yang bisa diedit manual, TETAP
+    // maju ke layar konfirmasi (paritas fallback voice_flow.dart:132-136).
+    const items = parsed.items.length > 0
+      ? parsed.items
+      : [{ product: '', qty: 1, unit_price: 0 }];
+    setTx({
+      invoice: parsed.invoice,
+      customer: parsed.customer,
+      country: parsed.country,
+      items,
+      confidence: parsed.confidence,
+    });
+    setState('parsed');
   };
 
   const confirmSave = async () => {
-    if (!tx) return;
+    if (!tx || tx.items.length === 0) return;
     setSubmitting(true);
     setError(null);
     try {
-      const computedTotal = Number(tx.total) || Number(tx.qty) * Number(tx.unit_price);
+      const items = tx.items.map((it) => ({
+        product: it.product,
+        qty: Number(it.qty) || 0,
+        unit_price: Number(it.unit_price) || 0,
+      }));
       // K5 (ADR-0002): voice = metode input Checkout — SATU jalur tulis via
-      // /checkout/confirm (bisa attach customer, dipakai juga layar Kasir).
-      // /voice/transaction ditinggalkan sebagai jalur legacy backend.
+      // /checkout/confirm; kini SATU request multi-item (Flutter lama loop
+      // per item — deviasi sadar, dicatat di PR).
       const res = await api.checkoutConfirm({
-        items: [{ product: tx.product, qty: Number(tx.qty), unit_price: Number(tx.unit_price) }],
+        items,
         ...(tx.customer ? { customer: tx.customer } : {}),
         ...(tx.invoice ? { invoice: tx.invoice } : {}),
       });
@@ -96,7 +101,19 @@ export default function VoiceFlow({ onClose }) {
         setSubmitting(false);
         return;
       }
-      pushVoiceHistory({ ...tx, total: computedTotal, invoice: res?.invoice || tx.invoice });
+      // Riwayat lokal: SATU entri per item (bentuk {product, qty, total} yang
+      // dibaca HistoryScreen — sejalan dengan Flutter yang menyimpan per item).
+      const invoice = res?.invoice || tx.invoice;
+      for (const it of items) {
+        pushVoiceHistory({
+          invoice,
+          product: it.product,
+          qty: it.qty,
+          unit_price: it.unit_price,
+          total: it.qty * it.unit_price,
+          customer: tx.customer,
+        });
+      }
       setSubmitting(false);
       setState('success');
       closeTimerRef.current = setTimeout(() => onClose?.(), 2200);
@@ -198,7 +215,19 @@ export default function VoiceFlow({ onClose }) {
           submitting={submitting}
           error={error}
           onEdit={() => setEditing((v) => !v)}
-          onChange={(k, v) => setTx((prev) => ({ ...prev, [k]: v }))}
+          onChangeMeta={(k, v) => setTx((prev) => ({ ...prev, [k]: v }))}
+          onChangeItem={(i, k, v) => setTx((prev) => ({
+            ...prev,
+            items: prev.items.map((it, idx) => (idx === i ? { ...it, [k]: v } : it)),
+          }))}
+          onAddItem={() => setTx((prev) => ({
+            ...prev,
+            items: [...prev.items, { product: '', qty: 1, unit_price: 0 }],
+          }))}
+          onRemoveItem={(i) => setTx((prev) => ({
+            ...prev,
+            items: prev.items.filter((_, idx) => idx !== i),
+          }))}
           onRetry={reset}
           onConfirm={confirmSave}
         />
