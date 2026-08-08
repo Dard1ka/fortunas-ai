@@ -132,26 +132,34 @@ describe('Blok B — kasus yang harus tetap hijau', () => {
   });
 });
 
-describe('Blok C — known quirks (baseline = replikasi Dart persis)', () => {
-  test('C1 ratus+puluh salah (bug Dart yang direplikasi)', () => {
-    expect(parseNumberRun(['seratus', 'lima', 'puluh'])).toBe(1050);          // benar: 150
-    expect(parseNumberRun(['seratus', 'dua', 'puluh', 'lima', 'ribu'])).toBe(1025000); // benar: 125000
-    expect(parseNumberRun(['dua', 'ratus', 'lima', 'puluh', 'ribu'])).toBe(2050000);   // benar: 250000
-    expect(parseNumberRun(['satu', 'juta', 'dua', 'ratus', 'lima', 'puluh', 'ribu'])).toBe(3050000); // benar: 1250000
+describe('Blok C — C1/C2/C3 DIPERBAIKI; C4-C9 known quirks (paritas Dart)', () => {
+  test('C1 FIX: ratus+puluh benar (slot ratusan terpisah dari puluhan)', () => {
+    expect(parseNumberRun(['seratus', 'lima', 'puluh'])).toBe(150);
+    expect(parseNumberRun(['seratus', 'dua', 'puluh', 'lima', 'ribu'])).toBe(125000);
+    expect(parseNumberRun(['dua', 'ratus', 'lima', 'puluh', 'ribu'])).toBe(250000);
+    expect(parseNumberRun(['satu', 'juta', 'dua', 'ratus', 'lima', 'puluh', 'ribu'])).toBe(1250000);
+    // regresi: pola yang sudah benar di baseline tetap benar
+    expect(parseNumberRun(['delapan', 'ribu', 'lima', 'ratus'])).toBe(8500);
+    expect(parseNumberRun(['dua', 'belas'])).toBe(12);
+    expect(parseNumberRun(['tiga', 'puluh', 'lima', 'ribu'])).toBe(35000);
+    expect(parseNumberRun(['dua', 'puluh', 'lima', 'juta', 'lima', 'ratus', 'ribu'])).toBe(25500000);
+    expect(parseNumberRun(['seribu', 'lima', 'ratus'])).toBe(1500);
   });
 
-  test('C2 dua pemisah ribuan merusak token (bug Dart yang direplikasi)', () => {
+  test('C2 FIX: dua pemisah ribuan digabung penuh (lookahead global)', () => {
     expect(items('sabun 2 harga Rp 1.250.000')).toEqual([
-      { product: 'Sabun', qty: 2, unit_price: 0 },
-      { product: '1250.000', qty: 1, unit_price: 0 },
+      { product: 'Sabun', qty: 2, unit_price: 1250000 },
+    ]);
+    expect(items('mobil 1 harga 1.250.000.000')).toEqual([
+      { product: 'Mobil', qty: 1, unit_price: 1250000000 },
     ]);
   });
 
-  test('C3 qty telanjang >100 hilang diam-diam (bug Dart yang direplikasi)', () => {
+  test('C3 FIX: qty telanjang >100 tidak hilang saat kata kunci harga menimpa', () => {
     expect(items('beras 150 harga 12000')).toEqual([
-      { product: 'Beras', qty: 1, unit_price: 12000 },
+      { product: 'Beras', qty: 150, unit_price: 12000 },
     ]);
-    // workaround yang sudah jalan: kata kunci qty
+    // jalur kata kunci qty tetap bekerja
     expect(items('beras sebanyak 150 harga 12000')).toEqual([
       { product: 'Beras', qty: 150, unit_price: 12000 },
     ]);

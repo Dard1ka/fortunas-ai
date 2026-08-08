@@ -62,12 +62,21 @@ const DIGITS_RE = /^\d+$/;
 
 const isNumberWord = (w) => DIGITS_RE.test(w) || w in ONES || SCALE_WORDS.has(w);
 
-// Akumulator angka Indonesia — versi BASELINE yang mereplikasi Dart persis,
-// termasuk bug C1 ('puluh' mengalikan seluruh current termasuk ratusan:
-// 'seratus lima puluh' → 1050). Diperbaiki di commit fix terpisah.
+// Akumulator angka Indonesia. PERBAIKAN atas Dart (bug C1): slot RATUSAN
+// dipisah dari slot puluhan/satuan supaya 'puluh' tidak mengalikan ratusan
+// yang sudah masuk — 'seratus lima puluh' = 150 (Dart lama: 1050).
+// Nilai kelompok berjalan = hundreds + current; skala besar (ribu/juta/
+// miliar) mengalikan seluruh kelompok lalu mereset keduanya.
 export function parseNumberRun(toks) {
   let total = 0;
+  let hundreds = 0;
   let current = 0;
+  const group = () => hundreds + current;
+  const flushGroup = (factor) => {
+    total += (group() === 0 ? 1 : group()) * factor;
+    hundreds = 0;
+    current = 0;
+  };
   for (const t of toks) {
     if (DIGITS_RE.test(t)) { current += Number.parseInt(t, 10); continue; }
     switch (t) {
@@ -75,21 +84,21 @@ export function parseNumberRun(toks) {
       case 'sebelas': current += 11; break;
       case 'belas': current += 10; break; // satuan sudah ditambah (dua belas = 12)
       case 'puluh': current = (current === 0 ? 1 : current) * 10; break;
-      case 'seratus': current += 100; break;
-      case 'ratus': current = (current === 0 ? 1 : current) * 100; break;
-      case 'seribu': total += 1000; current = 0; break;
-      case 'ribu': total += (current === 0 ? 1 : current) * 1000; current = 0; break;
-      case 'sejuta': total += 1000000; current = 0; break;
-      case 'juta': total += (current === 0 ? 1 : current) * 1000000; current = 0; break;
+      case 'seratus': hundreds += 100; break;
+      case 'ratus': hundreds += (current === 0 ? 1 : current) * 100; current = 0; break;
+      case 'seribu': total += 1000; hundreds = 0; current = 0; break;
+      case 'ribu': flushGroup(1000); break;
+      case 'sejuta': total += 1000000; hundreds = 0; current = 0; break;
+      case 'juta': flushGroup(1000000); break;
       case 'miliar':
-      case 'milyar': total += (current === 0 ? 1 : current) * 1000000000; current = 0; break;
+      case 'milyar': flushGroup(1000000000); break;
       default: {
         const v = ONES[t];
         if (v != null) current += v;
       }
     }
   }
-  return total + current;
+  return total + hundreds + current;
 }
 
 const titleCase = (s) => s
@@ -104,14 +113,15 @@ function generateInvoice(now) {
   return `INV-${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}-${seq}`;
 }
 
-// Tokenizer: normalisasi (rp/idr → spasi; gabung grup ribuan SEKALI lintasan
-// — non-overlapping, paritas Dart replaceAllMapped termasuk bug C2 pada
-// '1.250.000'; '@'/';'/',' dispasikan), split, lalu deret MAKSIMAL token
-// angka dikolaps jadi SATU token NUM.
+// Tokenizer: normalisasi (rp/idr → spasi; gabung grup ribuan; '@'/';'/','
+// dispasikan), split, lalu deret MAKSIMAL token angka dikolaps jadi SATU
+// token NUM. PERBAIKAN atas Dart (bug C2): pemisah ribuan memakai lookahead
+// /(\d)[.,](?=\d{3}\b)/g sehingga '1.250.000' tergabung PENUH → 1250000
+// (regex Dart satu lintasan non-overlapping menyisakan '1250.000').
 function tokenize(text) {
   const t = text
     .replace(/\b(?:rp|idr)\.?\s*/g, ' ')
-    .replace(/(\d)[.,](\d{3})/g, '$1$2')
+    .replace(/(\d)[.,](?=\d{3}\b)/g, '$1')
     .replaceAll('@', ' @ ')
     .replaceAll(';', ' , ')
     .replaceAll(',', ' , ');
@@ -215,6 +225,14 @@ export function parseTransaction(rawTranscript, { now = new Date() } = {}) {
       if (expecting === 'qty') {
         cur.qty = v; cur.qtySeen = true;
       } else if (expecting === 'price') {
+        // PERBAIKAN atas Dart (bug C3): bila kata kunci harga akan MENIMPA
+        // unit_price yang terisi dari angka telanjang dan qty belum terisi,
+        // nilai lama dipindah ke qty alih-alih hilang diam-diam —
+        // 'beras 150 harga 12000' → qty 150 @12000 (Dart lama: qty 1).
+        if (cur.priceSeen && !cur.qtySeen) {
+          cur.qty = cur.unitPrice;
+          cur.qtySeen = true;
+        }
         cur.unitPrice = v; cur.priceSeen = true;
       } else if (!cur.qtySeen && v <= 100 && !cur.priceSeen) {
         // ATURAN BISNIS: angka telanjang >100 dianggap harga, bukan qty.
