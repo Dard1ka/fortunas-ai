@@ -1,9 +1,10 @@
 # Deploy Fortunas AI ke VPS (Ubuntu) — PWA + API satu origin, HTTPS wajib
 
-Panduan langkah demi langkah. Target akhir: **satu domain HTTPS** menyajikan
-aplikasi (PWA Flutter web) di `/` dan mem-proxy API di `/api/` — keduanya dari
-nginx yang sama, `deploy/nginx-fortunas.conf`. Backend tidak diubah sama sekali;
-trailing slash pada `proxy_pass` yang memotong prefiks `/api`.
+Panduan langkah demi langkah. Target akhir: **satu domain HTTPS**
+(`app.fortunas.id`) menyajikan aplikasi (PWA **React + Vite**, `frontend/`) di
+`/` dan mem-proxy API di `/api/` — keduanya dari nginx yang sama,
+`deploy/nginx-fortunas.conf`. Backend tidak diubah sama sekali; trailing slash
+pada `proxy_pass` yang memotong prefiks `/api`.
 
 > **⛔ HTTPS + domain bukan langkah opsional di akhir — ia PRASYARAT.**
 > Kanal rilis sekarang PWA, dan browser mengunci service worker, prompt install,
@@ -12,20 +13,20 @@ trailing slash pada `proxy_pass` yang memotong prefiks `/api`.
 > memakai base URL relatif `/api`, jadi ia **hanya** berfungsi di belakang nginx
 > ini — bukan dengan menembak `http://IP_VPS:8000` langsung.
 
-> **Urutan baca:** Step 1–6 (backend + systemd) berlaku apa adanya. **Sebelum**
-> Step 7 (nginx), kerjakan **"Deploy PWA § 1. Domain + HTTPS"** di bawah — config
-> nginx menunjuk sertifikat Let's Encrypt yang belum ada di VPS baru, jadi
-> `nginx -t` akan gagal kalau dijalankan lebih dulu. Step 8 dan Step 9 adalah
-> **peninggalan era backend-only/IP** dan sudah digantikan; keduanya diberi
-> tanda di tempatnya masing-masing.
+> **Urutan baca:** Step 1–6 (backend + systemd) berlaku apa adanya. Step 7
+> **memasang** config nginx (cp + sed) tapi **TIDAK me-reload-nya** — blok 443
+> menunjuk sertifikat Let's Encrypt yang belum ada di VPS baru, jadi `nginx -t`
+> pasti gagal di titik itu. Aktivasi terjadi di **"Deploy PWA § 1. Domain +
+> HTTPS"**: terbitkan sertifikat dulu (jalur `certonly --standalone`), baru
+> `nginx -t && reload`. Step 8 dan Step 9 adalah **peninggalan era
+> backend-only/IP** dan sudah digantikan; keduanya diberi tanda di tempatnya
+> masing-masing.
 
-> **Frontend React (`frontend/`) dipertahankan di repo sebagai arsip/rujukan
-> desain** (Task 1e, membatalkan sebagian penghapusan Task 1b) — tidak
-> dibangun, tidak dites, tidak di-gate CI, dan **tidak dideploy** di alur ini.
-> Client yang di-ship = Flutter di `mobile/`, dirilis sebagai PWA saja.
-> `mobile/android/` dan `mobile/ios/` (target native) tetap sudah dihapus
-> (Task 1b) — APK/appbundle **tidak bisa** dibangun lagi dari repo ini;
-> `flutter build web` adalah satu-satunya target build.
+> **Klien produksi = React 19 + Vite di `frontend/`** (ADR-0002,
+> `docs/adr/0002-react-production-client.md`): dibangun, dites, dan di-gate CI
+> (`Frontend (lint + test + build)`). Flutter di `mobile/` **deprecated** —
+> cadangan demo sampai Gate D, TIDAK dideploy di alur ini dan TIDAK menerima
+> fitur baru. Build yang diunggah ke docroot = `frontend/dist/`.
 
 ---
 
@@ -58,7 +59,7 @@ chown -R fortunas:fortunas /opt/fortunas-ai
 # install dulu rsync via Git Bash / WSL, atau pakai scp:
 scp -r "E:\Project LLM\Fortunas2\fortunas-ai" root@IP_VPS:/opt/fortunas-ai
 ```
-> JANGAN ikut upload `.venv`, `mobile/build`, `mobile/.dart_tool`, `frontend/node_modules`, `frontend/dist` (folder `frontend/` ada di repo sebagai arsip/rujukan desain, tapi tidak dideploy — tidak relevan untuk VPS). Boleh skip `chroma_db` (RAG opsional).
+> JANGAN ikut upload `.venv`, `mobile/build`, `mobile/.dart_tool`, `frontend/node_modules`, `frontend/dist` (frontend TIDAK dibangun di VPS — build di laptop dev, hanya hasil `frontend/dist/` yang di-rsync ke docroot, lihat "Deploy PWA § 2"). Boleh skip `chroma_db` (RAG opsional).
 Lalu: `chown -R fortunas:fortunas /opt/fortunas-ai`
 
 ## 3. Virtualenv + dependencies
@@ -106,22 +107,29 @@ systemctl status fortunas-backend     # harus "active (running)"
 curl http://127.0.0.1:8000/health      # {"status":"ok",...}
 ```
 
-## 7. nginx + firewall
+## 7. nginx + firewall (pasang config — AKTIVASI baru di "Deploy PWA § 1")
 
-> ⛔ **VPS baru / sertifikat belum pernah diterbitkan:** `deploy/nginx-fortunas.conf`
-> sekarang berisi blok `listen 443 ssl` yang menunjuk sertifikat Let's
-> Encrypt. Kalau sertifikat itu **belum ada**, `nginx -t` di bawah akan
-> GAGAL (`cannot load certificate ... No such file or directory`) dan
-> `&& systemctl reload nginx` tidak akan jalan. **Baca "Deploy PWA § 1.
-> Domain + HTTPS" (jauh di bawah) dulu — termasuk fallback
-> `certbot certonly --standalone`nya — sebelum menjalankan blok ini**, atau
-> terbitkan sertifikatnya lebih dulu baru lanjut ke sini.
+> ⛔ **Blok ini sengaja TIDAK menjalankan `nginx -t`/reload.**
+> `deploy/nginx-fortunas.conf` berisi blok `listen 443 ssl` yang menunjuk
+> sertifikat Let's Encrypt. Di VPS baru sertifikat itu **belum ada**, jadi
+> `nginx -t` pasti GAGAL (`cannot load certificate ... No such file or
+> directory`). Urutannya: pasang file di sini → terbitkan sertifikat di
+> **"Deploy PWA § 1. Domain + HTTPS"** → baru `nginx -t && reload` (ada di § 1).
+
+> ⚠ **VPS existing yang masih menyajikan demo lewat IP** (config lama mem-proxy
+> `http://<IP>/` langsung ke backend): JANGAN menimpa site lama dan JANGAN
+> menghapus `default` — pasang config baru sebagai **site terpisah** supaya
+> demo IP tetap hidup. Langkah persisnya ada di runbook redeploy (folder induk
+> `Fortunas/REDEPLOY_VPS_RUNBOOK.md`, seksi R3-2). Blok di bawah ini untuk
+> **VPS baru/bersih**.
 
 ```bash
 cp deploy/nginx-fortunas.conf /etc/nginx/sites-available/fortunas
+sed -i 's/FORTUNAS_DOMAIN/app.fortunas.id/g' /etc/nginx/sites-available/fortunas
+grep -c FORTUNAS_DOMAIN /etc/nginx/sites-available/fortunas   # harus 0 (semua terganti)
 ln -s /etc/nginx/sites-available/fortunas /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+# JANGAN `nginx -t` / reload di sini — lihat kotak peringatan di atas.
 
 ufw allow OpenSSH
 ufw allow 80/tcp     # ACME challenge + redirect 301 ke HTTPS
@@ -213,71 +221,65 @@ Tanpa HTTPS: service worker tidak teregistrasi, tidak ada prompt install, dan
 tanpa ini PWA tidak layak dipakai.
 
 ```bash
-# 1. Arahkan domain ke IP VPS (DuckDNS gratis, atau A record di registrar)
-#    contoh: fortunas.duckdns.org → <IP VPS>
+# 0. Prasyarat: config sudah dipasang + di-sed di Step 7 (file
+#    /etc/nginx/sites-available/fortunas ada, placeholder sudah terganti).
 
-# 2. Ganti placeholder di config (4 kemunculan)
-sudo sed -i 's/FORTUNAS_DOMAIN/fortunas.duckdns.org/g' \
-  /etc/nginx/sites-available/fortunas
+# 1. Arahkan domain ke IP VPS — A record `app` di zona fortunas.id → IP VPS
+#    verifikasi dari laptop: curl -s -o /dev/null -w "%{remote_ip}\n" http://app.fortunas.id
 
-# 3. Terbitkan sertifikat
-# (mkdir di bawah untuk fallback webroot mode; --nginx tidak memakainya,
-#  tapi murah untuk disiapkan sekarang — lihat komentar di nginx-fortunas.conf)
-sudo mkdir -p /var/www/certbot
-sudo certbot --nginx -d fortunas.duckdns.org
+# 2. Terbitkan sertifikat PERTAMA KALI — jalur standalone.
+#    (certbot --nginx TIDAK bisa dipakai di titik ini: config yang ter-enable
+#     menunjuk file sertifikat yang belum ada, nginx menolak me-load-nya.
+#     nginx berhenti sebentar selama penerbitan.)
+sudo apt install -y certbot python3-certbot-nginx    # kalau belum terpasang
+sudo mkdir -p /var/www/certbot                       # disiapkan utk webroot mode kelak
+sudo systemctl stop nginx
+sudo certbot certonly --standalone -d app.fortunas.id
+sudo systemctl start nginx
 
-# 4. Uji perpanjangan otomatis
+# 3. AKTIVASI config (file sertifikat kini ada → nginx mau me-load-nya)
+sudo nginx -t && sudo systemctl reload nginx
+
+# 4. Uji perpanjangan otomatis (renewal TIDAK butuh stop nginx lagi)
 sudo certbot renew --dry-run
 ```
 
-> **Jebakan bootstrap pertama kali:** `deploy/nginx-fortunas.conf` sudah
-> berisi blok `listen 443 ssl` yang menunjuk ke sertifikat Let's Encrypt.
-> Kalau sertifikat itu **belum pernah diterbitkan**, `nginx -t` / reload apa
-> pun (termasuk yang dicoba internal oleh certbot) akan gagal dengan
-> `cannot load certificate ... No such file or directory` — nginx tidak
-> bisa memuat config yang menunjuk sertifikat kosong. Kalau `certbot --nginx`
-> gagal karena ini, terbitkan sertifikat dulu tanpa nginx aktif:
-> `sudo systemctl stop nginx && sudo certbot certonly --standalone -d fortunas.duckdns.org && sudo systemctl start nginx`
-> — setelah file sertifikat ada, reload nginx dengan config penuh di atas
-> akan berhasil, dan `certbot --nginx`/`certbot renew` berikutnya berjalan normal.
+> **Kenapa standalone dulu, bukan `certbot --nginx`:** config di atas berisi
+> blok `listen 443 ssl` yang menunjuk sertifikat Let's Encrypt. Selama
+> sertifikat **belum pernah diterbitkan**, `nginx -t` / reload apa pun
+> (termasuk yang dicoba internal oleh `certbot --nginx`) gagal dengan
+> `cannot load certificate ... No such file or directory` — nginx tidak bisa
+> memuat config yang menunjuk sertifikat kosong. Karena itu penerbitan pertama
+> memakai `certonly --standalone` (nginx dimatikan sebentar). **Setelah** file
+> sertifikat ada, `certbot --nginx -d app.fortunas.id` dan `certbot renew`
+> berjalan normal untuk seterusnya.
 
 ### 2. Build & unggah PWA
 
-**Build** (di laptop developer):
+**Build** (di laptop developer — **byte-identik dengan perintah CI**, job
+`Frontend (lint + test + build)`):
 
 ```bash
-cd mobile
-flutter build web --release --no-web-resources-cdn
+cd frontend
+npm ci          # lockfile-pinned; Node >= 20.19 (CI pakai Node 22)
+npm run build   # hasil di frontend/dist/
 ```
 
-> **⛔ `--no-web-resources-cdn` WAJIB, jangan dihilangkan.** Tanpa flag itu
-> `flutter_bootstrap.js` memancarkan `buildConfig` ber-`engineRevision` tanpa
-> `useLocalCanvasKit`, sehingga loader mengambil CanvasKit dari
-> `https://www.gstatic.com/flutter-canvaskit/<engineRevision>/canvaskit.js` saat
-> runtime. Empat akibatnya semuanya membatalkan klaim yang dipegang produk ini:
-> 1. **Cold load offline tidak bisa boot.** `flutter_service_worker.js` hanya
->    meng-cache resource same-origin, jadi CanvasKit tidak pernah masuk cache.
-> 2. **Ada script pihak ketiga yang disuntik saat runtime**, walau `index.html`
->    sendiri tidak memuat script eksternal apa pun.
-> 3. Angka payload jadi bohong: `canvaskit.wasm` dihitung sebagai payload origin
->    padahal tidak pernah diminta dari origin ini.
-> 4. Blok `.wasm` (`default_type application/wasm` + gzip) di
->    `nginx-fortunas.conf` jadi mati — tidak ada `.wasm` yang pernah diminta.
->
-> Ditambah: satu request pihak ketiga per cold load mengirim IP setiap UMKM ke
-> Google — bersinggungan dengan narasi UU PDP proyek ini. Flag yang sama sudah
-> dipasang di gate CI (`.github/workflows/ci.yml`), supaya CI mem-build persis
-> apa yang dideploy.
->
-> **Cek cepat setelah build** — harus mencetak satu baris:
+> **⛔ Cek pasca-build WAJIB — nol request pihak ketiga.** Font di-self-host
+> (subset woff2 ber-hash di `dist/assets/`), jadi grep berikut harus **KOSONG**:
 > ```bash
-> grep -o '"useLocalCanvasKit":true' build/web/flutter_bootstrap.js
+> grep -R "fonts.googleapis" dist/
 > ```
-> Kalau kosong, flag-nya tidak terpakai. Jangan pakai `grep gstatic` sebagai
-> cek: string `www.gstatic.com` **tetap ada** di loader sebagai cabang `else`
-> (`…useLocalCanvasKit?…:_("https://www.gstatic.com/flutter-canvaskit"…)`), jadi
-> keberadaannya tidak membuktikan apa pun. Yang menentukan adalah flag
-> `useLocalCanvasKit` di `_flutter.buildConfig`.
+> Kalau ada match, ada regresi yang memuat font dari Google saat runtime.
+> Akibatnya: (a) IP setiap UMKM terkirim ke Google di tiap cold load —
+> bersinggungan dengan narasi UU PDP proyek ini; (b) cold load offline tidak
+> bisa boot (service worker hanya meng-cache resource same-origin). Build ulang
+> setelah regresinya diperbaiki — jangan deploy build yang gagal cek ini.
+>
+> Cek kelengkapan rantai boot PWA (empat file wajib ada):
+> ```bash
+> ls dist/index.html dist/manifest.webmanifest dist/sw.js dist/registerSW.js
+> ```
 
 **Unggah.** Direktori tujuan harus dibuat **di VPS** lebih dulu (perintah
 `mkdir`/`chown` di bawah jalan lewat `ssh`, BUKAN di laptop) dan dimiliki oleh
@@ -286,66 +288,87 @@ user SSH-mu, kalau tidak `rsync` sebagai user biasa akan gagal
 butuh hak **baca** — `755`/`644` sudah cukup, jangan `chown` ke `www-data`.
 
 ```bash
+# (jalankan dari ROOT repo — kalau masih di dalam frontend/ setelah build,
+#  `cd ..` dulu: path sumber di bawah adalah frontend/dist/ relatif root)
+
 # 1. Siapkan direktori DI VPS (perhatikan: ini di dalam ssh)
 ssh <user>@<vps> 'sudo mkdir -p /var/www/fortunas && sudo chown -R <user>:<user> /var/www/fortunas && sudo chmod 755 /var/www/fortunas'
 
 # 2. DRY-RUN dulu — WAJIB. `--delete` menghapus apa pun di sisi tujuan yang
 #    tidak ada di sumber; salah ketik path tujuan = penghapusan tanpa jaring.
-#    Baca daftarnya: harus berisi file build/web, dan "deleting …" tidak boleh
-#    menyebut apa pun di luar deploy PWA sebelumnya.
-rsync -av --delete --dry-run build/web/ <user>@<vps>:/var/www/fortunas/
+#    Baca daftarnya: harus berisi file frontend/dist (index.html, assets/,
+#    sw.js…), dan "deleting …" tidak boleh menyebut apa pun di luar deploy
+#    PWA sebelumnya.
+rsync -av --delete --dry-run frontend/dist/ <user>@<vps>:/var/www/fortunas/
 
 # 3. Baru jalankan sungguhan
-rsync -av --delete build/web/ <user>@<vps>:/var/www/fortunas/
+rsync -av --delete frontend/dist/ <user>@<vps>:/var/www/fortunas/
 ```
 
-> Dari Windows (branch ini dibangun di Windows): **tidak ada `sudo` di laptop**,
-> dan `rsync` tidak ada di PowerShell/cmd — jalankan dua perintah `rsync` di atas
-> dari **Git Bash** atau **WSL**. Alternatif tanpa rsync:
-> `scp -r build/web/* <user>@<vps>:/var/www/fortunas/` (tapi `scp` **tidak**
+> Dari Windows: **tidak ada `sudo` di laptop**, dan `rsync` tidak ada di
+> PowerShell/cmd — jalankan dua perintah `rsync` di atas dari **Git Bash** atau
+> **WSL**. Alternatif tanpa rsync:
+> `scp -r frontend/dist/* <user>@<vps>:/var/www/fortunas/` (tapi `scp` **tidak**
 > menghapus file lama, jadi hapus manual dulu:
-> `ssh <user>@<vps> 'rm -rf /var/www/fortunas/*'`).
+> `ssh <user>@<vps> 'rm -rf /var/www/fortunas/*'` — penting karena aset Vite
+> ber-hash: file build lama yang tertinggal tidak pernah tertimpa namanya).
 
 > **⚠ Docroot ini bukan tempat penitipan file.** `/var/www/fortunas` satu origin
 > dengan API, dan **token JWT UMKM hidup di `localStorage` origin itu**. Apa pun
 > yang disajikan dari sini — halaman statis yang tidak berhubungan, HTML hasil
 > upload, direktori listing (`autoindex`) — mewarisi hak baca token sesi
-> **setiap** UMKM. Isi `/var/www/fortunas` HANYA hasil `flutter build web`.
-
-`build/web` berisi `.symbols` (~3,8 MB) yang tidak pernah diserve dan kedua varian
-canvaskit (`canvaskit/` untuk Firefox/Safari, `canvaskit/chromium/` untuk
-Chrome/Edge). Boleh dibiarkan; nginx hanya mengirim yang diminta browser.
+> **setiap** UMKM. Isi `/var/www/fortunas` HANYA hasil `npm run build`
+> (`frontend/dist/`).
 
 ### 3. Verifikasi setelah deploy
 
-- `https://<domain>/` memuat aplikasi; tab bertuliskan **Fortunas AI**
-- DevTools → Application → Service Workers: `activated`
+> **⚠ Jebakan SW basi saat verifikasi:** service worker `autoUpdate` bisa
+> menyajikan build LAMA di kunjungan pertama pasca-deploy (SW lama masih
+> memegang precache-nya sampai SW baru selesai install + halaman di-reload).
+> Saat memverifikasi build baru: DevTools → Application → Service Workers →
+> **Unregister** + Storage → **Clear site data**, lalu hard-reload — atau buka
+> lewat jendela private. Pengguna biasa tidak perlu ini (update terpasang
+> otomatis di navigasi berikutnya); ini hanya soal *kapan verifikatormu
+> melihat* build baru.
+
+- `https://app.fortunas.id/` memuat aplikasi; tab bertuliskan **Fortunas AI**
+- DevTools → Application → Service Workers: `activated` (file `sw.js`)
 - DevTools → Application → Manifest: nol peringatan installability
+  (`manifest.webmanifest`, theme_color `#6D5EF7`)
 - Tekan tombol mic → browser meminta izin mikrofon (**bukti secure context bekerja**)
 - Login berhasil (membuktikan proxy `/api/` benar)
 - Gambar produk tampil (membuktikan proxy `/media/` benar)
-- **Nol request ke host pihak ketiga.** DevTools → Network, filter kolom Domain: semua
-  request harus ke `<domain>` sendiri. Kalau ada `www.gstatic.com`, build-nya dibangun tanpa
-  `--no-web-resources-cdn` — build ulang.
-- **Boot offline.** Load sekali online sampai selesai, lalu DevTools → Network → **Offline**
-  → reload. Aplikasi harus tetap boot. (Load *pertama kali* memang butuh jaringan: resource
-  non-CORE seperti `canvaskit/*` dan font baru di-cache saat pertama diminta.)
-- **Header cache benar** — `flutter_bootstrap.js` dan `main.dart.js` harus `no-cache`,
-  bukan `max-age=2592000`:
+- **Nol request ke host pihak ketiga.** DevTools → Network, filter kolom Domain:
+  semua request harus ke `app.fortunas.id` sendiri. Kalau ada
+  `fonts.googleapis.com`/`fonts.gstatic.com`, build gagal cek § 2 — build ulang.
+- **Boot offline.** Load sekali online sampai selesai, lalu DevTools → Network →
+  **Offline** → reload. Aplikasi harus tetap boot (app shell + font woff2 masuk
+  precache SW). Load *pertama kali* memang butuh jaringan — itu benar, bukan bug.
+- **Header cache benar** — rantai boot `no-cache`, aset ber-hash `immutable`:
   ```bash
-  for f in / index.html flutter_bootstrap.js main.dart.js manifest.json flutter_service_worker.js; do
-    echo "== $f"; curl -sI "https://<domain>/$f" | grep -i -E 'cache-control|strict-transport'
+  # empat file rantai boot → harus Cache-Control: no-cache
+  for f in index.html manifest.webmanifest sw.js registerSW.js; do
+    echo "== $f"; curl -sI "https://app.fortunas.id/$f" | grep -i -E 'cache-control|strict-transport'
   done
+  # satu aset ber-hash (ambil nama dari sumber index.html) → harus public, immutable
+  ASET=$(curl -s https://app.fortunas.id/index.html | grep -o '/assets/index-[^"]*\.js' | head -1)
+  echo "== $ASET"; curl -sI "https://app.fortunas.id$ASET" | grep -i -E 'cache-control|strict-transport'
   ```
+- **SPA fallback jalan** (React Router pakai path riil): deep-link langsung ke
+  rute dalam harus balas 200 dan me-render app, bukan 404:
+  `curl -s -o /dev/null -w '%{http_code}\n' https://app.fortunas.id/briefing` → `200`.
 - **HSTS ada di dokumen utama** (bukan cuma di `/api/`):
-  `curl -sI https://<domain>/index.html | grep -i strict-transport` → harus muncul.
+  `curl -sI https://app.fortunas.id/index.html | grep -i strict-transport` → harus muncul.
   Kalau kosong, `add_header` di `location = /index.html` menimpa warisan server-level —
   baris HSTS di blok itu hilang (lihat komentar jebakan di `nginx-fortunas.conf`).
 - **Swagger tidak publik:** ketiga perintah ini harus balas `404`:
   ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/api/docs
-  curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/api/redoc
-  curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/api/openapi.json
+  curl -s -o /dev/null -w '%{http_code}\n' https://app.fortunas.id/api/docs
+  curl -s -o /dev/null -w '%{http_code}\n' https://app.fortunas.id/api/redoc
+  curl -s -o /dev/null -w '%{http_code}\n' https://app.fortunas.id/api/openapi.json
   ```
-- **API tetap hidup:** `curl -s https://<domain>/api/health` → `{"status":"ok",...}`
-  (membuktikan blok 404 di atas tidak kebablasan memblokir seluruh `/api/`).
+- **API tetap hidup + versi kode benar:**
+  `curl -s https://app.fortunas.id/api/health` → `{"status":"ok",...}` dan
+  `curl -s https://app.fortunas.id/api/analyses | python3 -c "import json,sys;print(len(json.load(sys.stdin)['available_analyses']))"`
+  → **11** (kalau 4, backend VPS belum di-redeploy ke `main` — lihat runbook
+  redeploy di folder induk).
