@@ -15,11 +15,11 @@
 
 ```bash
 python -m pytest tests/ -v
-cd mobile && flutter analyze --no-fatal-infos
+cd frontend && npm run lint && npm test && npm run build
 ```
 
 ## Checklist
-- [ ] CI hijau (ruff + pytest + flutter analyze)
+- [ ] CI hijau (ruff + pytest · eslint + vitest + build)
 - [ ] Alur lama tidak rusak (voice/checkout, auth web)
 - [ ] Mengikuti kontrak di `docs/API_CONTRACTS.md` (kalau menyentuh schema/endpoint)
 - [ ] Tidak ada secret/credential ter-commit

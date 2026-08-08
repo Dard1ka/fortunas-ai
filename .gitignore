@@ -71,15 +71,6 @@ logs/
 CLAUDE.md
 # Decoded mockup assets from design hand-off — reference only.
 _decoded_assets/
-_decoded_mobile.html
-
-# ── Flutter build artifacts (mobile/) ───────────────────────────
-mobile/.dart_tool/
-mobile/build/
-mobile/.flutter-plugins
-mobile/.flutter-plugins-dependencies
-mobile/.packages
-mobile/pubspec.lock
 
 # ── Handover doc (berisi credential/infra — JANGAN commit ke repo publik) ──
 # Baris HANDOVER.md pernah ada di commit 5943661 tapi TIDAK ikut ter-squash saat

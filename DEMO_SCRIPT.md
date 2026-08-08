@@ -1,133 +1,106 @@
-# Fortunas AI — Demo Script
+# Fortunas AI — Demo Script (React PWA)
 
-> ⚠️ **Transisi klien (2026-08-07, ADR-0002):** jalur demo Flutter di bawah masih BERLAKU
-> sampai Gate D. Jalur demo React ditulis saat verifikasi Spec 2 R2; rewrite final dokumen ini
-> terjadi di PR Gate D.
-
-> **Catatan (Task 1d, 2026-08-07):** Setup di bawah ini sudah usang di dua hal —
-> **(1)** LLM aktif produksi sekarang **Gemini 2.5 Flash**, bukan Ollama/Qwen3
-> lokal (Ollama masih ada di `docker-compose.yml` tapi diarsipkan di balik
-> `profiles: ["archive"]`, dipilih sengaja lewat `LLM_PROVIDER=ollama`); dan
-> **(2)** klien React `frontend/` dipertahankan di repo sebagai arsip/rujukan
-> desain (Task 1e, membatalkan sebagian penghapusan Task 1b) — tidak dibangun,
-> tidak dites, tidak di-gate CI. Klien yang di-ship tetap **Flutter web (PWA)**
-> dari `mobile/`. Langkah di bawah ditulis ulang supaya cocok dengan repo saat
-> ini.
+> Ditulis ulang di Gate D (ADR-0002, 2026-08-08): klien = **React `frontend/`**,
+> live di **https://app.fortunas.id**. LLM aktif = **Gemini 2.5 Flash** (cloud);
+> jalur Ollama/Qwen3 lokal diarsipkan (`profiles: ["archive"]` di compose).
 
 ## Persiapan Sebelum Demo
 
-### 🐳 Cara 1: Docker (backend saja — Gemini, tanpa Ollama)
+### 🌐 Cara 0 (paling gampang): pakai produksi
+
+Buka **https://app.fortunas.id** — tidak perlu setup apa pun. HTTPS aktif, jadi
+mic (voice) dan install PWA berfungsi. Login dengan akun demo tim (JANGAN pakai
+tenant uji `toko_uji_*`).
+
+### 🐳 Cara 1: Docker (backend) + Vite dev (frontend)
 
 ```bash
-# Pastikan .env sudah diisi (GEMINI_API_KEY, JWT_SECRET, BIGQUERY_*) dan credentials/ ada
-docker compose up -d           # start backend (background)
-docker compose ps              # cek container fortunas_backend STATUS = running
+# Pastikan .env terisi (GEMINI_API_KEY, JWT_SECRET, BIGQUERY_*) dan credentials/ ada
+docker compose up -d           # backend di :8000
+docker compose ps              # fortunas_backend STATUS = running
 
-# Jalankan PWA terpisah (bukan di dalam Docker):
-cd mobile
-flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
+cd frontend
+npm ci
+npm run dev                    # buka http://localhost:3000 (/api di-proxy ke :8000)
 ```
 
-> Ollama TIDAK perlu dinyalakan untuk demo — LLM aktif adalah Gemini (API cloud).
-> Kalau memang mau demo jalur lokal arsip: `docker compose --profile archive up ollama`
-> + `make pull-model` + set `LLM_PROVIDER=ollama` di `.env`.
+> Mic butuh secure context: untuk uji voice dari HP di jaringan yang sama,
+> pakai `npm run dev:https` (mkcert).
 
 ### ⚙️ Cara 2: Manual (tanpa Docker)
 
 ```bash
-# 1. Jalankan backend (Gemini API, tidak butuh Ollama)
-cd fortunas-ai
+# 1. Backend
 .venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 
-# 2. Jalankan PWA (terminal baru)
-cd mobile
-flutter run -d chrome --dart-define=FORTUNAS_API=http://127.0.0.1:8000
+# 2. Frontend (terminal baru)
+cd frontend
+npm run dev
 ```
 
 ---
 
-## Skenario Demo (5 skenario, ~10 menit)
+## Skenario Demo (7 skenario, ~12 menit)
 
 ### Skenario 1: Customer Loyal (Repeat Customer)
-**Tujuan**: Tunjukkan AI bisa identifikasi pelanggan yang sering belanja
+**Tujuan**: AI mengidentifikasi pelanggan yang sering belanja
 
-**Langkah**:
-1. Klik contoh pertanyaan: **"Siapa customer yang paling sering beli?"**
-2. Klik **Analisis**
-3. Tunggu hasil (~15-30 detik)
+1. Di Beranda, klik chip contoh **"Analisis Pelanggan Loyal"** (atau ketik
+   "Siapa customer yang paling sering beli?") → **Analisis**
+2. Tunggu hasil (produksi terukur ±3–4 detik)
 
-**Yang ditunjukkan ke juri**:
-- AI mengenali intent "repeat customer" dari bahasa natural
-- Query SQL otomatis dijalankan ke BigQuery
-- LLM menginterpretasi data menjadi insight yang mudah dipahami
-- Ada 3 temuan + 3 rekomendasi spesifik
-- Agent trace menunjukkan step-by-step proses
-
----
+**Poin ke juri**: intent dikenali dari bahasa natural → SQL per-tenant ke
+BigQuery → LLM menginterpretasi jadi insight + rekomendasi; jawaban selalu
+grounded pada data toko itu sendiri.
 
 ### Skenario 2: Jam Ramai (Peak Hour)
-**Tujuan**: Tunjukkan analisis waktu transaksi
+Ketik **"Kapan waktu paling ramai?"** → Analisis.
+Diskusi: siapkan stok & target promo pada jam ramai.
 
-**Langkah**:
-1. Klik **"Tanya pertanyaan baru"**
-2. Ketik: **"Kapan waktu paling ramai?"**
-3. Klik Analisis
+### Skenario 3: Produk Bundling (Market Basket)
+Ketik **"Produk apa yang sering dibeli bersama?"** → Analisis.
+Diskusi: paket bundling berdasarkan data, bukan feeling.
 
-**Poin diskusi**:
-- "Pemilik UMKM bisa tahu kapan harus siapkan stok lebih"
-- "Promo bisa ditargetkan pada jam ramai"
+### Skenario 4: Kasir + Kelola Produk (alur transaksi nyata)
+1. **Profil → Kelola Produk** → tambah 1 produk (nama, harga, foto)
+2. **Beranda → Kasir** → ketik nama produk → autocomplete menyarankan produk
+   yang baru dibuat → simpan transaksi multi-item
 
----
+**Poin**: data analitik lahir dari operasional sehari-hari, tanpa entry ganda.
 
-### Skenario 3: Produk Bundling
-**Tujuan**: Tunjukkan market basket analysis
+### Skenario 5: Voice multi-item (HIGHLIGHT teknis)
+1. Tekan tombol **mic** → ucapkan SATU kalimat berisi beberapa produk, mis.
+   *"sabun cuci 10 harga 8.500, minyak goreng 5 harga 20.000, dan beras dua
+   karung enam puluh ribu"*
+2. Layar konfirmasi menampilkan 3 baris item (bisa dikoreksi) → simpan
 
-**Langkah**:
-1. Klik pertanyaan baru
-2. Ketik: **"Produk apa yang sering dibeli bersama?"**
-3. Klik Analisis
+**Poin**: parser lokal di perangkat (angka Bahasa Indonesia, "dua karung enam
+puluh ribu" → 2 × Rp60.000), bekerja tanpa memanggil LLM.
 
-**Poin diskusi**:
-- "AI menemukan pasangan produk yang sering dibeli bersamaan"
-- "UMKM bisa buat paket bundling berdasarkan data, bukan feeling"
+### Skenario 6: Pesanan online + QRIS (alur pelanggan)
+1. Jendela private: **app.fortunas.id/order** → masukkan kode toko (mis. `KDR-001`)
+2. Pilih menu → **Pesan** → isi nama & HP → QRIS tampil → **"Saya sudah bayar"**
+3. Kembali sebagai UMKM: Beranda menampilkan badge **"1 pesanan menunggu
+   diterima"** → **Pesanan Masuk** → Terima → Selesai
 
----
+**Poin**: pelanggan tanpa akun & tanpa aplikasi; UMKM memverifikasi dana lalu
+satu tap — penjualan otomatis tercatat ke BigQuery.
 
-### Skenario 4: High-Value Customer
-**Tujuan**: Identifikasi customer bernilai tinggi
-
-**Langkah**:
-1. Klik pertanyaan baru
-2. Klik contoh: **"Siapa customer dengan belanja tertinggi?"**
-3. Klik Analisis
-
-**Poin diskusi**:
-- "Customer bernilai tinggi perlu treatment khusus"
-- "AI kasih rekomendasi spesifik per customer"
-
----
-
-### Skenario 5: Briefing Otomatis (HIGHLIGHT)
-**Tujuan**: Tunjukkan fitur unggulan — auto-analysis tanpa perlu bertanya
-
-**Langkah**:
-1. Klik tab **"Briefing Bisnis"**
-2. Klik **"Mulai Briefing Otomatis"**
-3. Tunggu (~2-5 menit, seluruh 11 analisis terdaftar + executive summary — lihat `app/analysis_registry.py`)
-
-**Poin diskusi**:
-- "Ini yang membedakan Fortunas dari dashboard biasa"
-- "Pemilik UMKM buka pagi, langsung dapat briefing bisnis"
-- "Executive summary merangkum semua insight jadi 2-3 kalimat"
-- "Setiap section bisa di-expand untuk detail"
+### Skenario 7: Briefing Otomatis (WOW-moment penutup)
+Tab **Briefing** → **Mulai Briefing** → 11 seksi analisis + executive summary.
+Diskusi: "buka toko pagi, langsung dapat briefing bisnis — pembeda dari
+dashboard biasa."
 
 ---
 
 ## Tips Presentasi
 
-1. **Mulai dari masalah**: "UMKM punya data tapi tidak punya data analyst"
-2. **Demo yang smooth**: Buka semua skenario berurutan, jangan lompat-lompat
-3. **Briefing terakhir**: Ini wow-moment, simpan untuk penutup
-4. **Jika LLM lambat**: LLM aktif adalah Gemini 2.5 Flash (API cloud) — lambat biasanya karena latensi jaringan, bukan komputasi lokal. Jalur lokal (Ollama/Qwen3) masih ada sebagai arsip kalau perlu demo tanpa API key.
-5. **Jika error**: Tunjukkan error handling yang graceful, jelaskan agent trace
+1. **Mulai dari masalah**: "UMKM punya data tapi tidak punya data analyst."
+2. **Urutan di atas sudah naik-turun ritmenya** — analitik → operasional →
+   voice → pelanggan → briefing sebagai penutup.
+3. **Jika LLM lambat**: Gemini = API cloud; lambat berarti latensi jaringan.
+4. **Jika error**: tunjukkan error handling yang sopan (Bahasa Indonesia) +
+   agent trace.
+5. **JANGAN demo pakai tenant uji** `toko_uji_jangan_dipakai` — buat/gunakan
+   akun demo tim.

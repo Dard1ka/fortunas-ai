@@ -53,47 +53,22 @@ jobs:
         run: npm run build
 
   mobile:
-    # ⚠️ JANGAN GANTI STRING `name:` INI.
-    # Proteksi branch `main` mencocokkan required status check berdasarkan NAMA
-    # JOB secara harfiah. Mengubahnya membuat GitHub menunggu selamanya sebuah
-    # check yang tidak akan pernah dilaporkan, dan PR macet di `blocked` —
-    # bukan `dirty`, jadi tidak terlihat seperti masalah CI dan mudah salah
-    # didiagnosis. Sudah pernah terjadi: PR #26 sempat macet karena job ini
-    # di-rename, sementara `Backend (ruff + pytest)` lolos.
-    # Kalau nama ini memang mau diperbarui, ubah setelan required status check
-    # di Settings → Branches DALAM PERUBAHAN YANG SAMA (butuh hak admin repo).
-    # Isi job-nya kini: analyze + test + build web (lihat langkah-langkah di bawah).
+    # ⚠️ JANGAN GANTI STRING `name:` INI (dulu). STATUS: STUB GATE D.
+    #
+    # `mobile/` (Flutter) sudah DIHAPUS di Gate D (ADR-0002) — klien produksi
+    # adalah React `frontend/`. Job ini sengaja disisakan sebagai STUB bernama
+    # sama karena branch protection `main` masih mencantumkan
+    # `Mobile (flutter analyze)` sebagai required check yang dicocokkan
+    # berdasarkan NAMA JOB secara harfiah; menghapusnya sebelum setelan
+    # diubah membuat SEMUA PR macet `blocked` menunggu check yang tidak akan
+    # pernah dilaporkan (insiden PR #26).
+    #
+    # LANGKAH PENUTUP (butuh hak admin repo — Dard1ka):
+    # Settings → Branches → required status checks: hapus
+    # `Mobile (flutter analyze)`, tambahkan `Frontend (lint + test + build)`;
+    # lalu hapus seluruh job stub ini DALAM PR YANG SAMA.
     name: Mobile (flutter analyze)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.32.7"
-          channel: stable
-          cache: true
-      - name: Flutter deps
-        run: flutter pub get
-        working-directory: mobile
-      # --no-fatal-infos: gagal hanya pada error/warning, bukan info gaya.
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
-        working-directory: mobile
-      - name: Test
-        run: flutter test
-        working-directory: mobile
-      # Kanal rilis = PWA. Tanpa gate ini, regresi khusus web (mis. plugin
-      # yang tidak mendukung web) lolos diam-diam sampai deploy.
-      #
-      # --no-web-resources-cdn: WAJIB, dan harus sama dengan perintah build di
-      # deploy/DEPLOY.md. Tanpa flag ini `flutter_bootstrap.js` memancarkan
-      # buildConfig ber-`engineRevision` tanpa `useLocalCanvasKit`, sehingga
-      # loader mengambil CanvasKit dari https://www.gstatic.com/flutter-canvaskit/
-      # saat runtime. Akibatnya: cold load offline tidak bisa boot (service
-      # worker hanya meng-cache same-origin), ada script pihak ketiga yang
-      # disuntik meski index.html bersih, dan IP tiap UMKM terkirim ke Google.
-      # Gate CI harus mem-build persis apa yang dideploy, kalau tidak gate ini
-      # menghijaukan artefak yang berbeda dari yang dipakai produksi.
-      - name: Build web (PWA release)
-        run: flutter build web --release --no-web-resources-cdn
-        working-directory: mobile
+      - name: Stub Gate D
+        run: echo "mobile/ (Flutter) dihapus di Gate D (ADR-0002). Job ini stub agar required check tetap terlapor sampai admin menukar setelan branch protection."

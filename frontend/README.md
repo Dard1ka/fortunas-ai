@@ -1,10 +1,7 @@
 # Fortunas AI — Web Client (Produksi)
 
 Klien produksi Fortunas AI: **React 19 + Vite** — stack yang di-commit proposal hibah.
-Status & rencana paritas: [`docs/adr/0002-react-production-client.md`](../docs/adr/0002-react-production-client.md).
-
-> Sampai Gate D (ADR-0002), `mobile/` (Flutter) masih ada sebagai cadangan demo — deprecated,
-> jangan tambah fitur di sana.
+Satu-satunya klien sejak Gate D (ADR-0002): [`docs/adr/0002-react-production-client.md`](../docs/adr/0002-react-production-client.md).
 
 ## Menjalankan
 

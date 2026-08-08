@@ -2,10 +2,9 @@
 > single-tenant, tanpa auth). Untuk setup terkini lihat **Quick Start di [README.md](README.md)**
 > dan deploy di **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Disimpan sebagai arsip.
 >
-> **Status klien (2026-08-07, ADR-0002):** React (`frontend/`) = klien produksi — dibangun,
-> dites, di-gate CI, target deploy `app.fortunas.id`. Flutter (`mobile/`) = **deprecated** —
-> tidak menerima fitur baru; tetap ada sebagai cadangan demo sampai Gate D (lihat
-> `docs/adr/0002-react-production-client.md`). Jangan bangun fitur baru di `mobile/`.
+> **Status klien (2026-08-08, ADR-0002 — Gate D dieksekusi):** React (`frontend/`) = satu-satunya
+> klien — dibangun, dites, di-gate CI, live di `app.fortunas.id`. Flutter `mobile/` sudah
+> DIHAPUS setelah paritas penuh (Wave C, PR #35); riwayatnya tetap ada di git.
 
 # Fortunas AI — Panduan Setup
 
@@ -45,14 +44,12 @@ Urutan penting: Ollama → ingest (sekali) → uvicorn → npm run dev.
 |-----------|-------|-----|
 | Python | 3.11 atau 3.12 | `python --version` |
 | Node.js | ≥ 20.19 (Vite 8) | `node --version` |
-| Flutter | 3.32.x — opsional, hanya cadangan demo `mobile/` (deprecated) | `flutter --version` |
 | Ollama | terbaru | `ollama --version` |
 | Akun Google Cloud | BigQuery aktif | service account JSON tersedia |
 
 Download link:
 - Python: https://www.python.org/downloads/
 - Node.js: https://nodejs.org/en/download
-- Flutter (opsional): https://docs.flutter.dev/get-started/install
 - Ollama: https://ollama.com/download
 
 Setelah Ollama terinstal, pull model yang dipakai aplikasi:
@@ -76,9 +73,6 @@ Fortunas/
 ├── frontend/             # React 19 + Vite — klien produksi (PWA)
 │   ├── src/
 │   └── package.json
-├── mobile/               # Flutter — DEPRECATED, cadangan demo sampai Gate D (ADR-0002)
-│   ├── lib/
-│   └── pubspec.yaml
 ├── requirements.txt      # Python deps
 ├── .env                  # Config lokal (JANGAN di-commit / di-zip)
 └── SETUP.md              # File ini
@@ -208,9 +202,6 @@ npm ci && npm run build
 
 Hasil di `frontend/dist/`.
 
-> Cadangan demo Flutter (deprecated): `cd mobile && flutter pub get && flutter run -d chrome` —
-> hanya sampai Gate D, jangan tambah fitur di sana.
-
 ## 5. Verifikasi End-to-End
 
 Urut saat pertama kali setup:
@@ -268,7 +259,7 @@ Matikan proses atau ubah port backend (`--port 8001`).
 
 ### Client gagal build di `npm run build`
 Pastikan Node ≥ 20.19 (`node --version`), lalu hapus `frontend/node_modules/` dan ulangi
-`npm ci && npm run build`. (Cadangan Flutter: `flutter clean && flutter pub get` lalu build ulang.)
+`npm ci && npm run build`.
 
 ### Briefing scheduler nyala tapi tidak eksekusi
 Cek `.env`:
@@ -288,7 +279,6 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 - [ ] **Tidak ada** file service account JSON dalam zip / commit
 - [ ] `requirements.txt` sudah di-update kalau ada tambahan `import` library baru — jalankan `pip freeze > requirements.txt` sebelum zip
 - [ ] `frontend/package-lock.json` ter-commit (reproducible `npm ci`)
-- [ ] `pubspec.yaml` ter-commit (deps Flutter cadangan demo, sampai Gate D)
 - [ ] Dokumen baru di `app/knowledge/umkm_docs/` ter-commit (dipakai untuk ingest)
 
 ## 8. Pembagian Peran
@@ -299,7 +289,7 @@ Sebelum zip atau commit ke repo bersama, pastikan:
 | Agent 2 | SQL Agent — mapping pertanyaan ke query BigQuery, guard SQL injection | `app/agents/sql_agent.py`, `app/queries.py`, `app/sql_guards.py`, `app/bigquery_service.py` | Teammate |
 | Agent 3 | RAG Agent — retrieval dokumen UMKM via Chroma + embedding model | `app/agents/rag_agent.py`, `app/knowledge/ingest.py`, `app/knowledge/umkm_docs/*.md` | Teammate |
 | Agent 4 | Insight Agent — generate summary/findings/recommendation via Ollama LLM | `app/agents/insight_agent.py`, `app/llm_service.py`, `app/prompt_builder.py` | Teammate |
-| Agent 5 | Client (React web / PWA) — `mobile/lib/` deprecated s/d Gate D | `frontend/src/` | Steven |
+| Agent 5 | Client (React web / PWA) | `frontend/src/` | Steven |
 
 Setiap perubahan di file agent pemilik masing-masing. Untuk kontrak data antar agent, koordinasi via `app/schemas.py`.
 
@@ -307,4 +297,3 @@ Setiap perubahan di file agent pemilik masing-masing. Untuk kontrak data antar a
 
 Client produksi adalah React 19 + Vite (`frontend/`, ADR-0002). Design tokens & tipografi ada di
 [frontend/src/theme/tokens.css](frontend/src/theme/tokens.css) (font `SpaceGrotesk` / `Inter` / `JetBrains Mono`).
-Padanan Flutter lama (deprecated s/d Gate D): `mobile/lib/theme/tokens.dart`.

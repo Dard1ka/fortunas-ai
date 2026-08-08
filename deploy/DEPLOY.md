@@ -24,9 +24,12 @@ pada `proxy_pass` yang memotong prefiks `/api`.
 
 > **Klien produksi = React 19 + Vite di `frontend/`** (ADR-0002,
 > `docs/adr/0002-react-production-client.md`): dibangun, dites, dan di-gate CI
-> (`Frontend (lint + test + build)`). Flutter di `mobile/` **deprecated** —
-> cadangan demo sampai Gate D, TIDAK dideploy di alur ini dan TIDAK menerima
-> fitur baru. Build yang diunggah ke docroot = `frontend/dist/`.
+> (`Frontend (lint + test + build)`). `mobile/` (Flutter) sudah dihapus di
+> Gate D. Build yang diunggah ke docroot = `frontend/dist/`.
+>
+> **Aset QRIS (di luar git):** setelah tiap deploy dist/, salin ulang
+> `qris-statis.png` ke `/var/www/fortunas/payments/` — lihat
+> `frontend/public/payments/README.md`.
 
 ---
 
@@ -59,7 +62,7 @@ chown -R fortunas:fortunas /opt/fortunas-ai
 # install dulu rsync via Git Bash / WSL, atau pakai scp:
 scp -r "E:\Project LLM\Fortunas2\fortunas-ai" root@IP_VPS:/opt/fortunas-ai
 ```
-> JANGAN ikut upload `.venv`, `mobile/build`, `mobile/.dart_tool`, `frontend/node_modules`, `frontend/dist` (frontend TIDAK dibangun di VPS — build di laptop dev, hanya hasil `frontend/dist/` yang di-rsync ke docroot, lihat "Deploy PWA § 2"). Boleh skip `chroma_db` (RAG opsional).
+> JANGAN ikut upload `.venv`, `frontend/node_modules`, `frontend/dist` (frontend TIDAK dibangun di VPS — build di laptop dev, hanya hasil `frontend/dist/` yang di-rsync ke docroot, lihat "Deploy PWA § 2"). Boleh skip `chroma_db` (RAG opsional).
 Lalu: `chown -R fortunas:fortunas /opt/fortunas-ai`
 
 ## 3. Virtualenv + dependencies
