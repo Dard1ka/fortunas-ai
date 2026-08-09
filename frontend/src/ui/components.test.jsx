@@ -3,11 +3,20 @@ import { act } from 'react';
 import Button from './Button.jsx';
 import Input from './Input.jsx';
 import FormPane from './FormPane.jsx';
+import BrandMark from './BrandMark.jsx';
 
 function setWidth(w) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
   act(() => window.dispatchEvent(new Event('resize')));
 }
+
+test('BrandMark merender logo baru sebagai gambar, bukan huruf F', () => {
+  render(<BrandMark size={40} />);
+  const img = screen.getByAltText('Fortunas AI');
+  expect(img).toHaveAttribute('src', '/logo-mark.png');
+  expect(img).toHaveAttribute('width', '40');
+  expect(screen.queryByText('F')).not.toBeInTheDocument();
+});
 
 test('button disabled DISTINGUISHABLE, bukan violet redup (regresi login lama)', () => {
   const { rerender } = render(<Button>Masuk</Button>);
