@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/brand/logo-mark.svg" alt="Fortunas AI" width="100"/>
+<img src="assets/brand/logo-mark-source.png" alt="Fortunas AI" width="100"/>
 
 # Fortunas AI
 
